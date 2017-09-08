@@ -1,0 +1,8 @@
+<features>
+  <feature name="${project.artifactId}">
+    <!--
+    Relax protobuf import constraints so we can use latest release of Guava
+    -->
+    <bundle>wrap:${mvn:protobuf-java-util}$overwrite=merge&amp;Import-Package=com.google.common.*,*</bundle>
+  </feature>
+</features>
