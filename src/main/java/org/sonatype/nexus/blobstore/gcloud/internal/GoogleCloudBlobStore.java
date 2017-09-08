@@ -72,7 +72,7 @@ public class GoogleCloudBlobStore
 
   public static final String TYPE_KEY = "type";
 
-  public static final String TYPE_V1 = "s3/1";
+  public static final String TYPE_V1 = "gcp/1";
 
   private final GoogleCloudStorageFactory storageFactory;
 
