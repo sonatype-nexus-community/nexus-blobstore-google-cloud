@@ -3,7 +3,7 @@ Nexus Repository S3 Blobstores
 
 [![Join the chat at https://gitter.im/sonatype/nexus-developers](https://badges.gitter.im/sonatype/nexus-developers.svg)](https://gitter.im/sonatype/nexus-developers?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-This project adds []Google Cloud Object Storage](https://cloud.google.com/storage/) backed blobstores to Sonatype Nexus 
+This project adds [Google Cloud Object Storage](https://cloud.google.com/storage/) backed blobstores to Sonatype Nexus 
 Repository 3.  It allows Nexus Repository to store the components and assets in Google Cloud instead of a
 local filesystem.
 
