@@ -56,9 +56,9 @@ public class GoogleCloudBlobStore
 {
   public static final String TYPE = "Google Cloud Storage";
 
-  public static final String CONFIG_KEY = "file";
+  public static final String CONFIG_KEY = "googlecloudstorage";
 
-  public static final String BUCKET_KEY = "path";
+  public static final String BUCKET_KEY = "bucket";
 
   public static final String BLOB_CONTENT_SUFFIX = ".bytes";
 
@@ -420,7 +420,7 @@ public class GoogleCloudBlobStore
     @Override
     public InputStream getInputStream() {
       com.google.cloud.storage.Blob blob = getBlob();
-      ReadChannel channel = storage.reader(blob.getBlobId());
+      ReadChannel channel = blob.reader();
       return Channels.newInputStream(channel);
     }
 
