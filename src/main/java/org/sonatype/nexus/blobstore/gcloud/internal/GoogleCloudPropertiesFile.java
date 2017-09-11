@@ -1,10 +1,7 @@
 package org.sonatype.nexus.blobstore.gcloud.internal;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.nio.channels.Channels;
 import java.util.Properties;
 
@@ -43,12 +40,14 @@ public class GoogleCloudPropertiesFile
   }
 
   public void store() throws IOException {
-    log.debug("Storing: {}/{}", bucket, key);
+    log.debug("Storing properties: {}", key);
 
+    // write this properties instance to an in-memory buffer
     ByteArrayOutputStream bufferStream = new ByteArrayOutputStream();
     store(bufferStream, null);
     byte[] buffer = bufferStream.toByteArray();
 
+    // upload the buffer to the bucket
     bucket.create(key, buffer);
   }
 
