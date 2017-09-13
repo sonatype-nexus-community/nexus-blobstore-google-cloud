@@ -11,12 +11,10 @@ import org.sonatype.nexus.blobstore.BlobStoreDescriptor;
 import org.sonatype.nexus.formfields.FormField;
 import org.sonatype.nexus.formfields.StringTextFormField;
 
-@Named(GoogleCloudBlobStoreDescriptor.TYPE)
+@Named(GoogleCloudBlobStore.TYPE)
 public class GoogleCloudBlobStoreDescriptor
     implements BlobStoreDescriptor
 {
-  public static final String TYPE = "Google Cloud Storage";
-
   private interface Messages
       extends MessageBundle
   {

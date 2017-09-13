@@ -56,7 +56,7 @@ public class GoogleCloudBlobStore
 {
   public static final String TYPE = "Google Cloud Storage";
 
-  public static final String CONFIG_KEY = "googlecloudstorage";
+  public static final String CONFIG_KEY = TYPE.toLowerCase();
 
   public static final String BUCKET_KEY = "bucket";
 

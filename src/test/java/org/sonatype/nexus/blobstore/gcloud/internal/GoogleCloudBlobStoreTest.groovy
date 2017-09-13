@@ -64,7 +64,7 @@ class GoogleCloudBlobStoreTest
   def setup() {
     permanentLocationStrategy.location(_) >> { args -> args[0].toString() }
     storageFactory.create() >> storage
-    config.attributes = [ googlecloudstorage: [bucket: 'mybucket'] ]
+    config.attributes = [ 'google cloud storage': [bucket: 'mybucket'] ]
   }
 
   def 'initialize successfully from existing bucket'() {
