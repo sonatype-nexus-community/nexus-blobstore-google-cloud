@@ -45,6 +45,22 @@ To build the project and generate the bundle use Maven
 
 If everything checks out, the nexus-blobstore-s3 bundle  should be available in the `target` folder
 
+Google Cloud Storage Authentication
+-----------------------------------
+
+Per the [Google Cloud documentation](https://github.com/GoogleCloudPlatform/google-cloud-java#authentication):
+
+1. [Generate a JSON Service Account key](https://cloud.google.com/storage/docs/authentication?hl=en#service_accounts)
+2. Store this file on the filesystem with appropriate permissions for the user running Nexus to read it.
+3. Set the `GOOGLE_APPLICATION_CREDENTIALS` environment variable for the user running Nexus:
+
+```
+export GOOGLE_APPLICATION_CREDENTIALS=/path/to/my/key.json
+
+```
+
+Alternatively, if you have not set this environment variable, the blobstore configuration screen within the 
+Nexus Repository Manager administrative user interface will allow you to specify the path to the file.
 
 Installing
 ----------

@@ -26,9 +26,16 @@ public class GoogleCloudBlobStoreDescriptor
 
     @DefaultMessage("Google Cloud Bucket Name")
     String bucketHelp();
+
+    @DefaultMessage("Credentials")
+    String credentialPath();
+
+    @DefaultMessage("Absolute path to Google Application Credentials JSON file")
+    String credentialHelp();
   }
 
   private final FormField bucket;
+  private final FormField credentialFile;
 
   private static final Messages messages = I18N.create(Messages.class);
 
@@ -39,6 +46,13 @@ public class GoogleCloudBlobStoreDescriptor
         messages.bucketHelp(),
         FormField.MANDATORY
     );
+
+    credentialFile = new StringTextFormField(
+        GoogleCloudBlobStore.CREDENTIAL_FILE_KEY,
+        messages.credentialPath(),
+        messages.credentialHelp(),
+        FormField.OPTIONAL
+    );
   }
 
   @Override
@@ -48,6 +62,6 @@ public class GoogleCloudBlobStoreDescriptor
 
   @Override
   public List<FormField> getFormFields() {
-    return Arrays.asList(bucket);
+    return Arrays.asList(bucket, credentialFile);
   }
 }

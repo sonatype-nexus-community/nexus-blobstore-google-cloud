@@ -44,7 +44,10 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.cache.CacheLoader.from;
+import static org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport.State.FAILED;
+import static org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport.State.NEW;
 import static org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport.State.STARTED;
+import static org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport.State.STOPPED;
 
 /**
  * Google Cloud Storage backed {@link BlobStore}.
@@ -59,6 +62,8 @@ public class GoogleCloudBlobStore
   public static final String CONFIG_KEY = TYPE.toLowerCase();
 
   public static final String BUCKET_KEY = "bucket";
+
+  public static final String CREDENTIAL_FILE_KEY = "credential_file";
 
   public static final String BLOB_CONTENT_SUFFIX = ".bytes";
 
@@ -148,7 +153,7 @@ public class GoogleCloudBlobStore
     GoogleCloudStorageBlob sourceBlob = checkNotNull(getInternal(blobId));
 
     return createInternal(headers, destination -> {
-      sourceBlob.getBlob().copyTo(destination);
+      sourceBlob.getBlob().copyTo(getConfiguredBucketName(), destination);
       BlobMetrics metrics = get(blobId).getMetrics();
       return new StreamMetrics(metrics.getContentSize(), metrics.getSha1Hash());
     });
@@ -272,7 +277,7 @@ public class GoogleCloudBlobStore
   public void init(final BlobStoreConfiguration blobStoreConfiguration) throws Exception {
     this.blobStoreConfiguration = blobStoreConfiguration;
     try {
-      this.storage = storageFactory.create();
+      this.storage = storageFactory.create(blobStoreConfiguration);
 
       this.bucket = getOrCreateStorageBucket();
     }
@@ -291,9 +296,9 @@ public class GoogleCloudBlobStore
   }
 
   @Override
-  @Guarded(by = STARTED)
+  @Guarded(by = {NEW, STOPPED, FAILED})
   public void remove() {
-
+    // TODO delete bucket?
   }
 
   @Override
