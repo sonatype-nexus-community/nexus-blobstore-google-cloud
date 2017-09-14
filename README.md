@@ -65,18 +65,39 @@ Nexus Repository Manager administrative user interface will allow you to specify
 Installing
 ----------
 
-See `install.sh`.  This copies the nexus-blobstore-google-cloud jar file to the
-right place and updates the configuration files.  Use at your own
-risk.
+After you have built the jar, copy the plugin (jar+feature) into the nexus install (rooted at `NEXUS_HOME` with `NEXUS_VERSION` being 3.6.0 or later):
 
-Alternatively, copy nexus-blobstore-google-cloud-*.jar and the Google Cloud bundle
-jar into the nexus/deploy subdirectory.
-
-Start the bundle from the Nexus Repository console:
+```bash
+mkdir -p ${NEXUS_HOME}/system/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.0.1-SNAPSHOT
+cp ./target/feature/feature.xml \
+  ${NEXUS_HOME}/system/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.0.1-SNAPSHOT/nexus-blobstore-google-cloud-0.0.1-SNAPSHOT-features.xml
+cp ../nexus-blobstore-google-cloud/target/nexus-blobstore-google-cloud-0.0.1-SNAPSHOT.jar 
+  target/nexus-professional-3.6.0-SNAPSHOT/system/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.0.1-SNAPSHOT/
+```
+   
+Edit `${NEXUS_HOME}/etc/karaf/org.ops4j.pax.url.mvn.cfg` and change the last line so it can fetch dependencies from central:
 
 ```
-bundle:list | grep nexus-blobstore-google-cloud
-bundle:start <bundleNumber>
+org.ops4j.pax.url.mvn.repositories=https://repo1.maven.org/maven2@id=central
+```
+
+Edit `${NEXUS_HOME}/etc/karaf/org.apache.karaf.features.cfg` and register the new plugin feature by adding this entry to the end of the comma-separated list under featuresRepositories:
+
+```bash
+mvn:org.sonatype.nexus.plugins/nexus-blobstore-google-cloud/0.0.1-SNAPSHOT/xml/features
+```
+   
+Edit `${NEXUS_HOME}/system/org/sonatype/nexus/assemblies/nexus-core-feature/${NEXUS_VERSION}/nexus-core-feature-${NEXUS_VERSION}-features.xml`:
+
+```xml
+<feature version="0.0.1.SNAPSHOT" prerequisite="false" dependency="false">nexus-blobstore-google-cloud</feature>
+```
+   
+
+This line should be added at about line 14, directly after:
+
+```xml
+<feature version="3.6.0" prerequisite="false" dependency="false">nexus-task-log-cleanup</feature>
 ```
 
 Configuration
