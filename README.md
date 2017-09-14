@@ -72,7 +72,7 @@ mkdir -p ${NEXUS_HOME}/system/org/sonatype/nexus/plugins/nexus-blobstore-google-
 cp ./target/feature/feature.xml \
   ${NEXUS_HOME}/system/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.0.1-SNAPSHOT/nexus-blobstore-google-cloud-0.0.1-SNAPSHOT-features.xml
 cp ../nexus-blobstore-google-cloud/target/nexus-blobstore-google-cloud-0.0.1-SNAPSHOT.jar 
-  target/nexus-professional-3.6.0-SNAPSHOT/system/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.0.1-SNAPSHOT/
+  ${NEXUS_HOME}/system/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.0.1-SNAPSHOT/
 ```
    
 Edit `${NEXUS_HOME}/etc/karaf/org.ops4j.pax.url.mvn.cfg` and change the last line so it can fetch dependencies from central:
