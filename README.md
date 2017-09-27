@@ -68,11 +68,11 @@ Installing
 After you have built the jar, copy the plugin (jar+feature) into the nexus install (rooted at `NEXUS_HOME` with `NEXUS_VERSION` being 3.6.0 or later):
 
 ```bash
-mkdir -p ${NEXUS_HOME}/system/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.0.1-SNAPSHOT
+mkdir -p ${NEXUS_HOME}/system/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.1.0
 cp ./target/feature/feature.xml \
-  ${NEXUS_HOME}/system/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.0.1-SNAPSHOT/nexus-blobstore-google-cloud-0.0.1-SNAPSHOT-features.xml
-cp ../nexus-blobstore-google-cloud/target/nexus-blobstore-google-cloud-0.0.1-SNAPSHOT.jar 
-  ${NEXUS_HOME}/system/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.0.1-SNAPSHOT/
+  ${NEXUS_HOME}/system/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.1.0/nexus-blobstore-google-cloud-0.1.0-features.xml
+cp ../nexus-blobstore-google-cloud/target/nexus-blobstore-google-cloud-0.1.0.jar 
+  ${NEXUS_HOME}/system/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.1.0/
 ```
    
 Edit `${NEXUS_HOME}/etc/karaf/org.ops4j.pax.url.mvn.cfg` and change the last line so it can fetch dependencies from central:
@@ -84,13 +84,13 @@ org.ops4j.pax.url.mvn.repositories=https://repo1.maven.org/maven2@id=central
 Edit `${NEXUS_HOME}/etc/karaf/org.apache.karaf.features.cfg` and register the new plugin feature by adding this entry to the end of the comma-separated list under featuresRepositories:
 
 ```bash
-mvn:org.sonatype.nexus.plugins/nexus-blobstore-google-cloud/0.0.1-SNAPSHOT/xml/features
+mvn:org.sonatype.nexus.plugins/nexus-blobstore-google-cloud/0.1.0/xml/features
 ```
    
 Edit `${NEXUS_HOME}/system/org/sonatype/nexus/assemblies/nexus-core-feature/${NEXUS_VERSION}/nexus-core-feature-${NEXUS_VERSION}-features.xml`:
 
 ```xml
-<feature version="0.0.1.SNAPSHOT" prerequisite="false" dependency="false">nexus-blobstore-google-cloud</feature>
+<feature version="0.1.0" prerequisite="false" dependency="false">nexus-blobstore-google-cloud</feature>
 ```
    
 
