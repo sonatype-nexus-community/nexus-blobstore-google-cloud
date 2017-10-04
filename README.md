@@ -43,24 +43,7 @@ To build the project and generate the bundle use Maven
 
     mvn clean install
 
-If everything checks out, the nexus-blobstore-s3 bundle  should be available in the `target` folder
-
-Google Cloud Storage Authentication
------------------------------------
-
-Per the [Google Cloud documentation](https://github.com/GoogleCloudPlatform/google-cloud-java#authentication):
-
-1. [Generate a JSON Service Account key](https://cloud.google.com/storage/docs/authentication?hl=en#service_accounts)
-2. Store this file on the filesystem with appropriate permissions for the user running Nexus to read it.
-3. Set the `GOOGLE_APPLICATION_CREDENTIALS` environment variable for the user running Nexus:
-
-```
-export GOOGLE_APPLICATION_CREDENTIALS=/path/to/my/key.json
-
-```
-
-Alternatively, if you have not set this environment variable, the blobstore configuration screen within the 
-Nexus Repository Manager administrative user interface will allow you to specify the path to the file.
+If everything checks out, the nexus-blobstore-google-cloud bundle  should be available in the `target` folder
 
 Installing
 ----------
@@ -71,7 +54,7 @@ After you have built the jar, copy the plugin (jar+feature) into the nexus insta
 mkdir -p ${NEXUS_HOME}/system/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.1.0
 cp ./target/feature/feature.xml \
   ${NEXUS_HOME}/system/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.1.0/nexus-blobstore-google-cloud-0.1.0-features.xml
-cp ../nexus-blobstore-google-cloud/target/nexus-blobstore-google-cloud-0.1.0.jar 
+cp ./target/nexus-blobstore-google-cloud-0.1.0.jar 
   ${NEXUS_HOME}/system/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.1.0/
 ```
    
@@ -100,10 +83,26 @@ This line should be added at about line 14, directly after:
 <feature version="3.6.0" prerequisite="false" dependency="false">nexus-task-log-cleanup</feature>
 ```
 
+Google Cloud Storage Authentication
+-----------------------------------
+
+Per the [Google Cloud documentation](https://github.com/GoogleCloudPlatform/google-cloud-java#authentication):
+
+1. [Generate a JSON Service Account key](https://cloud.google.com/storage/docs/authentication?hl=en#service_accounts) (TBD: for a service account with 'storage admin' permissions)
+2. Store this file on the filesystem with appropriate permissions for the user running Nexus to read it.
+3. (optional) Set the `GOOGLE_APPLICATION_CREDENTIALS` environment variable for the user running Nexus:
+
+```
+export GOOGLE_APPLICATION_CREDENTIALS=/path/to/my/key.json
+
+```
+
 Configuration
 -------------
 
 Log in as admin and create a new blobstore, selecting 'Google Cloud Storage' as the type.
+
+If you did not set the environment variable in Step 3 above, specify the absolute path to the JSON Service Account key file.
 
 The Fine Print
 --------------
