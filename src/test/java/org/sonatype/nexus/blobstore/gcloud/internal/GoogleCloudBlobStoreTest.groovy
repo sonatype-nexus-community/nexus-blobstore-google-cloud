@@ -13,6 +13,8 @@
 package org.sonatype.nexus.blobstore.gcloud.internal
 
 import java.nio.channels.FileChannel
+import java.util.stream.Collectors
+import java.util.stream.Stream
 
 import org.sonatype.nexus.blobstore.LocationStrategy
 import org.sonatype.nexus.blobstore.api.Blob
@@ -20,8 +22,11 @@ import org.sonatype.nexus.blobstore.api.BlobId
 import org.sonatype.nexus.blobstore.api.BlobStore
 import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration
 
+import com.google.api.gax.paging.Page
 import com.google.cloud.storage.Bucket
 import com.google.cloud.storage.Storage
+import com.google.cloud.storage.Storage.BlobListOption
+import com.google.common.collect.Iterators
 import spock.lang.Specification
 
 class GoogleCloudBlobStoreTest
@@ -129,9 +134,40 @@ class GoogleCloudBlobStoreTest
       blob.getInputStream().text == 'some blob contents'
   }
 
+  def 'expected getBlobIdStream behavior'() {
+    given: 'bucket list returns a stream of blobs'
+      storage.get('mybucket') >> bucket
+      blobStore.init(config)
+      blobStore.doStart()
+      def b1 = com.google.cloud.storage.BlobId.of('foo', 'notundercontent.txt')
+      def b2 = com.google.cloud.storage.BlobId.of('foo', 'content/vol-01/chap-08/thing.properties')
+      def b3 = com.google.cloud.storage.BlobId.of('foo', 'content/vol-01/chap-08/thing.bytes')
+      def b4 = com.google.cloud.storage.BlobId.of('foo', 'content/vol-02/chap-09/tmp$thing.properties')
+      def page = Mock(Page)
+
+      bucket.list(BlobListOption.prefix(GoogleCloudBlobStore.CONTENT_PREFIX)) >> page
+      page.iterateAll() >>
+          [ mockGoogleObject(b1), mockGoogleObject(b2), mockGoogleObject(b3), mockGoogleObject(b4) ]
+
+    when: 'getBlobIdStream called'
+      Stream<BlobId> stream = blobStore.getBlobIdStream()
+
+    then: 'expected behavior'
+      def list = stream.collect(Collectors.toList())
+      list.size() == 1
+      list.contains(new BlobId(b2.toString()))
+  }
+
   private mockGoogleObject(File file) {
     com.google.cloud.storage.Blob blob = Mock()
     blob.reader() >> new DelegatingReadChannel(FileChannel.open(file.toPath()))
+    blob
+  }
+
+  private mockGoogleObject(com.google.cloud.storage.BlobId blobId) {
+    def blob = Mock(com.google.cloud.storage.Blob)
+    blob.getName() >> blobId.name
+    blob.getBlobId() >> blobId
     blob
   }
 }

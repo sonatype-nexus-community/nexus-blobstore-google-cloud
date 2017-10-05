@@ -81,7 +81,7 @@ public class GoogleCloudBlobStore
 
   public static final String BLOB_ATTRIBUTE_SUFFIX = ".properties";
 
-  public static final String CONTENT_PREFIX = "content";
+  static final String CONTENT_PREFIX = "content";
 
   public static final String TEMPORARY_BLOB_ID_PREFIX = "tmp$";
 
@@ -317,18 +317,15 @@ public class GoogleCloudBlobStore
   @Guarded(by = STARTED)
   public Stream<BlobId> getBlobIdStream() {
     return Streams.stream(bucket.list(BlobListOption.prefix(CONTENT_PREFIX)).iterateAll())
-        .map(blob -> blob.getBlobId())
+        .filter(blob -> blob.getName().endsWith(BLOB_ATTRIBUTE_SUFFIX) &&
+            !basename(blob).startsWith(TEMPORARY_BLOB_ID_PREFIX))
+        .map(com.google.cloud.storage.Blob::getBlobId)
         .map(blobId -> new BlobId(blobId.toString()));
+  }
 
-    /*Iterable<S3ObjectSummary> summaries = S3Objects.withPrefix(s3, getConfiguredBucket(), CONTENT_PREFIX);
-    return StreamSupport.stream(summaries.spliterator(), false)
-        .map(S3ObjectSummary::getKey)
-        .map(key -> key.substring(key.lastIndexOf('/') + 1, key.length()))
-        .filter(filename -> filename.endsWith(BLOB_ATTRIBUTE_SUFFIX) && !filename.startsWith(TEMPORARY_BLOB_ID_PREFIX))
-        .map(filename -> filename.substring(0, filename.length() - BLOB_ATTRIBUTE_SUFFIX.length()))
-        .map(BlobId::new);
-        */
-
+  String basename(final com.google.cloud.storage.Blob blob) {
+    String name = blob.getName();
+    return name.substring(name.lastIndexOf('/') + 1);
   }
 
   @Override
