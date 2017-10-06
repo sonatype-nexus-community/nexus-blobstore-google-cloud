@@ -49,11 +49,11 @@ Installing
 After you have built the project, copy the jar and feature into the nexus install (rooted at `NEXUS_HOME` with `NEXUS_VERSION` being 3.6.0 or later):
 
 ```bash
-mkdir -p ${NEXUS_HOME}/system/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.1.0
+mkdir -p ${NEXUS_HOME}/system/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.1.1
 cp ./target/feature/feature.xml \
-  ${NEXUS_HOME}/system/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.1.0/nexus-blobstore-google-cloud-0.1.0-features.xml
-cp ./target/nexus-blobstore-google-cloud-0.1.0.jar 
-  ${NEXUS_HOME}/system/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.1.0/
+  ${NEXUS_HOME}/system/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.1.1/nexus-blobstore-google-cloud-0.1.1-features.xml
+cp ./target/nexus-blobstore-google-cloud-0.1.1.jar \
+  ${NEXUS_HOME}/system/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.1.1/
 ```
    
 Edit `${NEXUS_HOME}/etc/karaf/org.ops4j.pax.url.mvn.cfg` and change the last line so it can fetch dependencies from central:
@@ -65,13 +65,13 @@ org.ops4j.pax.url.mvn.repositories=https://repo1.maven.org/maven2@id=central
 Edit `${NEXUS_HOME}/etc/karaf/org.apache.karaf.features.cfg` and add this entry to the end of the comma-separated list labeled `featuresRepositories`:
 
 ```bash
-mvn:org.sonatype.nexus.plugins/nexus-blobstore-google-cloud/0.1.0/xml/features
+mvn:org.sonatype.nexus.plugins/nexus-blobstore-google-cloud/0.1.1/xml/features
 ```
    
 Edit `${NEXUS_HOME}/system/org/sonatype/nexus/assemblies/nexus-core-feature/${NEXUS_VERSION}/nexus-core-feature-${NEXUS_VERSION}-features.xml`:
 
 ```xml
-<feature version="0.1.0" prerequisite="false" dependency="false">nexus-blobstore-google-cloud</feature>
+<feature version="0.1.1" prerequisite="false" dependency="false">nexus-blobstore-google-cloud</feature>
 ```
    
 That line should be added at about line 14, directly after:
