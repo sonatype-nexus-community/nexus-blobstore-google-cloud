@@ -39,16 +39,14 @@ Also, there is a good amount of information available at [Bundle Development Ove
 Building
 --------
 
-To build the project and generate the bundle use Maven
+To build the project and generate the bundle use Maven:
 
     mvn clean install
-
-If everything checks out, the nexus-blobstore-google-cloud bundle  should be available in the `target` folder
 
 Installing
 ----------
 
-After you have built the jar, copy the plugin (jar+feature) into the nexus install (rooted at `NEXUS_HOME` with `NEXUS_VERSION` being 3.6.0 or later):
+After you have built the project, copy the jar and feature into the nexus install (rooted at `NEXUS_HOME` with `NEXUS_VERSION` being 3.6.0 or later):
 
 ```bash
 mkdir -p ${NEXUS_HOME}/system/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.1.0
@@ -64,7 +62,7 @@ Edit `${NEXUS_HOME}/etc/karaf/org.ops4j.pax.url.mvn.cfg` and change the last lin
 org.ops4j.pax.url.mvn.repositories=https://repo1.maven.org/maven2@id=central
 ```
 
-Edit `${NEXUS_HOME}/etc/karaf/org.apache.karaf.features.cfg` and register the new plugin feature by adding this entry to the end of the comma-separated list under featuresRepositories:
+Edit `${NEXUS_HOME}/etc/karaf/org.apache.karaf.features.cfg` and add this entry to the end of the comma-separated list labeled `featuresRepositories`:
 
 ```bash
 mvn:org.sonatype.nexus.plugins/nexus-blobstore-google-cloud/0.1.0/xml/features
@@ -76,21 +74,42 @@ Edit `${NEXUS_HOME}/system/org/sonatype/nexus/assemblies/nexus-core-feature/${NE
 <feature version="0.1.0" prerequisite="false" dependency="false">nexus-blobstore-google-cloud</feature>
 ```
    
-
-This line should be added at about line 14, directly after:
+That line should be added at about line 14, directly after:
 
 ```xml
 <feature version="3.6.0" prerequisite="false" dependency="false">nexus-task-log-cleanup</feature>
 ```
+
+Google Cloud Storage Permissions
+--------------------------------
+
+Next, you will need to create an account with appropriate [permissions](https://cloud.google.com/storage/docs/access-control/iam-roles).
+
+Of the predefined account roles, `Storage Admin` will grant the plugin to create any Google Cloud Storage Buckets you 
+require and administer all of the objects within, but it will also have access to manage any other Google Cloud Storage
+Buckets associated with the project.
+
+If you are using custom roles, the account will need:
+
+1. (required) `storage.objects.*`
+2. (required) `storage.buckets.get` 
+3. or `storage.buckets.*`.
+
+If you only provide permissions 1 and 2, you will have to create any Google Cloud Storage Buckets in advance of assigning
+them to Nexus Repository Manager blob stores. The third option will allow the plugin to create buckets for you.
+
+If you are creating the Google Cloud Storage Buckets in advance, you should use either the 'Multi-Regional' or 'Regional'
+[storage class](https://cloud.google.com/storage/sla); 'Nearline' and 'Coldline' are not suitable for Nexus Repository Manager workloads.
+If you let the plugin create the bucket, it will use the 'Multi-Regional' storage class.
 
 Google Cloud Storage Authentication
 -----------------------------------
 
 Per the [Google Cloud documentation](https://github.com/GoogleCloudPlatform/google-cloud-java#authentication):
 
-1. [Generate a JSON Service Account key](https://cloud.google.com/storage/docs/authentication?hl=en#service_accounts) (TBD: for a service account with 'storage admin' permissions)
+1. [Generate a JSON Service Account key](https://cloud.google.com/storage/docs/authentication?hl=en#service_accounts) 
 2. Store this file on the filesystem with appropriate permissions for the user running Nexus to read it.
-3. (optional) Set the `GOOGLE_APPLICATION_CREDENTIALS` environment variable for the user running Nexus:
+3. (optional, but recommended) Set the `GOOGLE_APPLICATION_CREDENTIALS` environment variable for the user running Nexus:
 
 ```
 export GOOGLE_APPLICATION_CREDENTIALS=/path/to/my/key.json
@@ -99,6 +118,8 @@ export GOOGLE_APPLICATION_CREDENTIALS=/path/to/my/key.json
 
 Configuration
 -------------
+
+A restart of Nexus Repository Manager is required to complete the installation process.
 
 Log in as admin and create a new blobstore, selecting 'Google Cloud Storage' as the type.
 
