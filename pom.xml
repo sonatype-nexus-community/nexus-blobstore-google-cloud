@@ -12,7 +12,7 @@
   <artifactId>nexus-blobstore-google-cloud</artifactId>
   <name>${project.groupId}:${project.artifactId}</name>
   <inceptionYear>2017</inceptionYear>
-  <version>0.1.1</version>
+  <version>0.2.0-SNAPSHOT</version>
   <packaging>bundle</packaging>
 
   <dependencies>
