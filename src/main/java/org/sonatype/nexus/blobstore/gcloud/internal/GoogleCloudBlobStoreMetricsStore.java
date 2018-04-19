@@ -40,9 +40,9 @@ import static org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport.St
 public class GoogleCloudBlobStoreMetricsStore
     extends StateGuardLifecycleSupport
 {
-  private static final String METRICS_PREFIX = "metrics-";
+  private static final String METRICS_SUFFIX = "metrics-";
 
-  private static final String METRICS_SUFFIX = ".properties";
+  private static final String METRICS_EXTENSION = ".properties";
 
   private static final String TOTAL_SIZE_PROP_NAME = "totalSize";
 
@@ -78,7 +78,7 @@ public class GoogleCloudBlobStoreMetricsStore
     totalSize = new AtomicLong();
     dirty = new AtomicBoolean();
 
-    propertiesFile = new GoogleCloudPropertiesFile(bucket, METRICS_PREFIX + nodeAccess.getId() + METRICS_SUFFIX);
+    propertiesFile = new GoogleCloudPropertiesFile(bucket, nodeAccess.getId() + METRICS_SUFFIX + METRICS_EXTENSION);
     if (propertiesFile.exists()) {
       log.info("Loading blob store metrics file {}", propertiesFile);
       propertiesFile.load();
@@ -175,8 +175,8 @@ public class GoogleCloudBlobStoreMetricsStore
     if (bucket == null) {
       return Stream.empty();
     } else {
-      return Streams.stream(bucket.list(BlobListOption.prefix(METRICS_PREFIX)).iterateAll())
-          .filter(b -> b.getName().endsWith(METRICS_SUFFIX))
+      return Streams.stream(bucket.list(BlobListOption.prefix(nodeAccess.getId())).iterateAll())
+          .filter(b -> b.getName().endsWith(METRICS_EXTENSION))
           .map(blob -> new GoogleCloudPropertiesFile(bucket, blob.getName()));
     }
   }

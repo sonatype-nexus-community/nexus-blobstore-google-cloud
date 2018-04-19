@@ -91,6 +91,8 @@ public class GoogleCloudBlobStore
 
   public static final String TYPE_V1 = "gcp/1";
 
+  private static final String FILE_V1 = "file/1";
+
   private final GoogleCloudStorageFactory storageFactory;
 
   private final LocationStrategy permanentLocationStrategy;
@@ -126,7 +128,8 @@ public class GoogleCloudBlobStore
     if (metadata.exists()) {
       metadata.load();
       String type = metadata.getProperty(TYPE_KEY);
-      checkState(TYPE_V1.equals(type), "Unsupported blob store type/version: %s in %s", type, metadata);
+      checkState(TYPE_V1.equals(type) || FILE_V1.equals(type),
+          "Unsupported blob store type/version: %s in %s", type, metadata);
     }
     else {
       // assumes new blobstore, write out type

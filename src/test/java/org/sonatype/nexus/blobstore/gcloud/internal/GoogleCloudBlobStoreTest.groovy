@@ -56,6 +56,8 @@ class GoogleCloudBlobStoreTest
 
   static File tempFileBytes
   static File tempFileAttributes
+  static File fileMetadata
+  static File otherMetadata
 
   def setupSpec() {
     tempFileBytes = File.createTempFile('gcloudtest', 'bytes')
@@ -72,6 +74,12 @@ class GoogleCloudBlobStoreTest
         |@BlobStore.blob-name=existing
         |sha1=eb4c2a5a1c04ca2d504c5e57e1f88cef08c75707
       """.stripMargin()
+
+    fileMetadata = File.createTempFile('filemetadata', 'properties')
+    fileMetadata << 'type=file/1'
+
+    otherMetadata = File.createTempFile('othermetadata', 'properties')
+    otherMetadata << 'type=other/2'
   }
 
   def cleanupSpec() {
@@ -156,6 +164,33 @@ class GoogleCloudBlobStoreTest
       def list = stream.collect(Collectors.toList())
       list.size() == 1
       list.contains(new BlobId(b2.toString()))
+  }
+
+  def 'start will accept a metadata.properties originally created with file blobstore'() {
+    given: 'metadata.properties comes from a file blobstore'
+      storage.get('mybucket') >> bucket
+      2 * bucket.get('metadata.properties') >> mockGoogleObject(fileMetadata)
+
+    when: 'doStart is called'
+      blobStore.init(config)
+      blobStore.doStart()
+
+    then: 'blobstore is started'
+      notThrown(IllegalStateException)
+  }
+
+  def 'start rejects a metadata.properties containing something other than file or gcp type' () {
+    given: 'metadata.properties comes from some unknown blobstore'
+      storage.get('mybucket') >> bucket
+      storage.get('mybucket') >> bucket
+      2 * bucket.get('metadata.properties') >> mockGoogleObject(otherMetadata)
+
+    when: 'doStart is called'
+      blobStore.init(config)
+      blobStore.doStart()
+
+    then: 'blobstore fails to start'
+      thrown(IllegalStateException)
   }
 
   private mockGoogleObject(File file) {
