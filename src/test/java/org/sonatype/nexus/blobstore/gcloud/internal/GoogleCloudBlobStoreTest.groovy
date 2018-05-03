@@ -16,7 +16,7 @@ import java.nio.channels.FileChannel
 import java.util.stream.Collectors
 import java.util.stream.Stream
 
-import org.sonatype.nexus.blobstore.LocationStrategy
+import org.sonatype.nexus.blobstore.BlobIdLocationResolver
 import org.sonatype.nexus.blobstore.api.Blob
 import org.sonatype.nexus.blobstore.api.BlobId
 import org.sonatype.nexus.blobstore.api.BlobStore
@@ -26,7 +26,6 @@ import com.google.api.gax.paging.Page
 import com.google.cloud.storage.Bucket
 import com.google.cloud.storage.Storage
 import com.google.cloud.storage.Storage.BlobListOption
-import com.google.common.collect.Iterators
 import spock.lang.Specification
 
 class GoogleCloudBlobStoreTest
@@ -35,9 +34,7 @@ class GoogleCloudBlobStoreTest
 
   GoogleCloudStorageFactory storageFactory = Mock()
 
-  LocationStrategy permanentLocationStrategy = Mock()
-
-  LocationStrategy temporaryLocationStrategy =  Mock()
+  BlobIdLocationResolver blobIdLocationResolver =  Mock()
 
   GoogleCloudBlobStoreMetricsStore metricsStore = Mock()
 
@@ -50,7 +47,7 @@ class GoogleCloudBlobStoreTest
       (BlobStore.CREATED_BY_HEADER): 'admin'
   ]
   GoogleCloudBlobStore blobStore = new GoogleCloudBlobStore(
-      storageFactory, permanentLocationStrategy, temporaryLocationStrategy, metricsStore)
+      storageFactory, blobIdLocationResolver, metricsStore)
 
   def config = new BlobStoreConfiguration()
 
@@ -87,7 +84,8 @@ class GoogleCloudBlobStoreTest
   }
 
   def setup() {
-    permanentLocationStrategy.location(_) >> { args -> args[0].toString() }
+    blobIdLocationResolver.getLocation(_) >> { args -> args[0].toString() }
+    blobIdLocationResolver.fromHeaders(_) >> new BlobId(UUID.randomUUID().toString())
     storageFactory.create(_) >> storage
     config.attributes = [ 'google cloud storage': [bucket: 'mybucket'] ]
   }

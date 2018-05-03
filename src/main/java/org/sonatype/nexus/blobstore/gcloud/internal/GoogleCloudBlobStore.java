@@ -17,7 +17,6 @@ import java.io.InputStream;
 import java.nio.channels.Channels;
 import java.nio.file.Path;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.locks.Lock;
 import java.util.stream.Stream;
 
@@ -25,8 +24,8 @@ import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.inject.Named;
 
+import org.sonatype.nexus.blobstore.BlobIdLocationResolver;
 import org.sonatype.nexus.blobstore.BlobSupport;
-import org.sonatype.nexus.blobstore.LocationStrategy;
 import org.sonatype.nexus.blobstore.MetricsInputStream;
 import org.sonatype.nexus.blobstore.StreamMetrics;
 import org.sonatype.nexus.blobstore.api.Blob;
@@ -56,6 +55,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.cache.CacheLoader.from;
+import static java.lang.String.format;
+import static org.sonatype.nexus.blobstore.DirectPathLocationStrategy.DIRECT_PATH_ROOT;
 import static org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport.State.FAILED;
 import static org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport.State.NEW;
 import static org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport.State.STARTED;
@@ -95,9 +96,7 @@ public class GoogleCloudBlobStore
 
   private final GoogleCloudStorageFactory storageFactory;
 
-  private final LocationStrategy permanentLocationStrategy;
-
-  private final LocationStrategy temporaryLocationStrategy;
+  private final BlobIdLocationResolver blobIdLocationResolver;
 
   private final GoogleCloudBlobStoreMetricsStore metricsStore;
 
@@ -111,12 +110,10 @@ public class GoogleCloudBlobStore
 
   @Inject
   public GoogleCloudBlobStore(final GoogleCloudStorageFactory storageFactory,
-                              @Named("volume-chapter") final LocationStrategy permanentLocationStrategy,
-                              @Named("temporary") final LocationStrategy temporaryLocationStrategy,
+                              final BlobIdLocationResolver blobIdLocationResolver,
                               final GoogleCloudBlobStoreMetricsStore metricsStore) {
     this.storageFactory = checkNotNull(storageFactory);
-    this.permanentLocationStrategy = checkNotNull(permanentLocationStrategy);
-    this.temporaryLocationStrategy = checkNotNull(temporaryLocationStrategy);
+    this.blobIdLocationResolver = checkNotNull(blobIdLocationResolver);
     this.metricsStore = metricsStore;
   }
 
@@ -319,11 +316,27 @@ public class GoogleCloudBlobStore
   @Override
   @Guarded(by = STARTED)
   public Stream<BlobId> getBlobIdStream() {
-    return Streams.stream(bucket.list(BlobListOption.prefix(CONTENT_PREFIX)).iterateAll())
+    return blobStream(CONTENT_PREFIX)
         .filter(blob -> blob.getName().endsWith(BLOB_ATTRIBUTE_SUFFIX) &&
             !basename(blob).startsWith(TEMPORARY_BLOB_ID_PREFIX))
         .map(com.google.cloud.storage.Blob::getBlobId)
         .map(blobId -> new BlobId(blobId.toString()));
+  }
+
+  @Override
+  @Guarded(by = STARTED)
+  public Stream<BlobId> getDirectPathBlobIdStream(final String prefix) {
+    String subpath = format("%s/%s/%s", CONTENT_PREFIX, DIRECT_PATH_ROOT, prefix);
+    return blobStream(subpath)
+        .filter(blob -> blob.getName().endsWith(BLOB_ATTRIBUTE_SUFFIX) &&
+            !basename(blob).startsWith(TEMPORARY_BLOB_ID_PREFIX))
+        .map(com.google.cloud.storage.Blob::getBlobId)
+        .map(blobId -> new BlobId(blobId.toString()));
+
+  }
+
+  Stream<com.google.cloud.storage.Blob> blobStream(final String path) {
+    return Streams.stream(bucket.list(BlobListOption.prefix(path)).iterateAll());
   }
 
   String basename(final com.google.cloud.storage.Blob blob) {
@@ -344,20 +357,27 @@ public class GoogleCloudBlobStore
     }
   }
 
+  @Override
+  @Guarded(by = STARTED)
+  public void setBlobAttributes(final BlobId blobId, final BlobAttributes blobAttributes) {
+    GoogleCloudBlobAttributes existing = (GoogleCloudBlobAttributes) getBlobAttributes(blobId);
+    if (existing != null) {
+      try {
+        existing.updateFrom(blobAttributes);
+        existing.store();
+      } catch (IOException e) {
+        log.error("Unable to set GoogleCloudBlobAttributes for blob id: {}", blobId, e);
+      }
+    }
+  }
+
   Blob createInternal(final Map<String, String> headers, BlobIngester ingester) {
     checkNotNull(headers);
 
     checkArgument(headers.containsKey(BLOB_NAME_HEADER), "Missing header: %s", BLOB_NAME_HEADER);
     checkArgument(headers.containsKey(CREATED_BY_HEADER), "Missing header: %s", CREATED_BY_HEADER);
 
-    // Generate a new blobId
-    BlobId blobId;
-    if (headers.containsKey(TEMPORARY_BLOB_HEADER)) {
-      blobId = new BlobId(TEMPORARY_BLOB_ID_PREFIX + UUID.randomUUID().toString());
-    }
-    else {
-      blobId = new BlobId(UUID.randomUUID().toString());
-    }
+    final BlobId blobId = blobIdLocationResolver.fromHeaders(headers);
 
     final String blobPath = contentPath(blobId);
     final String attributePath = attributePath(blobId);
@@ -408,10 +428,7 @@ public class GoogleCloudBlobStore
    * Returns the location for a blob ID based on whether or not the blob ID is for a temporary or permanent blob.
    */
   private String getLocation(final BlobId id) {
-    if (id.asUniqueString().startsWith(TEMPORARY_BLOB_ID_PREFIX)) {
-      return CONTENT_PREFIX + "/" + temporaryLocationStrategy.location(id);
-    }
-    return CONTENT_PREFIX + "/" + permanentLocationStrategy.location(id);
+    return CONTENT_PREFIX + "/" + blobIdLocationResolver.getLocation(id);
   }
 
   private String getConfiguredBucketName() {

@@ -40,7 +40,7 @@ import static org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport.St
 public class GoogleCloudBlobStoreMetricsStore
     extends StateGuardLifecycleSupport
 {
-  private static final String METRICS_SUFFIX = "metrics-";
+  private static final String METRICS_SUFFIX = "-metrics";
 
   private static final String METRICS_EXTENSION = ".properties";
 
@@ -132,7 +132,8 @@ public class GoogleCloudBlobStoreMetricsStore
   }
 
   private BlobStoreMetrics getCombinedMetrics(final Stream<GoogleCloudPropertiesFile> blobStoreMetricsFiles) {
-    AccumulatingBlobStoreMetrics blobStoreMetrics = new AccumulatingBlobStoreMetrics(0, 0, Long.MAX_VALUE);
+    AccumulatingBlobStoreMetrics blobStoreMetrics = new AccumulatingBlobStoreMetrics(0, 0,
+        Long.MAX_VALUE, true);
 
     blobStoreMetricsFiles.forEach(metricsFile -> {
       try {
