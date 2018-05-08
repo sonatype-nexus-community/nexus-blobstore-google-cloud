@@ -21,6 +21,7 @@ import org.sonatype.nexus.blobstore.api.Blob
 import org.sonatype.nexus.blobstore.api.BlobId
 import org.sonatype.nexus.blobstore.api.BlobStore
 import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration
+import org.sonatype.nexus.blobstore.api.BlobStoreException
 
 import com.google.api.gax.paging.Page
 import com.google.cloud.storage.Bucket
@@ -189,6 +190,47 @@ class GoogleCloudBlobStoreTest
 
     then: 'blobstore fails to start'
       thrown(IllegalStateException)
+  }
+
+  def 'exists returns true when the blobId is present' () {
+    given: 'blobstore setup'
+      storage.get('mybucket') >> bucket
+      blobStore.init(config)
+      blobStore.doStart()
+      bucket.get('content/existing.properties') >> mockGoogleObject(tempFileAttributes)
+
+    when: 'call exists'
+      boolean exists = blobStore.exists(new BlobId('existing'))
+
+    then: 'returns true'
+      exists
+  }
+
+  def 'exists returns false when the blobId is not present' () {
+    given: 'blobstore setup'
+      storage.get('mybucket') >> bucket
+      blobStore.init(config)
+      blobStore.doStart()
+
+    when: 'call exists'
+      boolean exists = blobStore.exists(new BlobId('missing'))
+
+    then: 'returns false'
+      !exists
+  }
+
+  def 'exists throws BlobStoreException when IOException is thrown' () {
+    given: 'blobstore setup'
+      storage.get('mybucket') >> bucket
+      blobStore.init(config)
+      blobStore.doStart()
+      bucket.get('content/existing.properties') >> { throw new IOException("this is a test") }
+
+    when: 'call exists'
+      blobStore.exists(new BlobId('existing'))
+
+    then: 'returns false'
+      thrown(BlobStoreException.class)
   }
 
   private mockGoogleObject(File file) {

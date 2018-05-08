@@ -6,7 +6,7 @@
   <parent>
     <groupId>org.sonatype.nexus.plugins</groupId>
     <artifactId>nexus-plugins</artifactId>
-    <version>3.10.0-04</version>
+    <version>3.11.0-01</version>
   </parent>
 
   <artifactId>nexus-blobstore-google-cloud</artifactId>
@@ -37,7 +37,7 @@
     <dependency>
       <groupId>com.google.cloud</groupId>
       <artifactId>google-cloud-storage</artifactId>
-      <version>1.4.0</version>
+      <version>1.28.0</version>
     </dependency>
 
     <dependency>

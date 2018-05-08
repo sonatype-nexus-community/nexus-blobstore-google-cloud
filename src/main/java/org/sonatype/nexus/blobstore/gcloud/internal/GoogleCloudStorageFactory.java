@@ -18,9 +18,10 @@ import javax.inject.Named;
 
 import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration;
 
-import com.google.api.client.auth.oauth2.Credential;
-import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
+import com.google.api.client.http.apache.ApacheHttpTransport;
 import com.google.auth.oauth2.ServiceAccountCredentials;
+import com.google.cloud.TransportOptions;
+import com.google.cloud.http.HttpTransportOptions;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageOptions;
 import org.apache.shiro.util.StringUtils;
@@ -33,20 +34,19 @@ public class GoogleCloudStorageFactory
 {
 
   Storage create(final BlobStoreConfiguration configuration) throws Exception {
-    String environmentVariable = System.getenv("GOOGLE_APPLICATION_CREDENTIALS");
-    if (StringUtils.hasText(environmentVariable)) {
-      // if this is set, the google library will pick it up automatically
-      return StorageOptions.getDefaultInstance().getService();
-    }
+    StorageOptions.Builder builder = StorageOptions.newBuilder().setTransportOptions(transportOptions());
 
     String credentialFile = configuration.attributes(CONFIG_KEY).get(CREDENTIAL_FILE_KEY, String.class);
-    if (credentialFile != null ) {
-      return StorageOptions.newBuilder()
-          .setCredentials(ServiceAccountCredentials.fromStream(new FileInputStream(credentialFile)))
-          .build()
-          .getService();
+    if (StringUtils.hasText(credentialFile)) {
+       builder.setCredentials(ServiceAccountCredentials.fromStream(new FileInputStream(credentialFile)));
     }
 
-    throw new IllegalStateException("either GOOGLE_APPLICATION_CREDENTIALS must be set or credential file provided");
+    return builder.build().getService();
+  }
+
+  TransportOptions transportOptions() {
+       return HttpTransportOptions.newBuilder()
+               .setHttpTransportFactory(() -> new ApacheHttpTransport())
+               .build();
   }
 }

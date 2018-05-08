@@ -77,7 +77,7 @@ Edit `${NEXUS_HOME}/system/org/sonatype/nexus/assemblies/nexus-core-feature/${NE
 That line should be added at about line 14, directly after:
 
 ```xml
-<feature version="3.6.0" prerequisite="false" dependency="false">nexus-task-log-cleanup</feature>
+<feature version="3.11.0" prerequisite="false" dependency="false">nexus-task-log-cleanup</feature>
 ```
 
 Google Cloud Storage Permissions

@@ -344,6 +344,10 @@ public class GoogleCloudBlobStore
     return name.substring(name.lastIndexOf('/') + 1);
   }
 
+  /**
+   * @return the {@link BlobAttributes} for the blod, or null
+   * @throws BlobStoreException if an {@link IOException} occurs
+   */
   @Override
   @Guarded(by = STARTED)
   public BlobAttributes getBlobAttributes(final BlobId blobId) {
@@ -353,7 +357,7 @@ public class GoogleCloudBlobStore
     }
     catch (IOException e) {
       log.error("Unable to load GoogleCloudBlobAttributes for blob id: {}", blobId, e);
-      return null;
+      throw new BlobStoreException(e, blobId);
     }
   }
 
@@ -369,6 +373,16 @@ public class GoogleCloudBlobStore
         log.error("Unable to set GoogleCloudBlobAttributes for blob id: {}", blobId, e);
       }
     }
+  }
+
+  /**
+   * @return true if a blob exists in the store with the provided {@link BlobId}
+   * @throws BlobStoreException if an IOException occurs
+   */
+  @Override
+  public boolean exists(final BlobId blobId) {
+    checkNotNull(blobId);
+    return getBlobAttributes(blobId) != null;
   }
 
   Blob createInternal(final Map<String, String> headers, BlobIngester ingester) {
