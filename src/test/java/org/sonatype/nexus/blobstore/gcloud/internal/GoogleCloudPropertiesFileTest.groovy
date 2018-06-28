@@ -16,6 +16,7 @@ import java.nio.channels.FileChannel
 
 import com.google.cloud.storage.Blob
 import com.google.cloud.storage.Bucket
+import org.apache.commons.io.IOUtils
 import spock.lang.Specification
 
 /**
@@ -42,7 +43,8 @@ class GoogleCloudPropertiesFileTest
   def setup() {
     Blob blob = Mock()
     blob.reader() >> new DelegatingReadChannel(FileChannel.open(tempFile.toPath()))
-    bucket.get('mykey') >> blob
+    blob.getContent() >> IOUtils.toByteArray(new FileInputStream(tempFile))
+    bucket.get('mykey', _) >> blob
   }
 
   def "Load ingests properties from google cloud storage object"() {

@@ -44,6 +44,8 @@ import com.google.cloud.ReadChannel;
 import com.google.cloud.storage.Bucket;
 import com.google.cloud.storage.BucketInfo;
 import com.google.cloud.storage.Storage;
+import com.google.cloud.storage.Storage.BlobField;
+import com.google.cloud.storage.Storage.BlobGetOption;
 import com.google.cloud.storage.Storage.BlobListOption;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.LoadingCache;
@@ -140,6 +142,12 @@ public class GoogleCloudBlobStore
   }
 
   @Override
+  protected void doStop() throws Exception {
+    liveBlobs = null;
+    metricsStore.stop();
+  }
+
+  @Override
   @Guarded(by = STARTED)
   public Blob create(final InputStream inputStream, final Map<String, String> headers) {
     checkNotNull(inputStream);
@@ -162,7 +170,7 @@ public class GoogleCloudBlobStore
   @Override
   @Guarded(by = STARTED)
   public Blob copy(final BlobId blobId, final Map<String, String> headers) {
-    GoogleCloudStorageBlob sourceBlob = checkNotNull(getInternal(blobId));
+    GoogleCloudStorageBlob sourceBlob = (GoogleCloudStorageBlob) checkNotNull(get(blobId));
 
     return createInternal(headers, destination -> {
       sourceBlob.getBlob().copyTo(getConfiguredBucketName(), destination);
@@ -175,17 +183,12 @@ public class GoogleCloudBlobStore
   @Override
   @Guarded(by = STARTED)
   public Blob get(final BlobId blobId) {
-    return getInternal(blobId);
+    return get(blobId, false);
   }
 
   @Nullable
   @Override
   public Blob get(final BlobId blobId, final boolean includeDeleted) {
-    // TODO implement soft-delete
-    return getInternal(blobId);
-  }
-
-  GoogleCloudStorageBlob getInternal(final BlobId blobId) {
     checkNotNull(blobId);
 
     final GoogleCloudStorageBlob blob = liveBlobs.getUnchecked(blobId);
@@ -194,14 +197,14 @@ public class GoogleCloudBlobStore
       Lock lock = blob.lock();
       try {
         if (blob.isStale()) {
-          GoogleCloudBlobAttributes blobAttributes = new GoogleCloudBlobAttributes(bucket, attributePath(blobId).toString());
+          GoogleCloudBlobAttributes blobAttributes = new GoogleCloudBlobAttributes(bucket, attributePath(blobId));
           boolean loaded = blobAttributes.load();
           if (!loaded) {
             log.warn("Attempt to access non-existent blob {} ({})", blobId, blobAttributes);
             return null;
           }
 
-          if (blobAttributes.isDeleted()) {
+          if (blobAttributes.isDeleted() && !includeDeleted) {
             log.warn("Attempt to access soft-deleted blob {} ({})", blobId, blobAttributes);
             return null;
           }
@@ -226,7 +229,7 @@ public class GoogleCloudBlobStore
 
   @Override
   @Guarded(by = STARTED)
-  public boolean delete(final BlobId blobId, final String s) {
+  public boolean delete(final BlobId blobId, final String reason) {
     // FIXME: implement soft delete
     return deleteHard(blobId);
   }
@@ -243,13 +246,8 @@ public class GoogleCloudBlobStore
       GoogleCloudBlobAttributes blobAttributes = new GoogleCloudBlobAttributes(bucket, attributePath);
       Long contentSize = getContentSizeForDeletion(blobAttributes);
 
-      GoogleCloudStorageBlob blob = getInternal(blobId);
-      boolean blobDeleted = false;
-      if (blob != null) {
-        blobDeleted = blob.getBlob().delete();
-      }
-
-      blobAttributes.setDeleted(blobDeleted);
+      boolean blobDeleted = storage.delete(getConfiguredBucketName(), contentPath(blobId));
+      storage.delete(getConfiguredBucketName(), attributePath);
 
       if (blobDeleted && contentSize != null) {
         metricsStore.recordDeletion(contentSize);
@@ -310,7 +308,7 @@ public class GoogleCloudBlobStore
   @Override
   @Guarded(by = {NEW, STOPPED, FAILED})
   public void remove() {
-    // TODO delete bucket?
+    // TODO delete bucket only if it is empty
   }
 
   @Override
@@ -413,17 +411,29 @@ public class GoogleCloudBlobStore
       return blob;
     }
     catch (IOException e) {
-      // TODO delete what we created?
-      blob.getBlob().delete();
-      if (blobAttributes != null) {
-        blobAttributes.setDeleted(true);
-      }
+      deleteNonExplosively(attributePath);
+      deleteNonExplosively(blobPath);
       throw new BlobStoreException(e, blobId);
     }
     finally {
       lock.unlock();
     }
   }
+
+  /**
+   * Intended for use only within catch blocks that intend to throw their own {@link BlobStoreException}
+   * for another good reason.
+   *
+   * @param contentPath the path within the configured bucket to delete
+   */
+  private void deleteNonExplosively(final String contentPath) {
+    try {
+      storage.delete(getConfiguredBucketName(), contentPath);
+    } catch (Exception e) {
+      log.warn("caught exception attempting to delete during cleanup", e);
+    }
+  }
+
   /**
    * Returns path for blob-id content file relative to root directory.
    */
@@ -473,7 +483,7 @@ public class GoogleCloudBlobStore
     }
 
     com.google.cloud.storage.Blob getBlob() {
-      return bucket.get(contentPath(getId()));
+      return bucket.get(contentPath(getId()), BlobGetOption.fields(BlobField.MEDIA_LINK));
     }
   }
 
