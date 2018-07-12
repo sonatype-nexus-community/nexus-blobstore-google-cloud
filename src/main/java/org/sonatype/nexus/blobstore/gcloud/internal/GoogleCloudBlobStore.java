@@ -39,8 +39,16 @@ import org.sonatype.nexus.blobstore.api.BlobStoreMetrics;
 import org.sonatype.nexus.blobstore.api.BlobStoreUsageChecker;
 import org.sonatype.nexus.common.stateguard.Guarded;
 import org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport;
+import org.sonatype.nexus.logging.task.ProgressLogIntervalHelper;
+import org.sonatype.nexus.scheduling.CancelableHelper;
 
 import com.google.cloud.ReadChannel;
+import com.google.cloud.datastore.Datastore;
+import com.google.cloud.datastore.Entity;
+import com.google.cloud.datastore.Key;
+import com.google.cloud.datastore.KeyFactory;
+import com.google.cloud.datastore.Query;
+import com.google.cloud.datastore.QueryResults;
 import com.google.cloud.storage.Bucket;
 import com.google.cloud.storage.BucketInfo;
 import com.google.cloud.storage.Storage;
@@ -108,15 +116,25 @@ public class GoogleCloudBlobStore
 
   private Bucket bucket;
 
+  private GoogleCloudDatastoreFactory datastoreFactory;
+
+  private Datastore gcsDatastore;
+
+  private KeyFactory deletedBlobsKeyFactory;
+
+  private String deletedBlobsKeyKind;
+
   private LoadingCache<BlobId, GoogleCloudStorageBlob> liveBlobs;
 
   @Inject
   public GoogleCloudBlobStore(final GoogleCloudStorageFactory storageFactory,
                               final BlobIdLocationResolver blobIdLocationResolver,
-                              final GoogleCloudBlobStoreMetricsStore metricsStore) {
+                              final GoogleCloudBlobStoreMetricsStore metricsStore,
+                              final GoogleCloudDatastoreFactory datastoreFactory) {
     this.storageFactory = checkNotNull(storageFactory);
     this.blobIdLocationResolver = checkNotNull(blobIdLocationResolver);
     this.metricsStore = metricsStore;
+    this.datastoreFactory = datastoreFactory;
   }
 
   @Override
@@ -230,8 +248,45 @@ public class GoogleCloudBlobStore
   @Override
   @Guarded(by = STARTED)
   public boolean delete(final BlobId blobId, final String reason) {
-    // FIXME: implement soft delete
-    return deleteHard(blobId);
+    checkNotNull(blobId);
+
+    final GoogleCloudStorageBlob blob = liveBlobs.getUnchecked(blobId);
+
+    Lock lock = blob.lock();
+    try {
+      log.debug("Soft deleting blob {}", blobId);
+
+      GoogleCloudBlobAttributes blobAttributes = new GoogleCloudBlobAttributes(bucket, attributePath(blobId));
+
+      boolean loaded = blobAttributes.load();
+      if (!loaded) {
+        log.warn("Attempt to mark-for-delete non-existent blob {}", blobId);
+        return false;
+      }
+      else if (blobAttributes.isDeleted()) {
+        log.debug("Attempt to delete already-deleted blob {}", blobId);
+        return false;
+      }
+
+      blobAttributes.setDeleted(true);
+      blobAttributes.setDeletedReason(reason);
+      blobAttributes.store();
+
+      // add the blobId to the soft-deleted index
+      Key key = deletedBlobsKeyFactory.newKey(blobId.asUniqueString());
+      Entity entity = Entity.newBuilder(key).build();
+      gcsDatastore.put(entity);
+
+      blob.markStale();
+
+      return true;
+    }
+    catch (Exception e) {
+      throw new BlobStoreException(e, blobId);
+    }
+    finally {
+      lock.unlock();
+    }
   }
 
   @Override
@@ -269,13 +324,31 @@ public class GoogleCloudBlobStore
   @Override
   @Guarded(by = STARTED)
   public void compact() {
-    // no-op
+    compact(null);
   }
 
   @Override
   @Guarded(by = STARTED)
   public void compact(@Nullable final BlobStoreUsageChecker blobStoreUsageChecker) {
-    // no-op
+
+    log.info("Begin deleted blobs processing");
+    Query<Entity> query = Query.newEntityQueryBuilder()
+        .setKind(this.deletedBlobsKeyKind)
+        .setLimit(10000)
+        .build();
+    QueryResults<Entity> results = gcsDatastore.run(query);
+
+    ProgressLogIntervalHelper progressLogger = new ProgressLogIntervalHelper(log, 60);
+    int counter = 0;
+    while (results.hasNext()) {
+      CancelableHelper.checkCancellation();
+
+      Entity currentEntity = results.next();
+      deleteHard(new BlobId(currentEntity.getKey().getName()));
+      progressLogger.info("Elapsed time: {}, processed: {}", progressLogger.getElapsed(),
+          counter + 1);
+    }
+    progressLogger.flush();
   }
 
   @Override
@@ -290,6 +363,11 @@ public class GoogleCloudBlobStore
       this.storage = storageFactory.create(blobStoreConfiguration);
 
       this.bucket = getOrCreateStorageBucket();
+
+      this.gcsDatastore = datastoreFactory.create(blobStoreConfiguration);
+
+      this.deletedBlobsKeyKind = "DeletedBlobs" + blobStoreConfiguration.getName();
+      this.deletedBlobsKeyFactory = gcsDatastore.newKeyFactory().setKind(deletedBlobsKeyKind);
     }
     catch (Exception e) {
       throw new BlobStoreException("Unable to initialize blob store bucket: " + getConfiguredBucketName(), e, null);

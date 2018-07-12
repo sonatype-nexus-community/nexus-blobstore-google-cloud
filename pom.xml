@@ -15,6 +15,10 @@
   <version>0.2.0-SNAPSHOT</version>
   <packaging>bundle</packaging>
 
+  <properties>
+    <google-cloud.version>1.35.0</google-cloud.version>
+  </properties>
+
   <dependencies>
     <dependency>
       <groupId>org.sonatype.nexus</groupId>
@@ -35,9 +39,21 @@
     </dependency>
 
     <dependency>
+      <groupId>org.sonatype.nexus</groupId>
+      <artifactId>nexus-scheduling</artifactId>
+      <scope>provided</scope>
+    </dependency>
+
+    <dependency>
       <groupId>com.google.cloud</groupId>
       <artifactId>google-cloud-storage</artifactId>
-      <version>1.35.0</version>
+      <version>${google-cloud.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.google.cloud</groupId>
+      <artifactId>google-cloud-datastore</artifactId>
+      <version>${google-cloud.version}</version>
     </dependency>
 
     <dependency>
@@ -87,6 +103,12 @@
       <plugin>
         <groupId>org.apache.karaf.tooling</groupId>
         <artifactId>karaf-maven-plugin</artifactId>
+        <configuration>
+          <excludedArtifactIds combine.children="append">
+            <id>grpc-core</id>
+            <id>grpc-context</id>
+          </excludedArtifactIds>
+        </configuration>
       </plugin>
     </plugins>
   </build>

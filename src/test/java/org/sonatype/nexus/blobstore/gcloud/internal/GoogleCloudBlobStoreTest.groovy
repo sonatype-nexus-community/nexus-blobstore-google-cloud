@@ -24,6 +24,8 @@ import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration
 import org.sonatype.nexus.blobstore.api.BlobStoreException
 
 import com.google.api.gax.paging.Page
+import com.google.cloud.datastore.Datastore
+import com.google.cloud.datastore.KeyFactory
 import com.google.cloud.storage.Bucket
 import com.google.cloud.storage.Storage
 import com.google.cloud.storage.Storage.BlobListOption
@@ -44,12 +46,18 @@ class GoogleCloudBlobStoreTest
 
   Bucket bucket = Mock()
 
+  GoogleCloudDatastoreFactory datastoreFactory = Mock()
+
+  Datastore datastore = Mock()
+
+  KeyFactory keyFactory = new KeyFactory("testing")
+
   def blobHeaders = [
       (BlobStore.BLOB_NAME_HEADER): 'test',
       (BlobStore.CREATED_BY_HEADER): 'admin'
   ]
   GoogleCloudBlobStore blobStore = new GoogleCloudBlobStore(
-      storageFactory, blobIdLocationResolver, metricsStore)
+      storageFactory, blobIdLocationResolver, metricsStore, datastoreFactory)
 
   def config = new BlobStoreConfiguration()
 
@@ -90,6 +98,9 @@ class GoogleCloudBlobStoreTest
     blobIdLocationResolver.fromHeaders(_) >> new BlobId(UUID.randomUUID().toString())
     storageFactory.create(_) >> storage
     config.attributes = [ 'google cloud storage': [bucket: 'mybucket'] ]
+
+    datastoreFactory.create(_) >> datastore
+    datastore.newKeyFactory() >> keyFactory
   }
 
   def 'initialize successfully from existing bucket'() {
