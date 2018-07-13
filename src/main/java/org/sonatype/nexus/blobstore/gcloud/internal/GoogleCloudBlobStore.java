@@ -17,6 +17,7 @@ import java.io.InputStream;
 import java.nio.channels.Channels;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.stream.Stream;
 
@@ -43,12 +44,6 @@ import org.sonatype.nexus.logging.task.ProgressLogIntervalHelper;
 import org.sonatype.nexus.scheduling.CancelableHelper;
 
 import com.google.cloud.ReadChannel;
-import com.google.cloud.datastore.Datastore;
-import com.google.cloud.datastore.Entity;
-import com.google.cloud.datastore.Key;
-import com.google.cloud.datastore.KeyFactory;
-import com.google.cloud.datastore.Query;
-import com.google.cloud.datastore.QueryResults;
 import com.google.cloud.storage.Bucket;
 import com.google.cloud.storage.BucketInfo;
 import com.google.cloud.storage.Storage;
@@ -118,11 +113,7 @@ public class GoogleCloudBlobStore
 
   private GoogleCloudDatastoreFactory datastoreFactory;
 
-  private Datastore gcsDatastore;
-
-  private KeyFactory deletedBlobsKeyFactory;
-
-  private String deletedBlobsKeyKind;
+  private DeletedBlobIndex deletedBlobIndex;
 
   private LoadingCache<BlobId, GoogleCloudStorageBlob> liveBlobs;
 
@@ -139,8 +130,6 @@ public class GoogleCloudBlobStore
 
   @Override
   protected void doStart() throws Exception {
-    this.bucket = getOrCreateStorageBucket();
-
     GoogleCloudPropertiesFile metadata = new GoogleCloudPropertiesFile(bucket, METADATA_FILENAME);
     if (metadata.exists()) {
       metadata.load();
@@ -273,10 +262,7 @@ public class GoogleCloudBlobStore
       blobAttributes.store();
 
       // add the blobId to the soft-deleted index
-      Key key = deletedBlobsKeyFactory.newKey(blobId.asUniqueString());
-      Entity entity = Entity.newBuilder(key).build();
-      gcsDatastore.put(entity);
-
+      deletedBlobIndex.add(blobId, reason);
       blob.markStale();
 
       return true;
@@ -302,7 +288,10 @@ public class GoogleCloudBlobStore
       Long contentSize = getContentSizeForDeletion(blobAttributes);
 
       boolean blobDeleted = storage.delete(getConfiguredBucketName(), contentPath(blobId));
-      storage.delete(getConfiguredBucketName(), attributePath);
+      if (blobDeleted) {
+        storage.delete(getConfiguredBucketName(), attributePath);
+        deletedBlobIndex.remove(blobId);
+      }
 
       if (blobDeleted && contentSize != null) {
         metricsStore.recordDeletion(contentSize);
@@ -332,22 +321,17 @@ public class GoogleCloudBlobStore
   public void compact(@Nullable final BlobStoreUsageChecker blobStoreUsageChecker) {
 
     log.info("Begin deleted blobs processing");
-    Query<Entity> query = Query.newEntityQueryBuilder()
-        .setKind(this.deletedBlobsKeyKind)
-        .setLimit(10000)
-        .build();
-    QueryResults<Entity> results = gcsDatastore.run(query);
-
     ProgressLogIntervalHelper progressLogger = new ProgressLogIntervalHelper(log, 60);
-    int counter = 0;
-    while (results.hasNext()) {
+    final AtomicInteger counter = new AtomicInteger(0);
+    deletedBlobIndex.getContents().forEach(blobId -> {
       CancelableHelper.checkCancellation();
 
-      Entity currentEntity = results.next();
-      deleteHard(new BlobId(currentEntity.getKey().getName()));
+      deleteHard(blobId);
+      counter.incrementAndGet();
+
       progressLogger.info("Elapsed time: {}, processed: {}", progressLogger.getElapsed(),
-          counter + 1);
-    }
+          counter.get());
+    });
     progressLogger.flush();
   }
 
@@ -364,10 +348,7 @@ public class GoogleCloudBlobStore
 
       this.bucket = getOrCreateStorageBucket();
 
-      this.gcsDatastore = datastoreFactory.create(blobStoreConfiguration);
-
-      this.deletedBlobsKeyKind = "DeletedBlobs" + blobStoreConfiguration.getName();
-      this.deletedBlobsKeyFactory = gcsDatastore.newKeyFactory().setKind(deletedBlobsKeyKind);
+      this.deletedBlobIndex = new DeletedBlobIndex(this.datastoreFactory, blobStoreConfiguration);
     }
     catch (Exception e) {
       throw new BlobStoreException("Unable to initialize blob store bucket: " + getConfiguredBucketName(), e, null);
