@@ -46,32 +46,16 @@ To build the project and generate the bundle use Maven:
 Installing
 ----------
 
-After you have built the project, copy the jar and feature into the nexus install (rooted at `NEXUS_HOME` with `NEXUS_VERSION` being 3.6.0 or later):
+After you have built the project, run the provided install script
 
 ```bash
-mkdir -p ${NEXUS_HOME}/system/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.2.0-SNAPSHOT
-cp ./target/feature/feature.xml \
-  ${NEXUS_HOME}/system/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.2.0-SNAPSHOT/nexus-blobstore-google-cloud-0.2.0-SNAPSHOT-features.xml
-cp ./target/nexus-blobstore-google-cloud-0.2.0-SNAPSHOT.jar \
-  ${NEXUS_HOME}/system/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.2.0-SNAPSHOT/
+sh ./install-plugin.sh path/to/your/nxrm3/install
 ```
    
-Edit `${NEXUS_HOME}/etc/karaf/org.ops4j.pax.url.mvn.cfg` and change the last line so it can fetch dependencies from central:
-
-```
-org.ops4j.pax.url.mvn.repositories=https://repo1.maven.org/maven2@id=central
-```
-
-Edit `${NEXUS_HOME}/etc/karaf/org.apache.karaf.features.cfg` and add this entry to the end of the comma-separated list labeled `featuresRepositories`:
-
-```bash
-mvn:org.sonatype.nexus.plugins/nexus-blobstore-google-cloud/0.2.0-SNAPSHOT/xml/features
-```
-   
-Edit `${NEXUS_HOME}/system/org/sonatype/nexus/assemblies/nexus-core-feature/${NEXUS_VERSION}/nexus-core-feature-${NEXUS_VERSION}-features.xml`:
+Edit `path/to/your/nxrm3/install/system/org/sonatype/nexus/assemblies/nexus-core-feature/${NEXUS_VERSION}/nexus-core-feature-${NEXUS_VERSION}-features.xml`:
 
 ```xml
-<feature version="0.2.0-SNAPSHOT" prerequisite="false" dependency="false">nexus-blobstore-google-cloud</feature>
+<feature version="0.2.0.SNAPSHOT" prerequisite="false" dependency="false">nexus-blobstore-google-cloud</feature>
 ```
    
 That line should be added at about line 14, directly after:
