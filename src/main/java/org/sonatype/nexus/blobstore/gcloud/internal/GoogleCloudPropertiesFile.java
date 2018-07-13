@@ -20,6 +20,8 @@ import java.util.Properties;
 import com.google.cloud.ReadChannel;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.Bucket;
+import com.google.cloud.storage.Storage.BlobField;
+import com.google.cloud.storage.Storage.BlobGetOption;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,7 +47,7 @@ public class GoogleCloudPropertiesFile
   public void load() throws IOException {
     log.debug("Loading properties: {}", key);
 
-    Blob blob = bucket.get(key);
+    Blob blob = bucket.get(key, BlobGetOption.fields(BlobField.MEDIA_LINK));
     try (ReadChannel channel = blob.reader()) {
       load(Channels.newInputStream(channel));
     }

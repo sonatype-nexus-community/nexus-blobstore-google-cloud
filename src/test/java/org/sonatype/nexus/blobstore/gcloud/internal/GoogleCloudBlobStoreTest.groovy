@@ -27,6 +27,7 @@ import com.google.api.gax.paging.Page
 import com.google.cloud.storage.Bucket
 import com.google.cloud.storage.Storage
 import com.google.cloud.storage.Storage.BlobListOption
+import org.apache.commons.io.IOUtils
 import spock.lang.Specification
 
 class GoogleCloudBlobStoreTest
@@ -131,8 +132,8 @@ class GoogleCloudBlobStoreTest
       storage.get('mybucket') >> bucket
       blobStore.init(config)
       blobStore.doStart()
-      bucket.get('content/existing.properties') >> mockGoogleObject(tempFileAttributes)
-      bucket.get('content/existing.bytes') >> mockGoogleObject(tempFileBytes)
+      bucket.get('content/existing.properties', _) >> mockGoogleObject(tempFileAttributes)
+      bucket.get('content/existing.bytes', _) >> mockGoogleObject(tempFileBytes)
 
     when: 'call create'
       Blob blob = blobStore.get(new BlobId('existing'))
@@ -168,7 +169,7 @@ class GoogleCloudBlobStoreTest
   def 'start will accept a metadata.properties originally created with file blobstore'() {
     given: 'metadata.properties comes from a file blobstore'
       storage.get('mybucket') >> bucket
-      2 * bucket.get('metadata.properties') >> mockGoogleObject(fileMetadata)
+      2 * bucket.get('metadata.properties', _) >> mockGoogleObject(fileMetadata)
 
     when: 'doStart is called'
       blobStore.init(config)
@@ -182,7 +183,7 @@ class GoogleCloudBlobStoreTest
     given: 'metadata.properties comes from some unknown blobstore'
       storage.get('mybucket') >> bucket
       storage.get('mybucket') >> bucket
-      2 * bucket.get('metadata.properties') >> mockGoogleObject(otherMetadata)
+      2 * bucket.get('metadata.properties', _) >> mockGoogleObject(otherMetadata)
 
     when: 'doStart is called'
       blobStore.init(config)
@@ -197,7 +198,7 @@ class GoogleCloudBlobStoreTest
       storage.get('mybucket') >> bucket
       blobStore.init(config)
       blobStore.doStart()
-      bucket.get('content/existing.properties') >> mockGoogleObject(tempFileAttributes)
+      bucket.get('content/existing.properties', _) >> mockGoogleObject(tempFileAttributes)
 
     when: 'call exists'
       boolean exists = blobStore.exists(new BlobId('existing'))
@@ -224,7 +225,7 @@ class GoogleCloudBlobStoreTest
       storage.get('mybucket') >> bucket
       blobStore.init(config)
       blobStore.doStart()
-      bucket.get('content/existing.properties') >> { throw new IOException("this is a test") }
+      bucket.get('content/existing.properties', _) >> { throw new IOException("this is a test") }
 
     when: 'call exists'
       blobStore.exists(new BlobId('existing'))
@@ -236,6 +237,7 @@ class GoogleCloudBlobStoreTest
   private mockGoogleObject(File file) {
     com.google.cloud.storage.Blob blob = Mock()
     blob.reader() >> new DelegatingReadChannel(FileChannel.open(file.toPath()))
+    blob.getContent() >> IOUtils.toByteArray(new FileInputStream(file))
     blob
   }
 
