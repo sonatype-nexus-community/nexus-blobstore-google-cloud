@@ -55,7 +55,7 @@ sh ./install-plugin.sh path/to/your/nxrm3/install
 Edit `path/to/your/nxrm3/install/system/org/sonatype/nexus/assemblies/nexus-core-feature/${NEXUS_VERSION}/nexus-core-feature-${NEXUS_VERSION}-features.xml`:
 
 ```xml
-<feature version="0.2.0-SNAPSHOT" prerequisite="false" dependency="false">nexus-blobstore-google-cloud</feature>
+<feature version="0.2.0.SNAPSHOT" prerequisite="false" dependency="false">nexus-blobstore-google-cloud</feature>
 ```
    
 That line should be added at about line 14, directly after:
