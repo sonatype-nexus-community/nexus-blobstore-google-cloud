@@ -262,7 +262,7 @@ public class GoogleCloudBlobStore
       blobAttributes.store();
 
       // add the blobId to the soft-deleted index
-      deletedBlobIndex.add(blobId, reason);
+      deletedBlobIndex.add(blobId);
       blob.markStale();
 
       return true;

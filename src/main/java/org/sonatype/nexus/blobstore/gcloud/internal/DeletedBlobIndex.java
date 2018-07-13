@@ -36,9 +36,9 @@ class DeletedBlobIndex
   /**
    * Add a {@link BlobId} to the index.
    */
-  void add(final BlobId blobId, final String reason) {
+  void add(final BlobId blobId) {
     Key key = deletedBlobsKeyFactory.newKey(blobId.asUniqueString());
-    Entity entity = Entity.newBuilder(key).set("reason", reason).build();
+    Entity entity = Entity.newBuilder(key).build();
     gcsDatastore.put(entity);
   }
 
