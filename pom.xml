@@ -87,6 +87,12 @@
       <artifactId>spock-core</artifactId>
       <scope>test</scope>
     </dependency>
+
+    <dependency>
+      <groupId>org.sonatype.nexus</groupId>
+      <artifactId>nexus-blobstore-file</artifactId>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <build>

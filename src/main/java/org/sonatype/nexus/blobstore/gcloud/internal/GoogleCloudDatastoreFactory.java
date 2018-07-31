@@ -31,7 +31,7 @@ import static org.sonatype.nexus.blobstore.gcloud.internal.GoogleCloudBlobStore.
 public class GoogleCloudDatastoreFactory extends AbstractGoogleClientFactory
 {
 
-  Datastore create(final BlobStoreConfiguration configuration) throws Exception {
+  public Datastore create(final BlobStoreConfiguration configuration) throws Exception {
     DatastoreOptions.Builder builder = DatastoreOptions.newBuilder().setTransportOptions(transportOptions());
 
     String credentialFile = configuration.attributes(CONFIG_KEY).get(CREDENTIAL_FILE_KEY, String.class);

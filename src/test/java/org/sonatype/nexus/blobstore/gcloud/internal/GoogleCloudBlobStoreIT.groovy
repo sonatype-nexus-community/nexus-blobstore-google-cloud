@@ -73,9 +73,11 @@ class GoogleCloudBlobStoreIT
 
   def setup() {
     config.attributes = [
+        'name': 'gcs-test',
         'google cloud storage': [
             bucket: bucketName,
-            credential_file: this.getClass().getResource('/gce-credentials.json').getFile()
+            credential_file: this.getClass().getResource('/gce-credentials.json').getFile(),
+            use_datastore: 'false'
         ]
     ]
 

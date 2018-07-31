@@ -98,7 +98,7 @@ class GoogleCloudBlobStoreTest
     blobIdLocationResolver.getLocation(_) >> { args -> args[0].toString() }
     blobIdLocationResolver.fromHeaders(_) >> new BlobId(UUID.randomUUID().toString())
     storageFactory.create(_) >> storage
-    config.attributes = [ 'google cloud storage': [bucket: 'mybucket'] ]
+    config.attributes = [ 'google cloud storage': [ bucket: 'mybucket', use_datastore: 'false'] ]
 
     datastoreFactory.create(_) >> datastore
     datastore.newKeyFactory() >> keyFactory
@@ -163,11 +163,13 @@ class GoogleCloudBlobStoreTest
       def b2 = com.google.cloud.storage.BlobId.of('foo', 'content/vol-01/chap-08/thing.properties')
       def b3 = com.google.cloud.storage.BlobId.of('foo', 'content/vol-01/chap-08/thing.bytes')
       def b4 = com.google.cloud.storage.BlobId.of('foo', 'content/vol-02/chap-09/tmp$thing.properties')
+      def b5 = com.google.cloud.storage.BlobId.of('foo', 'content/vol-02/chap-09/tmp$thing.bytes')
       def page = Mock(Page)
 
       bucket.list(BlobListOption.prefix(GoogleCloudBlobStore.CONTENT_PREFIX)) >> page
       page.iterateAll() >>
-          [ mockGoogleObject(b1), mockGoogleObject(b2), mockGoogleObject(b3), mockGoogleObject(b4) ]
+          [ mockGoogleObject(b1), mockGoogleObject(b2), mockGoogleObject(b3), mockGoogleObject(b4),
+            mockGoogleObject(b5) ]
 
     when: 'getBlobIdStream called'
       Stream<BlobId> stream = blobStore.getBlobIdStream()
@@ -175,7 +177,7 @@ class GoogleCloudBlobStoreTest
     then: 'expected behavior'
       def list = stream.collect(Collectors.toList())
       list.size() == 1
-      list.contains(new BlobId(b2.toString()))
+      list.contains(new BlobId(b3.toString()))
   }
 
   def 'start will accept a metadata.properties originally created with file blobstore'() {

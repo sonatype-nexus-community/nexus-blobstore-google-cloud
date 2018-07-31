@@ -39,6 +39,7 @@ import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration;
 import org.sonatype.nexus.blobstore.api.BlobStoreException;
 import org.sonatype.nexus.blobstore.api.BlobStoreMetrics;
 import org.sonatype.nexus.blobstore.api.BlobStoreUsageChecker;
+import org.sonatype.nexus.blobstore.gcloud.internal.attributes.GoogleCloudBlobAttributesBridge;
 import org.sonatype.nexus.common.log.DryRunPrefix;
 import org.sonatype.nexus.common.stateguard.Guarded;
 import org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport;
@@ -46,6 +47,7 @@ import org.sonatype.nexus.logging.task.ProgressLogIntervalHelper;
 import org.sonatype.nexus.scheduling.CancelableHelper;
 
 import com.google.cloud.ReadChannel;
+import com.google.cloud.datastore.Datastore;
 import com.google.cloud.storage.Bucket;
 import com.google.cloud.storage.BucketInfo;
 import com.google.cloud.storage.Storage;
@@ -64,6 +66,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.cache.CacheLoader.from;
 import static java.lang.String.format;
+import static org.sonatype.nexus.blobstore.DefaultBlobIdLocationResolver.TEMPORARY_BLOB_ID_PREFIX;
 import static org.sonatype.nexus.blobstore.DirectPathLocationStrategy.DIRECT_PATH_ROOT;
 import static org.sonatype.nexus.blobstore.api.BlobAttributesConstants.HEADER_PREFIX;
 import static org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport.State.FAILED;
@@ -79,27 +82,27 @@ public class GoogleCloudBlobStore
     extends StateGuardLifecycleSupport
     implements BlobStore
 {
-  public static final String TYPE = "Google Cloud Storage";
+  static final String TYPE = "Google Cloud Storage";
 
   public static final String CONFIG_KEY = TYPE.toLowerCase();
 
   public static final String BUCKET_KEY = "bucket";
 
-  public static final String CREDENTIAL_FILE_KEY = "credential_file";
+  public static final String USE_DATASTORE_KEY = "use_datastore";
 
-  public static final String BLOB_CONTENT_SUFFIX = ".bytes";
+  static final String CREDENTIAL_FILE_KEY = "credential_file";
 
-  public static final String BLOB_ATTRIBUTE_SUFFIX = ".properties";
+  private static final String BLOB_CONTENT_SUFFIX = ".bytes";
 
-  static final String CONTENT_PREFIX = "content";
+  //public static final String BLOB_ATTRIBUTE_SUFFIX = ".properties";
 
-  public static final String TEMPORARY_BLOB_ID_PREFIX = "tmp$";
+  public static final String CONTENT_PREFIX = "content";
 
-  public static final String METADATA_FILENAME = "metadata.properties";
+  private static final String METADATA_FILENAME = "metadata.properties";
 
-  public static final String TYPE_KEY = "type";
+  private static final String TYPE_KEY = "type";
 
-  public static final String TYPE_V1 = "gcp/1";
+  private static final String TYPE_V1 = "gcp/1";
 
   private static final String FILE_V1 = "file/1";
 
@@ -117,11 +120,15 @@ public class GoogleCloudBlobStore
 
   private GoogleCloudDatastoreFactory datastoreFactory;
 
+  private Datastore datastore;
+
   private DeletedBlobIndex deletedBlobIndex;
 
   private LoadingCache<BlobId, GoogleCloudStorageBlob> liveBlobs;
 
   private final DryRunPrefix dryRunPrefix;
+
+  private GoogleCloudBlobAttributesBridge attributesBridge;
 
   @Inject
   public GoogleCloudBlobStore(final GoogleCloudStorageFactory storageFactory,
@@ -154,6 +161,11 @@ public class GoogleCloudBlobStore
 
     metricsStore.setBucket(bucket);
     metricsStore.start();
+
+    boolean useDatastore = Boolean.parseBoolean(
+        blobStoreConfiguration.attributes(CONFIG_KEY).require(USE_DATASTORE_KEY).toString());
+    attributesBridge = new GoogleCloudBlobAttributesBridge(blobStoreConfiguration, blobIdLocationResolver, useDatastore,
+        datastore, bucket, storage);
   }
 
   @Override
@@ -212,12 +224,20 @@ public class GoogleCloudBlobStore
       Lock lock = blob.lock();
       try {
         if (blob.isStale()) {
-          GoogleCloudBlobAttributes blobAttributes = new GoogleCloudBlobAttributes(bucket, attributePath(blobId));
+          // TODO blobAttributesDao
+
+          BlobAttributes blobAttributes = attributesBridge.getAttributes(blobId);
+          if (blobAttributes == null) {
+            log.warn("Attempt to access non-existent blob {}", blobId);
+            return null;
+          }
+
+          /*GoogleCloudBlobAttributes blobAttributes = new GoogleCloudBlobAttributes(bucket, attributePath(blobId));
           boolean loaded = blobAttributes.load();
           if (!loaded) {
             log.warn("Attempt to access non-existent blob {} ({})", blobId, blobAttributes);
             return null;
-          }
+          }*/
 
           if (blobAttributes.isDeleted() && !includeDeleted) {
             log.warn("Attempt to access soft-deleted blob {} ({})", blobId, blobAttributes);
@@ -226,9 +246,6 @@ public class GoogleCloudBlobStore
 
           blob.refresh(blobAttributes.getHeaders(), blobAttributes.getMetrics());
         }
-      }
-      catch (IOException e) {
-        throw new BlobStoreException(e, blobId);
       }
       finally {
         lock.unlock();
@@ -253,32 +270,38 @@ public class GoogleCloudBlobStore
     try {
       log.debug("Soft deleting blob {}", blobId);
 
-      GoogleCloudBlobAttributes blobAttributes = new GoogleCloudBlobAttributes(bucket, attributePath(blobId));
+      // TODO blobAttributesDao
+      BlobAttributes blobAttributes  = attributesBridge.getAttributes(blobId);
+      if (blobAttributes == null) {
+        log.warn("Attempt to mark-for-delete non-existent blob {}", blobId);
+        return false;
+      }
+
+      /*GoogleCloudBlobAttributes blobAttributes = new GoogleCloudBlobAttributes(bucket, attributePath(blobId));
 
       boolean loaded = blobAttributes.load();
       if (!loaded) {
         log.warn("Attempt to mark-for-delete non-existent blob {}", blobId);
         return false;
       }
-      else if (blobAttributes.isDeleted()) {
+      else*/
+      if (blobAttributes.isDeleted()) {
         log.debug("Attempt to delete already-deleted blob {}", blobId);
         return false;
       }
 
-      blobAttributes.setDeleted(true);
+      /*blobAttributes.setDeleted(true);
       blobAttributes.setDeletedReason(reason);
-      blobAttributes.store();
+      blobAttributes.store();*/
+
+      attributesBridge.markDeleted(blobId, reason);
 
       // add the blobId to the soft-deleted index
       deletedBlobIndex.add(blobId);
       blob.markStale();
 
       return true;
-    }
-    catch (Exception e) {
-      throw new BlobStoreException(e, blobId);
-    }
-    finally {
+    } finally {
       lock.unlock();
     }
   }
@@ -291,13 +314,18 @@ public class GoogleCloudBlobStore
     try {
       log.debug("Hard deleting blob {}", blobId);
 
-      String attributePath = attributePath(blobId);
-      GoogleCloudBlobAttributes blobAttributes = new GoogleCloudBlobAttributes(bucket, attributePath);
+      //String attributePath = attributePath(blobId);
+      //GoogleCloudBlobAttributes blobAttributes = new GoogleCloudBlobAttributes(bucket, attributePath);
+
+      // TODO blobAttributesDao
+      BlobAttributes blobAttributes = attributesBridge.getAttributes(blobId);
+
       Long contentSize = getContentSizeForDeletion(blobAttributes);
 
       boolean blobDeleted = storage.delete(getConfiguredBucketName(), contentPath(blobId));
       if (blobDeleted) {
-        storage.delete(getConfiguredBucketName(), attributePath);
+        //storage.delete(getConfiguredBucketName(), attributePath);
+        attributesBridge.deleteAttributes(blobId);
         deletedBlobIndex.remove(blobId);
       }
 
@@ -357,6 +385,8 @@ public class GoogleCloudBlobStore
       this.bucket = getOrCreateStorageBucket();
 
       this.deletedBlobIndex = new DeletedBlobIndex(this.datastoreFactory, blobStoreConfiguration);
+
+      this.datastore = datastoreFactory.create(blobStoreConfiguration);
     }
     catch (Exception e) {
       throw new BlobStoreException("Unable to initialize blob store bucket: " + getConfiguredBucketName(), e, null);
@@ -381,8 +411,10 @@ public class GoogleCloudBlobStore
   @Override
   @Guarded(by = STARTED)
   public Stream<BlobId> getBlobIdStream() {
+    // TODO don't filter on attribute_suffix, filter on content_suffix instead
+    // TODO test if directpath blobIds are returned by this (possibly broken if they are)
     return blobStream(CONTENT_PREFIX)
-        .filter(blob -> blob.getName().endsWith(BLOB_ATTRIBUTE_SUFFIX) &&
+        .filter(blob -> blob.getName().endsWith(BLOB_CONTENT_SUFFIX) &&
             !basename(blob).startsWith(TEMPORARY_BLOB_ID_PREFIX))
         .map(com.google.cloud.storage.Blob::getBlobId)
         .map(blobId -> new BlobId(blobId.toString()));
@@ -391,9 +423,10 @@ public class GoogleCloudBlobStore
   @Override
   @Guarded(by = STARTED)
   public Stream<BlobId> getDirectPathBlobIdStream(final String prefix) {
+    // TODO don't filter on attribute_suffix, filter on content_suffix instead
     String subpath = format("%s/%s/%s", CONTENT_PREFIX, DIRECT_PATH_ROOT, prefix);
     return blobStream(subpath)
-        .filter(blob -> blob.getName().endsWith(BLOB_ATTRIBUTE_SUFFIX) &&
+        .filter(blob -> blob.getName().endsWith(BLOB_CONTENT_SUFFIX) &&
             !basename(blob).startsWith(TEMPORARY_BLOB_ID_PREFIX))
         .map(blob -> cloudBlobIdToDirectPathBlobId(blob.getBlobId()));
   }
@@ -407,9 +440,9 @@ public class GoogleCloudBlobStore
     final String blobName = blobId.getName();
     checkArgument(blobName.startsWith(CONTENT_PREFIX + "/" + DIRECT_PATH_ROOT + "/"),
         "Not direct path blob path: %s", blobName);
-    checkArgument(blobName.endsWith(BLOB_ATTRIBUTE_SUFFIX), "Not blob attribute path: %s", blobName);
+    checkArgument(blobName.endsWith(BLOB_CONTENT_SUFFIX), "Not blob attribute path: %s", blobName);
     String subpath = blobName.replace(format("%s/%s/", CONTENT_PREFIX, DIRECT_PATH_ROOT), "");
-    String name = subpath.substring(0, subpath.length() - BLOB_ATTRIBUTE_SUFFIX.length());
+    String name = subpath.substring(0, subpath.length() - BLOB_CONTENT_SUFFIX.length());
 
     Map<String, String> headers = ImmutableMap.of(
         BLOB_NAME_HEADER, name,
@@ -434,20 +467,25 @@ public class GoogleCloudBlobStore
   @Override
   @Guarded(by = STARTED)
   public BlobAttributes getBlobAttributes(final BlobId blobId) {
-    try {
+    // TODO delegate to blobAttributesDao#getAttributes
+    return attributesBridge.getAttributes(blobId);
+
+    /*try {
       GoogleCloudBlobAttributes blobAttributes = new GoogleCloudBlobAttributes(bucket, attributePath(blobId));
       return blobAttributes.load() ? blobAttributes : null;
     }
     catch (IOException e) {
       log.error("Unable to load GoogleCloudBlobAttributes for blob id: {}", blobId, e);
       throw new BlobStoreException(e, blobId);
-    }
+    }*/
   }
 
   @Override
   @Guarded(by = STARTED)
   public void setBlobAttributes(final BlobId blobId, final BlobAttributes blobAttributes) {
-    GoogleCloudBlobAttributes existing = (GoogleCloudBlobAttributes) getBlobAttributes(blobId);
+    // TODO delegate to blobAttributesDao#storeAttributes
+    attributesBridge.storeAttributes(blobId, blobAttributes);
+    /*GoogleCloudBlobAttributes existing = (GoogleCloudBlobAttributes) getBlobAttributes(blobId);
     if (existing != null) {
       try {
         existing.updateFrom(blobAttributes);
@@ -455,7 +493,7 @@ public class GoogleCloudBlobStore
       } catch (IOException e) {
         log.error("Unable to set GoogleCloudBlobAttributes for blob id: {}", blobId, e);
       }
-    }
+    }*/
   }
 
   /**
@@ -480,15 +518,15 @@ public class GoogleCloudBlobStore
         .map(BlobAttributes::getProperties)
         .map(p -> p.getProperty(HEADER_PREFIX + BLOB_NAME_HEADER));
     if (!blobName.isPresent()) {
-      log.error("Property not present: {}, for blob id: {}, at path: {}", HEADER_PREFIX + BLOB_NAME_HEADER,
-          blobId, attributePath(blobId));
+      log.error("Property not present: {}, for blob id: {}", HEADER_PREFIX + BLOB_NAME_HEADER, blobId);
       return false;
     }
     if (attributes.isDeleted() && blobStoreUsageChecker != null &&
         blobStoreUsageChecker.test(this, blobId, blobName.get())) {
       String deletedReason = attributes.getDeletedReason();
       if (!isDryRun) {
-        attributes.setDeleted(false);
+        attributesBridge.undelete(blobId);
+        /*attributes.setDeleted(false);
         attributes.setDeletedReason(null);
         try {
           attributes.store();
@@ -496,7 +534,7 @@ public class GoogleCloudBlobStore
         catch (IOException e) {
           log.error("Error while un-deleting blob id: {}, deleted reason: {}, blob store: {}, blob name: {}",
               blobId, deletedReason, blobStoreConfiguration.getName(), blobName.get(), e);
-        }
+        }*/
       }
       log.warn(
           "{}Soft-deleted blob still in use, un-deleting blob id: {}, deleted reason: {}, blob store: {}, blob name: {}",
@@ -515,9 +553,8 @@ public class GoogleCloudBlobStore
     final BlobId blobId = blobIdLocationResolver.fromHeaders(headers);
 
     final String blobPath = contentPath(blobId);
-    final String attributePath = attributePath(blobId);
+    //final String attributePath = attributePath(blobId);
     final GoogleCloudStorageBlob blob = liveBlobs.getUnchecked(blobId);
-    GoogleCloudBlobAttributes blobAttributes = null;
     Lock lock = blob.lock();
     try {
       log.debug("Writing blob {} to {}", blobId, blobPath);
@@ -526,15 +563,16 @@ public class GoogleCloudBlobStore
       final BlobMetrics metrics = new BlobMetrics(new DateTime(), streamMetrics.getSha1(), streamMetrics.getSize());
       blob.refresh(headers, metrics);
 
-      blobAttributes = new GoogleCloudBlobAttributes(bucket, attributePath, headers, metrics);
+      /*GoogleCloudBlobAttributes blobAttributes = new GoogleCloudBlobAttributes(bucket, attributePath, headers, metrics);
 
-      blobAttributes.store();
+      blobAttributes.store();*/
+      BlobAttributes blobAttributes = attributesBridge.storeAttributes(blobId, headers, metrics);
       metricsStore.recordAddition(blobAttributes.getMetrics().getContentSize());
 
       return blob;
     }
     catch (IOException e) {
-      deleteNonExplosively(attributePath);
+      //deleteNonExplosively(attributePath);
       deleteNonExplosively(blobPath);
       throw new BlobStoreException(e, blobId);
     }
@@ -567,9 +605,9 @@ public class GoogleCloudBlobStore
   /**
    * Returns path for blob-id attribute file relative to root directory.
    */
-  private String attributePath(final BlobId id) {
+  /*private String attributePath(final BlobId id) {
     return getLocation(id) + BLOB_ATTRIBUTE_SUFFIX;
-  }
+  }*/
 
   /**
    * Returns the location for a blob ID based on whether or not the blob ID is for a temporary or permanent blob.
@@ -582,15 +620,14 @@ public class GoogleCloudBlobStore
     return blobStoreConfiguration.attributes(CONFIG_KEY).require(BUCKET_KEY).toString();
   }
 
-  private Long getContentSizeForDeletion(final GoogleCloudBlobAttributes blobAttributes) {
-    try {
-      blobAttributes.load();
+  private Long getContentSizeForDeletion(final BlobAttributes blobAttributes) {
+    //try {
       return blobAttributes.getMetrics() != null ? blobAttributes.getMetrics().getContentSize() : null;
-    }
-    catch (Exception e) {
+    //}
+    /*catch (Exception e) {
       log.warn("Unable to load attributes {}, delete will not be added to metrics.", blobAttributes, e);
       return null;
-    }
+    }*/
   }
 
   class GoogleCloudStorageBlob extends BlobSupport {
