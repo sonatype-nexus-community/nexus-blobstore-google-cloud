@@ -52,6 +52,7 @@ import com.google.cloud.storage.Storage.BlobGetOption;
 import com.google.cloud.storage.Storage.BlobListOption;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.LoadingCache;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
 import com.google.common.hash.HashCode;
 import org.joda.time.DateTime;
@@ -387,9 +388,27 @@ public class GoogleCloudBlobStore
     return blobStream(subpath)
         .filter(blob -> blob.getName().endsWith(BLOB_ATTRIBUTE_SUFFIX) &&
             !basename(blob).startsWith(TEMPORARY_BLOB_ID_PREFIX))
-        .map(com.google.cloud.storage.Blob::getBlobId)
-        .map(blobId -> new BlobId(blobId.toString()));
+        .map(blob -> cloudBlobIdToDirectPathBlobId(blob.getBlobId()));
+  }
 
+  /**
+   * Used by {@link #getDirectPathBlobIdStream(String)} to convert an Google cloud BlobId to a Nexus {@link BlobId}.
+   *
+   * @see BlobIdLocationResolver
+   */
+  private BlobId cloudBlobIdToDirectPathBlobId(final com.google.cloud.storage.BlobId blobId) {
+    final String blobName = blobId.getName();
+    checkArgument(blobName.startsWith(CONTENT_PREFIX + "/" + DIRECT_PATH_ROOT + "/"),
+        "Not direct path blob path: %s", blobName);
+    checkArgument(blobName.endsWith(BLOB_ATTRIBUTE_SUFFIX), "Not blob attribute path: %s", blobName);
+    String subpath = blobName.replace(format("%s/%s/", CONTENT_PREFIX, DIRECT_PATH_ROOT), "");
+    String name = subpath.substring(0, subpath.length() - BLOB_ATTRIBUTE_SUFFIX.length());
+
+    Map<String, String> headers = ImmutableMap.of(
+        BLOB_NAME_HEADER, name,
+        DIRECT_PATH_BLOB_HEADER, "true"
+    );
+    return blobIdLocationResolver.fromHeaders(headers);
   }
 
   Stream<com.google.cloud.storage.Blob> blobStream(final String path) {

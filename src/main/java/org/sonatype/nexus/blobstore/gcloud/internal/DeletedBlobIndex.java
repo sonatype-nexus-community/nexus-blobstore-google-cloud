@@ -39,7 +39,8 @@ class DeletedBlobIndex
 
   private String deletedBlobsKeyKind;
 
-  DeletedBlobIndex(final GoogleCloudDatastoreFactory factory, final BlobStoreConfiguration blobStoreConfiguration) {
+  DeletedBlobIndex(final GoogleCloudDatastoreFactory factory, final BlobStoreConfiguration blobStoreConfiguration)
+      throws Exception {
     this.gcsDatastore = factory.create(blobStoreConfiguration);
     this.deletedBlobsKeyKind = "NXRM-DeletedBlobs-" + blobStoreConfiguration.getName();
     this.deletedBlobsKeyFactory = gcsDatastore.newKeyFactory().setKind(deletedBlobsKeyKind);

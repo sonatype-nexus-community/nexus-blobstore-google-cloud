@@ -42,6 +42,11 @@ Building
 To build the project and generate the bundle use Maven:
 
     mvn clean install
+    
+Integration Tests
+-----------------
+
+Integration tests can be found within src/test/java and have the class suffix `IT`. [Additional documentation is provided about how to configure and run them](src/test/resources/README.md)
 
 Installing
 ----------
