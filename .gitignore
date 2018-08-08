@@ -10,3 +10,4 @@ target/
 .clover
 *.log
 *~
+src/test/resources/gce-credentials.json
