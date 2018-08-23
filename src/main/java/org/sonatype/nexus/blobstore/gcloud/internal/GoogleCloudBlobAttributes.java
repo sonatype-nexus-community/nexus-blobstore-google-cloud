@@ -146,6 +146,10 @@ public class GoogleCloudBlobAttributes
       properties.put(DELETED_ATTRIBUTE, Boolean.toString(deleted));
       properties.put(DELETED_REASON_ATTRIBUTE, getDeletedReason());
     }
+    else {
+      properties.remove(DELETED_ATTRIBUTE);
+      properties.remove(DELETED_REASON_ATTRIBUTE);
+    }
     return properties;
   }
 }

@@ -17,6 +17,7 @@ import java.io.InputStream;
 import java.nio.channels.Channels;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.stream.Stream;
@@ -38,6 +39,7 @@ import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration;
 import org.sonatype.nexus.blobstore.api.BlobStoreException;
 import org.sonatype.nexus.blobstore.api.BlobStoreMetrics;
 import org.sonatype.nexus.blobstore.api.BlobStoreUsageChecker;
+import org.sonatype.nexus.common.log.DryRunPrefix;
 import org.sonatype.nexus.common.stateguard.Guarded;
 import org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport;
 import org.sonatype.nexus.logging.task.ProgressLogIntervalHelper;
@@ -63,6 +65,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.cache.CacheLoader.from;
 import static java.lang.String.format;
 import static org.sonatype.nexus.blobstore.DirectPathLocationStrategy.DIRECT_PATH_ROOT;
+import static org.sonatype.nexus.blobstore.api.BlobAttributesConstants.HEADER_PREFIX;
 import static org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport.State.FAILED;
 import static org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport.State.NEW;
 import static org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport.State.STARTED;
@@ -118,15 +121,19 @@ public class GoogleCloudBlobStore
 
   private LoadingCache<BlobId, GoogleCloudStorageBlob> liveBlobs;
 
+  private final DryRunPrefix dryRunPrefix;
+
   @Inject
   public GoogleCloudBlobStore(final GoogleCloudStorageFactory storageFactory,
                               final BlobIdLocationResolver blobIdLocationResolver,
                               final GoogleCloudBlobStoreMetricsStore metricsStore,
-                              final GoogleCloudDatastoreFactory datastoreFactory) {
+                              final GoogleCloudDatastoreFactory datastoreFactory,
+                              final DryRunPrefix dryRunPrefix) {
     this.storageFactory = checkNotNull(storageFactory);
     this.blobIdLocationResolver = checkNotNull(blobIdLocationResolver);
     this.metricsStore = metricsStore;
     this.datastoreFactory = datastoreFactory;
+    this.dryRunPrefix = dryRunPrefix;
   }
 
   @Override
@@ -421,7 +428,7 @@ public class GoogleCloudBlobStore
   }
 
   /**
-   * @return the {@link BlobAttributes} for the blod, or null
+   * @return the {@link BlobAttributes} for the blob, or null
    * @throws BlobStoreException if an {@link IOException} occurs
    */
   @Override
@@ -459,6 +466,44 @@ public class GoogleCloudBlobStore
   public boolean exists(final BlobId blobId) {
     checkNotNull(blobId);
     return getBlobAttributes(blobId) != null;
+  }
+
+  @Override
+  public boolean undelete(@Nullable final BlobStoreUsageChecker blobStoreUsageChecker,
+                          final BlobId blobId,
+                          final BlobAttributes attributes,
+                          final boolean isDryRun)
+  {
+    checkNotNull(attributes);
+    String logPrefix = isDryRun ? dryRunPrefix.get() : "";
+    Optional<String> blobName = Optional.of(attributes)
+        .map(BlobAttributes::getProperties)
+        .map(p -> p.getProperty(HEADER_PREFIX + BLOB_NAME_HEADER));
+    if (!blobName.isPresent()) {
+      log.error("Property not present: {}, for blob id: {}, at path: {}", HEADER_PREFIX + BLOB_NAME_HEADER,
+          blobId, attributePath(blobId));
+      return false;
+    }
+    if (attributes.isDeleted() && blobStoreUsageChecker != null &&
+        blobStoreUsageChecker.test(this, blobId, blobName.get())) {
+      String deletedReason = attributes.getDeletedReason();
+      if (!isDryRun) {
+        attributes.setDeleted(false);
+        attributes.setDeletedReason(null);
+        try {
+          attributes.store();
+        }
+        catch (IOException e) {
+          log.error("Error while un-deleting blob id: {}, deleted reason: {}, blob store: {}, blob name: {}",
+              blobId, deletedReason, blobStoreConfiguration.getName(), blobName.get(), e);
+        }
+      }
+      log.warn(
+          "{}Soft-deleted blob still in use, un-deleting blob id: {}, deleted reason: {}, blob store: {}, blob name: {}",
+          logPrefix, blobId, deletedReason, blobStoreConfiguration.getName(), blobName.get());
+      return true;
+    }
+    return false;
   }
 
   Blob createInternal(final Map<String, String> headers, BlobIngester ingester) {

@@ -22,6 +22,7 @@ import org.sonatype.nexus.blobstore.api.BlobId
 import org.sonatype.nexus.blobstore.api.BlobStore
 import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration
 import org.sonatype.nexus.blobstore.api.BlobStoreException
+import org.sonatype.nexus.common.log.DryRunPrefix
 
 import com.google.api.gax.paging.Page
 import com.google.cloud.datastore.Datastore
@@ -57,7 +58,7 @@ class GoogleCloudBlobStoreTest
       (BlobStore.CREATED_BY_HEADER): 'admin'
   ]
   GoogleCloudBlobStore blobStore = new GoogleCloudBlobStore(
-      storageFactory, blobIdLocationResolver, metricsStore, datastoreFactory)
+      storageFactory, blobIdLocationResolver, metricsStore, datastoreFactory, new DryRunPrefix("TEST "))
 
   def config = new BlobStoreConfiguration()
 
