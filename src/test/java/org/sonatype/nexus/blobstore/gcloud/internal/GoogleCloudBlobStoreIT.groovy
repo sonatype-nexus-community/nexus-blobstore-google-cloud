@@ -19,8 +19,13 @@ import org.sonatype.nexus.blobstore.BlobIdLocationResolver
 import org.sonatype.nexus.blobstore.DefaultBlobIdLocationResolver
 import org.sonatype.nexus.blobstore.PeriodicJobService
 import org.sonatype.nexus.blobstore.PeriodicJobService.PeriodicJob
+import org.sonatype.nexus.blobstore.api.Blob
+import org.sonatype.nexus.blobstore.api.BlobAttributes
 import org.sonatype.nexus.blobstore.api.BlobId
+import org.sonatype.nexus.blobstore.api.BlobStore
 import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration
+import org.sonatype.nexus.blobstore.api.BlobStoreUsageChecker
+import org.sonatype.nexus.common.log.DryRunPrefix
 import org.sonatype.nexus.common.node.NodeAccess
 
 import com.google.cloud.storage.Blob.BlobSourceOption
@@ -64,6 +69,8 @@ class GoogleCloudBlobStoreIT
 
   GoogleCloudBlobStore blobStore
 
+  BlobStoreUsageChecker usageChecker = Mock()
+
   def setup() {
     config.attributes = [
         'google cloud storage': [
@@ -76,11 +83,14 @@ class GoogleCloudBlobStoreIT
 
     metricsStore = new GoogleCloudBlobStoreMetricsStore(periodicJobService, nodeAccess)
     // can't start metrics store until blobstore init is done (which creates the bucket)
-    blobStore = new GoogleCloudBlobStore(storageFactory, blobIdLocationResolver, metricsStore, datastoreFactory)
+    blobStore = new GoogleCloudBlobStore(storageFactory, blobIdLocationResolver, metricsStore, datastoreFactory,
+        new DryRunPrefix("TEST "))
     blobStore.init(config)
 
     blobStore.start()
     metricsStore.start()
+
+    usageChecker.test(_, _, _) >> true
   }
 
   def cleanup() {
@@ -126,6 +136,54 @@ class GoogleCloudBlobStoreIT
       results.size() == 2
       results.contains(new BlobId("${DIRECT_PATH_PREFIX}health-check/repo1/report.properties"))
       results.contains(new BlobId("${DIRECT_PATH_PREFIX}health-check/repo1/details/bootstrap.min.css"))
+  }
+
+  def "undelete successfully makes blob accessible"() {
+    given:
+      Blob blob = blobStore.create(new ByteArrayInputStream('hello'.getBytes()),
+          [ (BlobStore.BLOB_NAME_HEADER): 'foo',
+            (BlobStore.CREATED_BY_HEADER): 'someuser' ] )
+      assert blob != null
+      assert blobStore.delete(blob.id, 'testing')
+      BlobAttributes deletedAttributes = blobStore.getBlobAttributes(blob.id)
+      assert deletedAttributes.deleted
+      assert deletedAttributes.deletedReason == 'testing'
+
+    when:
+      !blobStore.undelete(usageChecker, blob.id, deletedAttributes, false)
+
+    then:
+      Blob after = blobStore.get(blob.id)
+      after != null
+      BlobAttributes attributesAfter = blobStore.getBlobAttributes(blob.id)
+      !attributesAfter.deleted
+  }
+
+  def "undelete does nothing when dry run is true"() {
+    given:
+      Blob blob = blobStore.create(new ByteArrayInputStream('hello'.getBytes()),
+          [ (BlobStore.BLOB_NAME_HEADER): 'foo',
+            (BlobStore.CREATED_BY_HEADER): 'someuser' ] )
+      assert blob != null
+      BlobAttributes attributes = blobStore.getBlobAttributes(blob.id)
+      assert blobStore.delete(blob.id, 'testing')
+      BlobAttributes deletedAttributes = blobStore.getBlobAttributes(blob.id)
+      assert deletedAttributes.deleted
+
+    when:
+      blobStore.undelete(usageChecker, blob.id, attributes, true)
+
+    then:
+      Blob after = blobStore.get(blob.id)
+      after == null
+      BlobAttributes attributesAfter = blobStore.getBlobAttributes(blob.id)
+      attributesAfter.deleted
+  }
+
+  def "undelete does nothing on non-existent blob"() {
+    expect:
+      BlobAttributes attributes = Mock()
+      !blobStore.undelete(usageChecker, new BlobId("nonexistent"), attributes, false)
   }
 
   def createFile(Storage storage, String path) {
