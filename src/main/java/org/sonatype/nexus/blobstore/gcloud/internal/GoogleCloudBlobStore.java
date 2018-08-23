@@ -461,6 +461,15 @@ public class GoogleCloudBlobStore
     return getBlobAttributes(blobId) != null;
   }
 
+  @Override
+  public boolean undelete(@Nullable final BlobStoreUsageChecker blobStoreUsageChecker,
+                          final BlobId blobId,
+                          final BlobAttributes blobAttributes,
+                          final boolean b)
+  {
+    return false;
+  }
+
   Blob createInternal(final Map<String, String> headers, BlobIngester ingester) {
     checkNotNull(headers);
 
