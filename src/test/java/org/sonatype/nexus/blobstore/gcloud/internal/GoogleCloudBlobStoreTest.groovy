@@ -26,12 +26,20 @@ import org.sonatype.nexus.common.log.DryRunPrefix
 
 import com.google.api.gax.paging.Page
 import com.google.cloud.datastore.Datastore
+import com.google.cloud.datastore.DatastoreException
+import com.google.cloud.datastore.Entity
 import com.google.cloud.datastore.KeyFactory
+import com.google.cloud.datastore.Query
+import com.google.cloud.datastore.QueryResults
 import com.google.cloud.storage.Bucket
 import com.google.cloud.storage.Storage
 import com.google.cloud.storage.Storage.BlobListOption
 import org.apache.commons.io.IOUtils
 import spock.lang.Specification
+
+import static org.sonatype.nexus.blobstore.api.BlobAttributesConstants.CONTENT_SIZE_ATTRIBUTE
+import static org.sonatype.nexus.blobstore.api.BlobAttributesConstants.CREATION_TIME_ATTRIBUTE
+import static org.sonatype.nexus.blobstore.gcloud.internal.GoogleCloudBlobStore.METADATA_FILENAME
 
 class GoogleCloudBlobStoreTest
   extends Specification
@@ -101,7 +109,10 @@ class GoogleCloudBlobStoreTest
     config.attributes = [ 'google cloud storage': [ bucket: 'mybucket', use_datastore: 'false'] ]
 
     datastoreFactory.create(_) >> datastore
+    keyFactory.setKind('GoogleCloudBlobStoreTest')
     datastore.newKeyFactory() >> keyFactory
+
+    datastore.put(_) >> mockEntity()
   }
 
   def 'initialize successfully from existing bucket'() {
@@ -126,6 +137,27 @@ class GoogleCloudBlobStoreTest
       1 * storage.create(!null)
   }
 
+  def 'start defaults to using datastore for blob attributes'() {
+    when: 'start is called with no data present'
+      storage.get('mybucket') >> bucket
+      blobStore.init(config)
+      blobStore.start()
+
+    then: 'using datastore is true'
+      blobStore.isUsingDatastore()
+  }
+
+  def 'start uses bucket for blob attributes when file metadata.properties is present'() {
+    when: 'start is called with no data present'
+      storage.get('mybucket') >> bucket
+      pretendBlobstoreMetadataExistsAndIndicatesFileType()
+      blobStore.init(config)
+      blobStore.start()
+
+    then: 'using datastore is false'
+      !blobStore.isUsingDatastore()
+  }
+
   def 'store a blob successfully'() {
     given: 'blobstore setup'
       storage.get('mybucket') >> bucket
@@ -144,8 +176,9 @@ class GoogleCloudBlobStoreTest
       storage.get('mybucket') >> bucket
       blobStore.init(config)
       blobStore.doStart()
-      bucket.get('content/existing.properties', _) >> mockGoogleObject(tempFileAttributes)
+      //bucket.get('content/existing.properties', _) >> mockGoogleObject(tempFileAttributes)
       bucket.get('content/existing.bytes', _) >> mockGoogleObject(tempFileBytes)
+      datastore.run(_) >> mockQueryResults(mockEntity())
 
     when: 'call create'
       Blob blob = blobStore.get(new BlobId('existing'))
@@ -160,15 +193,15 @@ class GoogleCloudBlobStoreTest
       blobStore.init(config)
       blobStore.doStart()
       def b1 = com.google.cloud.storage.BlobId.of('foo', 'notundercontent.txt')
-      def b2 = com.google.cloud.storage.BlobId.of('foo', 'content/vol-01/chap-08/thing.properties')
+      //def b2 = com.google.cloud.storage.BlobId.of('foo', 'content/vol-01/chap-08/thing.properties')
       def b3 = com.google.cloud.storage.BlobId.of('foo', 'content/vol-01/chap-08/thing.bytes')
-      def b4 = com.google.cloud.storage.BlobId.of('foo', 'content/vol-02/chap-09/tmp$thing.properties')
+      //def b4 = com.google.cloud.storage.BlobId.of('foo', 'content/vol-02/chap-09/tmp$thing.properties')
       def b5 = com.google.cloud.storage.BlobId.of('foo', 'content/vol-02/chap-09/tmp$thing.bytes')
       def page = Mock(Page)
 
       bucket.list(BlobListOption.prefix(GoogleCloudBlobStore.CONTENT_PREFIX)) >> page
       page.iterateAll() >>
-          [ mockGoogleObject(b1), mockGoogleObject(b2), mockGoogleObject(b3), mockGoogleObject(b4),
+          [ mockGoogleObject(b1)/*, mockGoogleObject(b2)*/, mockGoogleObject(b3)/*, mockGoogleObject(b4)*/,
             mockGoogleObject(b5) ]
 
     when: 'getBlobIdStream called'
@@ -183,7 +216,7 @@ class GoogleCloudBlobStoreTest
   def 'start will accept a metadata.properties originally created with file blobstore'() {
     given: 'metadata.properties comes from a file blobstore'
       storage.get('mybucket') >> bucket
-      2 * bucket.get('metadata.properties', _) >> mockGoogleObject(fileMetadata)
+      bucket.get(METADATA_FILENAME, _) >> mockGoogleObject(fileMetadata)
 
     when: 'doStart is called'
       blobStore.init(config)
@@ -197,7 +230,7 @@ class GoogleCloudBlobStoreTest
     given: 'metadata.properties comes from some unknown blobstore'
       storage.get('mybucket') >> bucket
       storage.get('mybucket') >> bucket
-      2 * bucket.get('metadata.properties', _) >> mockGoogleObject(otherMetadata)
+      bucket.get(METADATA_FILENAME, _) >> mockGoogleObject(otherMetadata)
 
     when: 'doStart is called'
       blobStore.init(config)
@@ -212,7 +245,8 @@ class GoogleCloudBlobStoreTest
       storage.get('mybucket') >> bucket
       blobStore.init(config)
       blobStore.doStart()
-      bucket.get('content/existing.properties', _) >> mockGoogleObject(tempFileAttributes)
+      //bucket.get('content/existing.properties', _) >> mockGoogleObject(tempFileAttributes)
+      datastore.run(_) >> mockQueryResults(mockEntity())
 
     when: 'call exists'
       boolean exists = blobStore.exists(new BlobId('existing'))
@@ -226,6 +260,7 @@ class GoogleCloudBlobStoreTest
       storage.get('mybucket') >> bucket
       blobStore.init(config)
       blobStore.doStart()
+      datastore.run(_) >> mockQueryResults(null)
 
     when: 'call exists'
       boolean exists = blobStore.exists(new BlobId('missing'))
@@ -234,12 +269,13 @@ class GoogleCloudBlobStoreTest
       !exists
   }
 
-  def 'exists throws BlobStoreException when IOException is thrown' () {
+  def 'exists throws BlobStoreException when DatastoreException is thrown' () {
     given: 'blobstore setup'
       storage.get('mybucket') >> bucket
       blobStore.init(config)
       blobStore.doStart()
-      bucket.get('content/existing.properties', _) >> { throw new IOException("this is a test") }
+      //bucket.get('content/existing.properties', _) >> { throw new IOException("this is a test") }
+      datastore.run(_) >> { throw new DatastoreException(new IOException("this is a test")) }
 
     when: 'call exists'
       blobStore.exists(new BlobId('existing'))
@@ -260,5 +296,26 @@ class GoogleCloudBlobStoreTest
     blob.getName() >> blobId.name
     blob.getBlobId() >> blobId
     blob
+  }
+
+  private Entity mockEntity() {
+    Entity.Builder builder = Entity.newBuilder(keyFactory.newKey(UUID.randomUUID().toString()))
+    builder.set(CREATION_TIME_ATTRIBUTE, '100')
+      .set(CONTENT_SIZE_ATTRIBUTE, '1')
+
+    builder.build()
+  }
+
+  private QueryResults<Entity> mockQueryResults(Entity entity) {
+    QueryResults<Entity> result = Mock()
+    if (entity != null) {
+      result.hasNext() >> true
+      result.next() >> entity
+    }
+    result
+  }
+
+  private void pretendBlobstoreMetadataExistsAndIndicatesFileType() {
+    bucket.get(METADATA_FILENAME, _) >> mockGoogleObject(fileMetadata)
   }
 }

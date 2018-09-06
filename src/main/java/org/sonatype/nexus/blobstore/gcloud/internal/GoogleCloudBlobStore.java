@@ -96,7 +96,7 @@ public class GoogleCloudBlobStore
 
   public static final String CONTENT_PREFIX = "content";
 
-  private static final String METADATA_FILENAME = "metadata.properties";
+  static final String METADATA_FILENAME = "metadata.properties";
 
   private static final String TYPE_KEY = "type";
 
@@ -128,6 +128,8 @@ public class GoogleCloudBlobStore
 
   private GoogleCloudBlobAttributesBridge attributesBridge;
 
+  private boolean usingDatastore = true;
+
   @Inject
   public GoogleCloudBlobStore(final GoogleCloudStorageFactory storageFactory,
                               final BlobIdLocationResolver blobIdLocationResolver,
@@ -149,7 +151,7 @@ public class GoogleCloudBlobStore
       String type = metadata.getProperty(TYPE_KEY);
       checkState(TYPE_V1.equals(type) || FILE_V1.equals(type),
           "Unsupported blob store type/version: %s in %s", type, metadata);
-      // TODO set flag to set useDatastore=false if FILE_V1 is present
+      this.usingDatastore = !FILE_V1.equals(type);
     }
     else {
       // assumes new blobstore, write out type
@@ -161,16 +163,23 @@ public class GoogleCloudBlobStore
     metricsStore.setBucket(bucket);
     metricsStore.start();
 
-    boolean useDatastore = Boolean.parseBoolean(
-        blobStoreConfiguration.attributes(CONFIG_KEY).require(USE_DATASTORE_KEY).toString());
-    attributesBridge = new GoogleCloudBlobAttributesBridge(blobStoreConfiguration, blobIdLocationResolver, useDatastore,
-        datastore, bucket, storage);
+    attributesBridge = new GoogleCloudBlobAttributesBridge(blobStoreConfiguration, blobIdLocationResolver,
+        usingDatastore, datastore, bucket, storage);
   }
 
   @Override
   protected void doStop() throws Exception {
     liveBlobs = null;
     metricsStore.stop();
+  }
+
+  boolean isUsingDatastore() {
+    return usingDatastore;
+  }
+
+  public GoogleCloudBlobStore setUsingDatastore(final boolean usingDatastore) {
+    this.usingDatastore = usingDatastore;
+    return this;
   }
 
   @Override

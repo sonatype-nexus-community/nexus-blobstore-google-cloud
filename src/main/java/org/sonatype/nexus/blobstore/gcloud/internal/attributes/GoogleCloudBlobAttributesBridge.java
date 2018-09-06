@@ -8,7 +8,6 @@ import org.sonatype.nexus.blobstore.api.BlobAttributes;
 import org.sonatype.nexus.blobstore.api.BlobId;
 import org.sonatype.nexus.blobstore.api.BlobMetrics;
 import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration;
-import org.sonatype.nexus.common.stateguard.Guarded;
 
 import com.google.cloud.datastore.Datastore;
 import com.google.cloud.storage.Bucket;
@@ -16,7 +15,6 @@ import com.google.cloud.storage.Storage;
 
 import static org.sonatype.nexus.blobstore.gcloud.internal.GoogleCloudBlobStore.BUCKET_KEY;
 import static org.sonatype.nexus.blobstore.gcloud.internal.GoogleCloudBlobStore.CONFIG_KEY;
-import static org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport.State.STARTED;
 
 /**
  * Bridge implementation of {@link BlobAttributesDao} for determining whether to use Google Cloud Datastore

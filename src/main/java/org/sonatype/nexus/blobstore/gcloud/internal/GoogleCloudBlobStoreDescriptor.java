@@ -45,17 +45,10 @@ public class GoogleCloudBlobStoreDescriptor
 
     @DefaultMessage("Absolute path to Google Application Credentials JSON file")
     String credentialHelp();
-
-    @DefaultMessage("Store Attributes in Datastore")
-    String useDatastore();
-
-    @DefaultMessage("Store Blob Attributes in Google Datastore")
-    String useDatastoreHelp();
   }
 
   private final FormField bucket;
   private final FormField credentialFile;
-  private final FormField useDatastore;
 
   private static final Messages messages = I18N.create(Messages.class);
 
@@ -73,13 +66,6 @@ public class GoogleCloudBlobStoreDescriptor
         messages.credentialHelp(),
         FormField.OPTIONAL
     );
-
-    useDatastore = new CheckboxFormField(
-        GoogleCloudBlobStore.USE_DATASTORE_KEY,
-        messages.useDatastore(),
-        messages.useDatastoreHelp(),
-        FormField.MANDATORY
-    ).withInitialValue(true);
   }
 
   @Override
@@ -89,6 +75,6 @@ public class GoogleCloudBlobStoreDescriptor
 
   @Override
   public List<FormField> getFormFields() {
-    return Arrays.asList(bucket, credentialFile, useDatastore);
+    return Arrays.asList(bucket, credentialFile);
   }
 }
