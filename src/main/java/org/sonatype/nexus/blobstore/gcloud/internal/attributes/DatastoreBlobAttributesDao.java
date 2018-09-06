@@ -1,6 +1,5 @@
 package org.sonatype.nexus.blobstore.gcloud.internal.attributes;
 
-import java.io.IOException;
 import java.util.Map;
 import java.util.Properties;
 
@@ -11,9 +10,10 @@ import org.sonatype.nexus.blobstore.api.BlobAttributes;
 import org.sonatype.nexus.blobstore.api.BlobId;
 import org.sonatype.nexus.blobstore.api.BlobMetrics;
 import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration;
-import org.sonatype.nexus.blobstore.gcloud.internal.GoogleCloudBlobAttributes;
+import org.sonatype.nexus.blobstore.api.BlobStoreException;
 
 import com.google.cloud.datastore.Datastore;
+import com.google.cloud.datastore.DatastoreException;
 import com.google.cloud.datastore.Entity;
 import com.google.cloud.datastore.Entity.Builder;
 import com.google.cloud.datastore.Key;
@@ -41,7 +41,7 @@ class DatastoreBlobAttributesDao
 
   DatastoreBlobAttributesDao(final Datastore datastore, final BlobStoreConfiguration configuration) {
     this.gcsDatastore = datastore;
-    this.attributesKeyKind = "NXRM-BlobAttributes-" + configuration.getName();
+    this.attributesKeyKind = "NXRM_BlobAttributes_" + configuration.getName();
     this.keyFactory = gcsDatastore.newKeyFactory().setKind(attributesKeyKind);
   }
 
@@ -99,9 +99,12 @@ class DatastoreBlobAttributesDao
     props.stringPropertyNames()
         .stream().forEach(name -> builder.set(name, props.getProperty(name)));
 
-    // TODO catch DatastoreException and wrap in BlobStoreException?
-    Entity result = gcsDatastore.put(builder.build());
-    return from(result);
+    try {
+      Entity result = gcsDatastore.put(builder.build());
+      return from(result);
+    } catch (DatastoreException e) {
+      throw new BlobStoreException(e, blobId);
+    }
   }
 
   @Override
@@ -115,11 +118,15 @@ class DatastoreBlobAttributesDao
         .setKind(this.attributesKeyKind)
         .setFilter(PropertyFilter.eq("__key__", keyFactory.newKey(blobId.asUniqueString())))
         .build();
-    QueryResults<Entity> results = gcsDatastore.run(query);
-    if (results.hasNext()) {
-      return results.next();
+    try {
+      QueryResults<Entity> results = gcsDatastore.run(query);
+      if (results.hasNext()) {
+        return results.next();
+      }
+      return null;
+    } catch (DatastoreException e) {
+      throw new BlobStoreException(e, blobId);
     }
-    return null;
   }
 
   @Nullable
