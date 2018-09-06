@@ -15,6 +15,7 @@ import com.google.cloud.datastore.QueryResults
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import spock.lang.Specification
+import spock.util.concurrent.PollingConditions
 
 class DatastoreBlobAttributesDaoIT
   extends Specification
@@ -93,6 +94,7 @@ class DatastoreBlobAttributesDaoIT
 
   def 'markDeleted successfully sets deleted'() {
     given:
+      def conditions = new PollingConditions(timeout: 5, initialDelay: 0, factor: 1)
       BlobId id = new BlobId('testing2')
       BlobAttributes blobAttributes = new FileBlobAttributes(FileSystems.getDefault().getPath(tempFileAttributes.getPath()))
       assert blobAttributes.load()
@@ -104,9 +106,13 @@ class DatastoreBlobAttributesDaoIT
       attributesDao.markDeleted(id, 'testreason')
 
     then:
-      BlobAttributes readback = attributesDao.getAttributes(id)
-      readback != null
-      readback.deleted
-      readback.deletedReason =='testreason'
+      conditions.eventually {
+        BlobAttributes readback = attributesDao.getAttributes(id)
+        log.info("after markDeleted: {}", readback)
+        readback != null
+        readback.deleted
+        readback.deletedReason =='testreason'
+      }
+
   }
 }
