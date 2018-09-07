@@ -34,6 +34,7 @@ import com.google.cloud.storage.Storage
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import spock.lang.Specification
+import spock.util.concurrent.PollingConditions
 
 import static org.sonatype.nexus.blobstore.DirectPathLocationStrategy.DIRECT_PATH_PREFIX
 
@@ -142,6 +143,8 @@ class GoogleCloudBlobStoreIT
 
   def "undelete successfully makes blob accessible"() {
     given:
+      def conditions = new PollingConditions(timeout: 5, initialDelay: 0, factor: 1)
+
       Blob blob = blobStore.create(new ByteArrayInputStream('hello'.getBytes()),
           [ (BlobStore.BLOB_NAME_HEADER): 'foo',
             (BlobStore.CREATED_BY_HEADER): 'someuser' ] )
@@ -155,10 +158,12 @@ class GoogleCloudBlobStoreIT
       !blobStore.undelete(usageChecker, blob.id, deletedAttributes, false)
 
     then:
-      Blob after = blobStore.get(blob.id)
-      after != null
-      BlobAttributes attributesAfter = blobStore.getBlobAttributes(blob.id)
-      !attributesAfter.deleted
+      conditions.eventually {
+        Blob after = blobStore.get(blob.id)
+        after != null
+        BlobAttributes attributesAfter = blobStore.getBlobAttributes(blob.id)
+        !attributesAfter.deleted
+      }
   }
 
   def "undelete does nothing when dry run is true"() {

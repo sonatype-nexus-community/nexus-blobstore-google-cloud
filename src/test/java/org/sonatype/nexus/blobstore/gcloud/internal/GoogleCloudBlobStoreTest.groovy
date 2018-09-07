@@ -29,7 +29,6 @@ import com.google.cloud.datastore.Datastore
 import com.google.cloud.datastore.DatastoreException
 import com.google.cloud.datastore.Entity
 import com.google.cloud.datastore.KeyFactory
-import com.google.cloud.datastore.Query
 import com.google.cloud.datastore.QueryResults
 import com.google.cloud.storage.Bucket
 import com.google.cloud.storage.Storage

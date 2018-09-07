@@ -152,6 +152,7 @@ class DatastoreBlobAttributesDao
 
     protected GCBlobAttributes(Map<String, String> headers, BlobMetrics metrics) {
       super(new Properties(), headers, metrics);
+      writeTo(propertiesFile);
     }
 
     @Override
