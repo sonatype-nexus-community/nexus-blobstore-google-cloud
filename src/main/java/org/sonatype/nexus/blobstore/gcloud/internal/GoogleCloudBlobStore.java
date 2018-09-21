@@ -88,8 +88,6 @@ public class GoogleCloudBlobStore
 
   public static final String BUCKET_KEY = "bucket";
 
-  public static final String USE_DATASTORE_KEY = "use_datastore";
-
   static final String CREDENTIAL_FILE_KEY = "credential_file";
 
   private static final String BLOB_CONTENT_SUFFIX = ".bytes";

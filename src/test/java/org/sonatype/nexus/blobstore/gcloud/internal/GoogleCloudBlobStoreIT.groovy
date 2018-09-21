@@ -37,6 +37,8 @@ import spock.lang.Specification
 import spock.util.concurrent.PollingConditions
 
 import static org.sonatype.nexus.blobstore.DirectPathLocationStrategy.DIRECT_PATH_PREFIX
+import static org.sonatype.nexus.blobstore.api.BlobAttributesConstants.HEADER_PREFIX
+import static org.sonatype.nexus.blobstore.api.BlobStore.BLOB_NAME_HEADER
 
 class GoogleCloudBlobStoreIT
   extends Specification
@@ -72,9 +74,12 @@ class GoogleCloudBlobStoreIT
 
   BlobStoreUsageChecker usageChecker = Mock()
 
+  def conditions = new PollingConditions(timeout: 5, initialDelay: 0, factor: 1)
+
   def setup() {
+    config.name = 'GoogleCloudBlobStoreIT'
     config.attributes = [
-        'name': 'gcs-test',
+        'name': 'GoogleCloudBlobStoreIT',
         'google cloud storage': [
             bucket: bucketName,
             credential_file: this.getClass().getResource('/gce-credentials.json').getFile(),
@@ -143,8 +148,6 @@ class GoogleCloudBlobStoreIT
 
   def "undelete successfully makes blob accessible"() {
     given:
-      def conditions = new PollingConditions(timeout: 5, initialDelay: 0, factor: 1)
-
       Blob blob = blobStore.create(new ByteArrayInputStream('hello'.getBytes()),
           [ (BlobStore.BLOB_NAME_HEADER): 'foo',
             (BlobStore.CREATED_BY_HEADER): 'someuser' ] )
@@ -172,7 +175,11 @@ class GoogleCloudBlobStoreIT
           [ (BlobStore.BLOB_NAME_HEADER): 'foo',
             (BlobStore.CREATED_BY_HEADER): 'someuser' ] )
       assert blob != null
-      BlobAttributes attributes = blobStore.getBlobAttributes(blob.id)
+      BlobAttributes attributes
+      conditions.eventually {
+        attributes = blobStore.getBlobAttributes(blob.id)
+        assert attributes != null
+      }
       assert blobStore.delete(blob.id, 'testing')
       BlobAttributes deletedAttributes = blobStore.getBlobAttributes(blob.id)
       assert deletedAttributes.deleted
@@ -188,8 +195,14 @@ class GoogleCloudBlobStoreIT
   }
 
   def "undelete does nothing on non-existent blob"() {
-    expect:
+    given:
+      Properties properties = new Properties()
+      properties.setProperty(HEADER_PREFIX + BLOB_NAME_HEADER, 'nonexistent')
       BlobAttributes attributes = Mock()
+      attributes.deleted >> false
+      attributes.properties >> properties
+
+    expect:
       !blobStore.undelete(usageChecker, new BlobId("nonexistent"), attributes, false)
   }
 
