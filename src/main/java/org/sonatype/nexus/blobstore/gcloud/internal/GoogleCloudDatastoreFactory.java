@@ -13,7 +13,6 @@
 package org.sonatype.nexus.blobstore.gcloud.internal;
 
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 
 import javax.inject.Named;
 
