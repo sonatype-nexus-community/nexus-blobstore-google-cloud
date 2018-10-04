@@ -175,7 +175,6 @@ class GoogleCloudBlobStoreTest
       storage.get('mybucket') >> bucket
       blobStore.init(config)
       blobStore.doStart()
-      //bucket.get('content/existing.properties', _) >> mockGoogleObject(tempFileAttributes)
       bucket.get('content/existing.bytes', _) >> mockGoogleObject(tempFileBytes)
       datastore.run(_) >> mockQueryResults(mockEntity())
 
@@ -192,9 +191,7 @@ class GoogleCloudBlobStoreTest
       blobStore.init(config)
       blobStore.doStart()
       def b1 = com.google.cloud.storage.BlobId.of('foo', 'notundercontent.txt')
-      //def b2 = com.google.cloud.storage.BlobId.of('foo', 'content/vol-01/chap-08/thing.properties')
       def b3 = com.google.cloud.storage.BlobId.of('foo', 'content/vol-01/chap-08/thing.bytes')
-      //def b4 = com.google.cloud.storage.BlobId.of('foo', 'content/vol-02/chap-09/tmp$thing.properties')
       def b5 = com.google.cloud.storage.BlobId.of('foo', 'content/vol-02/chap-09/tmp$thing.bytes')
       def page = Mock(Page)
 
@@ -244,7 +241,6 @@ class GoogleCloudBlobStoreTest
       storage.get('mybucket') >> bucket
       blobStore.init(config)
       blobStore.doStart()
-      //bucket.get('content/existing.properties', _) >> mockGoogleObject(tempFileAttributes)
       datastore.run(_) >> mockQueryResults(mockEntity())
 
     when: 'call exists'
@@ -273,7 +269,6 @@ class GoogleCloudBlobStoreTest
       storage.get('mybucket') >> bucket
       blobStore.init(config)
       blobStore.doStart()
-      //bucket.get('content/existing.properties', _) >> { throw new IOException("this is a test") }
       datastore.run(_) >> { throw new DatastoreException(new IOException("this is a test")) }
 
     when: 'call exists'

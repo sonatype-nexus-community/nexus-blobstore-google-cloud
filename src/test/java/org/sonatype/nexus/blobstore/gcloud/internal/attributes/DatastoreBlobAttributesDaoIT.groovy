@@ -45,7 +45,6 @@ class DatastoreBlobAttributesDaoIT
   def conditions = new PollingConditions(timeout: 5, initialDelay: 0, factor: 1)
 
   def setupSpec() {
-    config.name = 'DatabaseBlobAttributesDaoIT'
     config.attributes = [
         'google cloud storage': [
             credential_file: this.getClass().getResource('/gce-credentials.json').getFile()

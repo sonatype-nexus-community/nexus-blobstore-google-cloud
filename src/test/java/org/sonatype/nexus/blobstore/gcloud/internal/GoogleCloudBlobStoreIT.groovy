@@ -83,7 +83,6 @@ class GoogleCloudBlobStoreIT
         'google cloud storage': [
             bucket: bucketName,
             credential_file: this.getClass().getResource('/gce-credentials.json').getFile(),
-            use_datastore: 'false'
         ]
     ]
 
