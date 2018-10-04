@@ -517,7 +517,6 @@ public class GoogleCloudBlobStore
     final String blobPath = contentPath(blobId);
     final String attributePath = attributePath(blobId);
     final GoogleCloudStorageBlob blob = liveBlobs.getUnchecked(blobId);
-    GoogleCloudBlobAttributes blobAttributes = null;
     Lock lock = blob.lock();
     try {
       log.debug("Writing blob {} to {}", blobId, blobPath);
@@ -526,7 +525,7 @@ public class GoogleCloudBlobStore
       final BlobMetrics metrics = new BlobMetrics(new DateTime(), streamMetrics.getSha1(), streamMetrics.getSize());
       blob.refresh(headers, metrics);
 
-      blobAttributes = new GoogleCloudBlobAttributes(bucket, attributePath, headers, metrics);
+      GoogleCloudBlobAttributes blobAttributes = new GoogleCloudBlobAttributes(bucket, attributePath, headers, metrics);
 
       blobAttributes.store();
       metricsStore.recordAddition(blobAttributes.getMetrics().getContentSize());

@@ -12,17 +12,26 @@
  */
 package org.sonatype.nexus.blobstore.gcloud.internal;
 
+import java.net.ProxySelector;
+
 import com.google.api.client.http.apache.ApacheHttpTransport;
 import com.google.cloud.TransportOptions;
 import com.google.cloud.http.HttpTransportOptions;
-import com.google.cloud.storage.Storage;
 import org.apache.http.client.HttpClient;
+import org.apache.http.conn.ClientConnectionManager;
+import org.apache.http.conn.params.ConnManagerParams;
+import org.apache.http.conn.params.ConnPerRouteBean;
+import org.apache.http.conn.scheme.PlainSocketFactory;
+import org.apache.http.conn.scheme.Scheme;
+import org.apache.http.conn.scheme.SchemeRegistry;
+import org.apache.http.conn.ssl.SSLSocketFactory;
 import org.apache.http.impl.client.DefaultHttpClient;
-import org.apache.http.impl.client.HttpClientBuilder;
-import org.apache.http.impl.conn.PoolingClientConnectionManager;
-import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
+import org.apache.http.impl.client.DefaultHttpRequestRetryHandler;
+import org.apache.http.impl.conn.ProxySelectorRoutePlanner;
+import org.apache.http.impl.conn.tsccm.ThreadSafeClientConnManager;
 import org.apache.http.params.BasicHttpParams;
-import org.apache.http.params.CoreConnectionPNames;
+import org.apache.http.params.HttpConnectionParams;
+import org.apache.http.params.HttpParams;
 
 /**
  * Abstract supertype for Factory classes that generate Google Clients (for Storage, Datastore, etc).
@@ -30,32 +39,65 @@ import org.apache.http.params.CoreConnectionPNames;
 public abstract class AbstractGoogleClientFactory
 {
   /**
-   * This method overrides the default {@link com.google.auth.http.HttpTransportFactory} with the Apache HTTP Client
-   * backed implementation. In addition, it modifies the {@link HttpClient} used internally to use a
-   * {@link PoolingClientConnectionManager}.
+   * Fixed keep-alive for HTTP connections of 1 minute.
+   */
+  public static final long KEEP_ALIVE_DURATION = 60_000L;
+
+  /**
+   * Provide a {@link TransportOptions} backed by Apache HTTP Client.
    *
-   * Note: at time of writing, this method uses deprecated classes that have been replaced in HttpClient with
-   * {@link HttpClientBuilder}. We cannot use {@link HttpClientBuilder} currently because of a problem with the
-   * Google Cloud Storage library's {@link ApacheHttpTransport} constructor; the {@link HttpClient} instance
-   * returned by {@link HttpClientBuilder#build()} throws an {@link UnsupportedOperationException} for
-   * {@link HttpClient#getParams()}.
-   *
-   * @see PoolingHttpClientConnectionManager
-   * @see HttpClientBuilder
-   * @return customized {@link TransportOptions} to use for our {@link Storage} client instance
+   * @see ApacheHttpTransport
+   * @return customized {@link TransportOptions} to use for our Google client instances
    */
   TransportOptions transportOptions() {
-    // replicate default connection and protocol parameters used within {@link ApacheHttpTransport}
-    PoolingClientConnectionManager connManager = new PoolingClientConnectionManager();
-    connManager.setDefaultMaxPerRoute(20);
-    connManager.setMaxTotal(200);
-    BasicHttpParams params = new BasicHttpParams();
-    params.setParameter(CoreConnectionPNames.STALE_CONNECTION_CHECK, false);
-    params.setParameter(CoreConnectionPNames.SOCKET_BUFFER_SIZE, 8192);
-    DefaultHttpClient client = new DefaultHttpClient(connManager, params);
-
     return HttpTransportOptions.newBuilder()
-        .setHttpTransportFactory(() -> new ApacheHttpTransport(client))
+        .setHttpTransportFactory(() -> new ApacheHttpTransport(newHttpClient()))
         .build();
+  }
+
+  HttpClient newHttpClient() {
+    return newDefaultHttpClient(
+        SSLSocketFactory.getSocketFactory(), newDefaultHttpParams(), ProxySelector.getDefault());
+  }
+
+  /**
+   * Replicates default connection and protocol parameters used within
+   * {@link ApacheHttpTransport#newDefaultHttpClient()} with one exception:
+   *
+   * Stale checking is enabled.
+   */
+  HttpParams newDefaultHttpParams() {
+    HttpParams params = new BasicHttpParams();
+    HttpConnectionParams.setStaleCheckingEnabled(params, true);
+    HttpConnectionParams.setSocketBufferSize(params, 8192);
+    ConnManagerParams.setMaxTotalConnections(params, 200);
+    ConnManagerParams.setMaxConnectionsPerRoute(params, new ConnPerRouteBean(20));
+    return params;
+  }
+
+  /**
+   * Replicates {@link ApacheHttpTransport#newDefaultHttpClient()} with one exception:
+   *
+   * 1 retry is allowed.
+   *
+   * @see DefaultHttpRequestRetryHandler
+   */
+  DefaultHttpClient newDefaultHttpClient(
+      SSLSocketFactory socketFactory, HttpParams params, ProxySelector proxySelector) {
+    SchemeRegistry registry = new SchemeRegistry();
+    registry.register(new Scheme("http", PlainSocketFactory.getSocketFactory(), 80));
+    registry.register(new Scheme("https", socketFactory, 443));
+    ClientConnectionManager connectionManager = new ThreadSafeClientConnManager(params, registry);
+    DefaultHttpClient defaultHttpClient = new DefaultHttpClient(connectionManager, params);
+    // retry only once
+    defaultHttpClient.setHttpRequestRetryHandler(new DefaultHttpRequestRetryHandler(1, true));
+    if (proxySelector != null) {
+      defaultHttpClient.setRoutePlanner(new ProxySelectorRoutePlanner(registry, proxySelector));
+    }
+    defaultHttpClient.setKeepAliveStrategy((response, context) -> {
+      //
+      return KEEP_ALIVE_DURATION;
+    });
+    return defaultHttpClient;
   }
 }
