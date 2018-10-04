@@ -94,10 +94,7 @@ public abstract class AbstractGoogleClientFactory
     if (proxySelector != null) {
       defaultHttpClient.setRoutePlanner(new ProxySelectorRoutePlanner(registry, proxySelector));
     }
-    defaultHttpClient.setKeepAliveStrategy((response, context) -> {
-      //
-      return KEEP_ALIVE_DURATION;
-    });
+    defaultHttpClient.setKeepAliveStrategy((response, context) -> KEEP_ALIVE_DURATION);
     return defaultHttpClient;
   }
 }
