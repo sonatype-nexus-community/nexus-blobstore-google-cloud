@@ -14,6 +14,7 @@ package org.sonatype.nexus.blobstore.gcloud.internal
 
 import java.util.stream.Collectors
 import java.util.stream.Stream
+import java.util.stream.StreamSupport
 
 import org.sonatype.nexus.blobstore.BlobIdLocationResolver
 import org.sonatype.nexus.blobstore.DefaultBlobIdLocationResolver
@@ -36,6 +37,7 @@ import org.slf4j.LoggerFactory
 import spock.lang.Specification
 
 import static org.sonatype.nexus.blobstore.DirectPathLocationStrategy.DIRECT_PATH_PREFIX
+import static org.sonatype.nexus.blobstore.gcloud.internal.AbstractGoogleClientFactory.KEEP_ALIVE_DURATION
 
 class GoogleCloudBlobStoreIT
   extends Specification
@@ -101,8 +103,12 @@ class GoogleCloudBlobStoreIT
     Storage storage = new GoogleCloudStorageFactory().create(config)
     log.debug("Tests complete, deleting files from ${bucketName}")
     // must delete all the files within the bucket before we can delete the bucket
-    storage.list(bucketName,
+    Iterator<com.google.cloud.storage.Blob> list = storage.list(bucketName,
         Storage.BlobListOption.prefix("")).iterateAll()
+        .iterator()
+
+    Iterable<com.google.cloud.storage.Blob> iterable = { _ -> list }
+    StreamSupport.stream(iterable.spliterator(), true)
         .forEach({ b -> b.delete(BlobSourceOption.generationMatch()) })
     storage.delete(bucketName)
     log.info("Integration test complete, bucket ${bucketName} deleted")
@@ -144,6 +150,7 @@ class GoogleCloudBlobStoreIT
           [ (BlobStore.BLOB_NAME_HEADER): 'foo',
             (BlobStore.CREATED_BY_HEADER): 'someuser' ] )
       assert blob != null
+      assert blobStore.getBlobAttributes(blob.id) != null
       assert blobStore.delete(blob.id, 'testing')
       BlobAttributes deletedAttributes = blobStore.getBlobAttributes(blob.id)
       assert deletedAttributes.deleted
@@ -166,6 +173,7 @@ class GoogleCloudBlobStoreIT
             (BlobStore.CREATED_BY_HEADER): 'someuser' ] )
       assert blob != null
       BlobAttributes attributes = blobStore.getBlobAttributes(blob.id)
+      assert attributes != null
       assert blobStore.delete(blob.id, 'testing')
       BlobAttributes deletedAttributes = blobStore.getBlobAttributes(blob.id)
       assert deletedAttributes.deleted
@@ -184,6 +192,22 @@ class GoogleCloudBlobStoreIT
     expect:
       BlobAttributes attributes = Mock()
       !blobStore.undelete(usageChecker, new BlobId("nonexistent"), attributes, false)
+  }
+
+  def "create after keep-alive window closes is still successful"() {
+    expect:
+      Blob blob = blobStore.create(new ByteArrayInputStream('hello'.getBytes()),
+          [ (BlobStore.BLOB_NAME_HEADER): 'foo1',
+            (BlobStore.CREATED_BY_HEADER): 'someuser' ] )
+      assert blob != null
+      // sit for at least the time on our keep alives, so that any held connections close
+      log.info("waiting for ${(KEEP_ALIVE_DURATION + 1000L) / 1000L} seconds any stale connections to close")
+      sleep(KEEP_ALIVE_DURATION + 1000L)
+
+      Blob blob2 = blobStore.create(new ByteArrayInputStream('hello'.getBytes()),
+          [ (BlobStore.BLOB_NAME_HEADER): 'foo2',
+            (BlobStore.CREATED_BY_HEADER): 'someuser' ] )
+      assert blob2 != null
   }
 
   def createFile(Storage storage, String path) {
