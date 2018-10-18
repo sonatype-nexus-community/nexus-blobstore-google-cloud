@@ -20,7 +20,7 @@
   <parent>
     <groupId>org.sonatype.nexus.plugins</groupId>
     <artifactId>nexus-plugins</artifactId>
-    <version>3.13.0-01</version>
+    <version>3.14.0-04</version>
   </parent>
 
   <artifactId>nexus-blobstore-google-cloud</artifactId>
@@ -30,7 +30,7 @@
   <packaging>bundle</packaging>
 
   <properties>
-    <google-cloud.version>1.35.0</google-cloud.version>
+    <google-cloud.version>1.49.0</google-cloud.version>
   </properties>
 
   <dependencies>

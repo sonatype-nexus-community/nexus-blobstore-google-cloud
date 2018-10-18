@@ -30,6 +30,7 @@ import org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport;
 
 import com.google.cloud.storage.Bucket;
 import com.google.cloud.storage.Storage.BlobListOption;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -134,7 +135,7 @@ public class GoogleCloudBlobStoreMetricsStore
 
   private BlobStoreMetrics getCombinedMetrics(final Stream<GoogleCloudPropertiesFile> blobStoreMetricsFiles) {
     AccumulatingBlobStoreMetrics blobStoreMetrics = new AccumulatingBlobStoreMetrics(0, 0,
-        Long.MAX_VALUE, true);
+        ImmutableMap.of("gcp", Long.MAX_VALUE), true);
 
     blobStoreMetricsFiles.forEach(metricsFile -> {
       try {
