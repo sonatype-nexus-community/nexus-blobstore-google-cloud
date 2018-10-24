@@ -13,6 +13,10 @@
 package org.sonatype.nexus.blobstore.gcloud.internal;
 
 import java.io.FileInputStream;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
 import javax.inject.Named;
 
@@ -21,6 +25,8 @@ import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration;
 import com.google.auth.oauth2.ServiceAccountCredentials;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageOptions;
+import com.google.gson.JsonParser;
+import com.google.gson.JsonObject;
 import org.apache.shiro.util.StringUtils;
 
 import static org.sonatype.nexus.blobstore.gcloud.internal.GoogleCloudBlobStore.CONFIG_KEY;
@@ -36,8 +42,14 @@ public class GoogleCloudStorageFactory extends AbstractGoogleClientFactory
     String credentialFile = configuration.attributes(CONFIG_KEY).get(CREDENTIAL_FILE_KEY, String.class);
     if (StringUtils.hasText(credentialFile)) {
        builder.setCredentials(ServiceAccountCredentials.fromStream(new FileInputStream(credentialFile)));
+       builder.setProjectId(getProjectId(credentialFile));
     }
 
     return builder.build().getService();
+  }
+
+  String getProjectId(String credentialFile) throws IOException {
+    JsonObject credentialJsonObject = new JsonParser().parse(new String(Files.readAllBytes(Paths.get(credentialFile)), StandardCharsets.UTF_8)).getAsJsonObject();
+    return credentialJsonObject.get("project_id").getAsString();
   }
 }
