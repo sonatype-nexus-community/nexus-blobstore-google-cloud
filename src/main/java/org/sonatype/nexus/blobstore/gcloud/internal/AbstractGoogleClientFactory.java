@@ -12,11 +12,19 @@
  */
 package org.sonatype.nexus.blobstore.gcloud.internal;
 
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.Reader;
 import java.net.ProxySelector;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
 import com.google.api.client.http.apache.ApacheHttpTransport;
 import com.google.cloud.TransportOptions;
 import com.google.cloud.http.HttpTransportOptions;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import org.apache.http.client.HttpClient;
 import org.apache.http.conn.ClientConnectionManager;
 import org.apache.http.conn.params.ConnManagerParams;
@@ -96,5 +104,18 @@ public abstract class AbstractGoogleClientFactory
     }
     defaultHttpClient.setKeepAliveStrategy((response, context) -> KEEP_ALIVE_DURATION);
     return defaultHttpClient;
+  }
+
+  /**
+   * Utility method to help extract project_id field from the credential file.
+   *
+   * @param credentialFile the absolute path to the Google Cloud credential file
+   * @throws IOException
+   */
+  String getProjectId(String credentialFile) throws IOException {
+    try (Reader reader = new FileReader(credentialFile)) {
+      JsonObject credentialJsonObject = new JsonParser().parse(reader).getAsJsonObject();
+      return credentialJsonObject.get("project_id").getAsString();
+    }
   }
 }
