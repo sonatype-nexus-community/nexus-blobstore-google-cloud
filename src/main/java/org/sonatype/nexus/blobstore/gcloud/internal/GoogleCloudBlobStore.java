@@ -16,6 +16,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.channels.Channels;
 import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -52,6 +54,7 @@ import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.Storage.BlobField;
 import com.google.cloud.storage.Storage.BlobGetOption;
 import com.google.cloud.storage.Storage.BlobListOption;
+import com.google.cloud.storage.StorageException;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableMap;
@@ -463,12 +466,14 @@ public class GoogleCloudBlobStore
    * @throws BlobStoreException if an IOException occurs
    */
   @Override
+  @Guarded(by = STARTED)
   public boolean exists(final BlobId blobId) {
     checkNotNull(blobId);
     return getBlobAttributes(blobId) != null;
   }
 
   @Override
+  @Guarded(by = STARTED)
   public boolean undelete(@Nullable final BlobStoreUsageChecker blobStoreUsageChecker,
                           final BlobId blobId,
                           final BlobAttributes attributes,
@@ -504,6 +509,18 @@ public class GoogleCloudBlobStore
       return true;
     }
     return false;
+  }
+
+  @Override
+  @Guarded(by = STARTED)
+  public boolean isWritable() {
+    try {
+      List<Boolean> results = storage.testIamPermissions(getConfiguredBucketName(),
+          Arrays.asList("storage.objects.create", "storage.objects.delete"));
+      return !results.contains(false);
+    } catch (StorageException e) {
+      throw new BlobStoreException("failed to retrive User ACL for " + getConfiguredBucketName(), e, null);
+    }
   }
 
   Blob createInternal(final Map<String, String> headers, BlobIngester ingester) {

@@ -114,6 +114,16 @@ class GoogleCloudBlobStoreIT
     log.info("Integration test complete, bucket ${bucketName} deleted")
   }
 
+  def "isWritable true for buckets created by the Integration Test"() {
+    expect:
+      blobStore.isWritable()
+  }
+
+  def "isGroupable is true"() {
+    expect:
+      blobStore.isGroupable()
+  }
+
   def "getDirectPathBlobIdStream returns empty stream for missing prefix"() {
     given:
 
