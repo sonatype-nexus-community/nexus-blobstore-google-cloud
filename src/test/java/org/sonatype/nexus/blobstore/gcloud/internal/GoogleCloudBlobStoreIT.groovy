@@ -90,6 +90,8 @@ class GoogleCloudBlobStoreIT
 
   BlobStoreUsageChecker usageChecker = Mock()
 
+  MultipartUploader uploader = new MultipartUploader(1024)
+
   def setup() {
     quotaService = new BlobStoreQuotaServiceImpl([
         (SpaceUsedQuota.ID): new SpaceUsedQuota()
@@ -100,7 +102,7 @@ class GoogleCloudBlobStoreIT
     log.info("Integration test using bucket ${bucketName}")
 
     blobStore = new GoogleCloudBlobStore(storageFactory, blobIdLocationResolver, datastoreFactory,
-        periodicJobService, new DryRunPrefix("TEST "), metricRegistry, quotaService, 60)
+        periodicJobService, new DryRunPrefix("TEST "), uploader, metricRegistry, quotaService, 60)
     blobStore.init(config)
 
     blobStore.start()
@@ -335,7 +337,7 @@ class GoogleCloudBlobStoreIT
       def bucket2 = "multi-tenancy-test-${uid}"
       def config2 = makeConfig("multi-tenant-test-${uid}", bucket2)
       def blobStore2 = new GoogleCloudBlobStore(storageFactory, blobIdLocationResolver, datastoreFactory,
-          periodicJobService, new DryRunPrefix("TEST "), metricRegistry, quotaService, 60)
+          periodicJobService, new DryRunPrefix("TEST "), uploader, metricRegistry, quotaService, 60)
       blobStore2.init(config2)
       blobStore2.start()
 
@@ -416,4 +418,13 @@ class GoogleCloudBlobStoreIT
     storage.delete(bucket)
     log.info("bucket ${bucket} deleted")
   }
+
+  def createFile(Storage storage, String path, long size) {
+    byte [] content = new byte[size]
+    new Random().nextBytes(content)
+    storage.create(BlobInfo.newBuilder(bucketName, path).build(),
+      content)
+  }
+
+
 }

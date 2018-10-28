@@ -126,23 +126,26 @@ public class GoogleCloudBlobStore
 
   private MetricRegistry metricRegistry;
 
+  private final MultipartUploader multipartUploader;
+
   private PeriodicJob quotaCheckingJob;
-  
+
   @Inject
   public GoogleCloudBlobStore(final GoogleCloudStorageFactory storageFactory,
                               final BlobIdLocationResolver blobIdLocationResolver,
                               final GoogleCloudDatastoreFactory datastoreFactory,
                               final PeriodicJobService periodicJobService,
                               final DryRunPrefix dryRunPrefix,
+                              final MultipartUploader multipartUploader,
                               final MetricRegistry metricRegistry,
                               final BlobStoreQuotaService quotaService,
                               @Named("${nexus.blobstore.quota.warnIntervalSeconds:-60}")
-                              final int quotaCheckInterval)
-  {
+                                final int quotaCheckInterval) {
     super(blobIdLocationResolver, dryRunPrefix);
     this.storageFactory = checkNotNull(storageFactory);
     this.metricsStore = new ShardedCounterMetricsStore(blobIdLocationResolver, datastoreFactory, periodicJobService);
     this.datastoreFactory = datastoreFactory;
+    this.multipartUploader = multipartUploader;
     this.metricRegistry = metricRegistry;
     this.quotaCheckingJob = periodicJobService.schedule(createQuotaCheckJob(this, quotaService, log), quotaCheckInterval);
 
@@ -163,7 +166,7 @@ public class GoogleCloudBlobStore
       metadata.store();
     }
     liveBlobs = CacheBuilder.newBuilder().weakValues().recordStats().build(from(GoogleCloudStorageBlob::new));
-    
+
     wrapWithGauge("liveBlobsCache.size", () -> liveBlobs.size());
     wrapWithGauge("liveBlobsCache.hitCount", () -> liveBlobs.stats().hitCount());
     wrapWithGauge("liveBlobsCache.missCount", () -> liveBlobs.stats().missCount());
@@ -195,7 +198,19 @@ public class GoogleCloudBlobStore
     return createInternal(headers, destination -> {
       try (InputStream data = blobData) {
         MetricsInputStream input = new MetricsInputStream(data);
-        bucket.create(destination, input);
+
+        multipartUploader.upload(storage, getConfiguredBucketName(), destination, input);
+       /* BlobInfo blobInfo = BlobInfo.newBuilder(getConfiguredBucketName(), destination).build();
+        try (WriteChannel writeChannel = storage.writer(blobInfo)) {
+          int limit;
+          // 1024 vs 1048576
+          byte[] buffer = new byte[1048576];
+          while ((limit = input.read(buffer)) >= 0) {
+            writeChannel.write(ByteBuffer.wrap(buffer, 0, limit));
+          }
+        }*/
+
+        //bucket.create(destination, input);
         return input.getMetrics();
       }
     }, blobId);

@@ -60,6 +60,8 @@ class GoogleCloudBlobStoreTest
 
   Datastore datastore = Mock()
 
+  MultipartUploader uploader = new MultipartUploader(1024)
+
   BlobStoreQuotaService quotaService = Mock()
 
   KeyFactory keyFactory = new KeyFactory("testing")
@@ -69,8 +71,8 @@ class GoogleCloudBlobStoreTest
       (BlobStore.CREATED_BY_HEADER): 'admin'
   ]
   GoogleCloudBlobStore blobStore = new GoogleCloudBlobStore(
-      storageFactory, blobIdLocationResolver, datastoreFactory, periodicJobService, new DryRunPrefix("TEST "),
-      metricRegistry, quotaService, 60)
+      storageFactory, blobIdLocationResolver, metricsStore, datastoreFactory, new DryRunPrefix("TEST "),
+      uploader, metricRegistry, quotaService, 60)
 
   def config = new BlobStoreConfiguration()
 
