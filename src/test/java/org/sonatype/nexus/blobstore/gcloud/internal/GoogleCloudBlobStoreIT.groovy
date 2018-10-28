@@ -73,6 +73,8 @@ class GoogleCloudBlobStoreIT
 
   BlobStoreUsageChecker usageChecker = Mock()
 
+  MultipartUploader uploader = new MultipartUploader(1024)
+
   def setup() {
     config.attributes = [
         'google cloud storage': [
@@ -86,7 +88,7 @@ class GoogleCloudBlobStoreIT
     metricsStore = new GoogleCloudBlobStoreMetricsStore(periodicJobService, nodeAccess)
     // can't start metrics store until blobstore init is done (which creates the bucket)
     blobStore = new GoogleCloudBlobStore(storageFactory, blobIdLocationResolver, metricsStore, datastoreFactory,
-        new DryRunPrefix("TEST "))
+        new DryRunPrefix("TEST "), uploader)
     blobStore.init(config)
 
     blobStore.start()
@@ -139,10 +141,10 @@ class GoogleCloudBlobStoreIT
       Storage storage = storageFactory.create(config)
       // mimic some RHC content, which is stored as directpath blobs
       // 4 files, but only 2 blobIds (a .bytes and a .properties blob for each blobId)
-      createFile(storage, "content/directpath/health-check/repo1/report.properties.bytes")
-      createFile(storage, "content/directpath/health-check/repo1/report.properties.properties")
-      createFile(storage, "content/directpath/health-check/repo1/details/bootstrap.min.css.properties")
-      createFile(storage, "content/directpath/health-check/repo1/details/bootstrap.min.css.bytes")
+      createFile(storage, "content/directpath/health-check/repo1/report.properties.bytes", 1024 * 2)
+      createFile(storage, "content/directpath/health-check/repo1/report.properties.properties", 100)
+      createFile(storage, "content/directpath/health-check/repo1/details/bootstrap.min.css.properties", 1024* 3)
+      createFile(storage, "content/directpath/health-check/repo1/details/bootstrap.min.css.bytes", 100)
 
     when:
      Stream<BlobId> stream = blobStore.getDirectPathBlobIdStream('health-check/repo1')
@@ -220,8 +222,10 @@ class GoogleCloudBlobStoreIT
       assert blob2 != null
   }
 
-  def createFile(Storage storage, String path) {
+  def createFile(Storage storage, String path, long size) {
+    byte [] content = new byte[size]
+    new Random().nextBytes(content)
     storage.create(BlobInfo.newBuilder(bucketName, path).build(),
-      "content".bytes)
+      content)
   }
 }

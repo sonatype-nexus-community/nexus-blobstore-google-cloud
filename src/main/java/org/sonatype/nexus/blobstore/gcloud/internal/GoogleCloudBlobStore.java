@@ -126,17 +126,21 @@ public class GoogleCloudBlobStore
 
   private final DryRunPrefix dryRunPrefix;
 
+  private final MultipartUploader multipartUploader;
+
   @Inject
   public GoogleCloudBlobStore(final GoogleCloudStorageFactory storageFactory,
                               final BlobIdLocationResolver blobIdLocationResolver,
                               final GoogleCloudBlobStoreMetricsStore metricsStore,
                               final GoogleCloudDatastoreFactory datastoreFactory,
-                              final DryRunPrefix dryRunPrefix) {
+                              final DryRunPrefix dryRunPrefix,
+                              final MultipartUploader multipartUploader) {
     this.storageFactory = checkNotNull(storageFactory);
     this.blobIdLocationResolver = checkNotNull(blobIdLocationResolver);
     this.metricsStore = metricsStore;
     this.datastoreFactory = datastoreFactory;
     this.dryRunPrefix = dryRunPrefix;
+    this.multipartUploader = multipartUploader;
   }
 
   @Override
@@ -173,7 +177,19 @@ public class GoogleCloudBlobStore
     return createInternal(headers, destination -> {
       try (InputStream data = inputStream) {
         MetricsInputStream input = new MetricsInputStream(data);
-        bucket.create(destination, input);
+
+        multipartUploader.upload(storage, getConfiguredBucketName(), destination, input);
+       /* BlobInfo blobInfo = BlobInfo.newBuilder(getConfiguredBucketName(), destination).build();
+        try (WriteChannel writeChannel = storage.writer(blobInfo)) {
+          int limit;
+          // 1024 vs 1048576
+          byte[] buffer = new byte[1048576];
+          while ((limit = input.read(buffer)) >= 0) {
+            writeChannel.write(ByteBuffer.wrap(buffer, 0, limit));
+          }
+        }*/
+
+        //bucket.create(destination, input);
         return input.getMetrics();
       }
     });
@@ -242,8 +258,6 @@ public class GoogleCloudBlobStore
 
     return blob;
   }
-
-
 
   @Override
   @Guarded(by = STARTED)
