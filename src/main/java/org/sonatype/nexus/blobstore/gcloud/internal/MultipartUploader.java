@@ -1,3 +1,15 @@
+/*
+ * Sonatype Nexus (TM) Open Source Version
+ * Copyright (c) 2017-present Sonatype, Inc.
+ * All rights reserved. Includes the third-party code listed at http://links.sonatype.com/products/nexus/oss/attributions.
+ *
+ * This program and the accompanying materials are made available under the terms of the Eclipse Public License Version 1.0,
+ * which accompanies this distribution and is available at http://www.eclipse.org/legal/epl-v10.html.
+ *
+ * Sonatype Nexus (TM) Professional Version is available from Sonatype, Inc. "Sonatype" and "Sonatype Nexus" are trademarks
+ * of Sonatype, Inc. Apache Maven is a trademark of the Apache Software Foundation. M2eclipse is a trademark of the
+ * Eclipse Foundation. All other trademarks are the property of their respective owners.
+ */
 package org.sonatype.nexus.blobstore.gcloud.internal;
 
 import java.io.IOException;
@@ -5,12 +17,11 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 import javax.inject.Inject;
 import javax.inject.Named;
@@ -107,9 +118,10 @@ public class MultipartUploader
    */
   public Blob upload(final Storage storage, final String bucket, final String destination, final InputStream contents) {
     log.debug("Starting multipart upload for destination {} in bucket {}", destination, bucket);
-    // collect parts as blobids in a list?
-    List<String> parts = new ArrayList<>();
+    // this must represent the bucket-relative paths to the chunks, in order of composition
+    List<String> chunkNames = new ArrayList<>();
 
+    Optional<Blob> singleChunk = Optional.empty();
     try (InputStream current = contents) {
       List<ListenableFuture<Blob>> chunkFutures = new ArrayList<>();
       // MUST respect hard limit of 32 chunks per compose request
@@ -125,43 +137,56 @@ public class MultipartUploader
           composeLimitHit.incrementAndGet();
           chunk = IOUtils.toByteArray(current);
         }
+
         if (chunk == EMPTY && partNumber > 1) {
           break;
         }
-        else {
+
+        final String chunkName = toChunkName(destination, partNumber);
+        chunkNames.add(chunkName);
+        if (partNumber == 1) {
+          // upload the first part on the current thread
+          BlobInfo blobInfo = BlobInfo.newBuilder(bucket, chunkName).build();
+          Blob blob = storage.create(blobInfo, chunk);
+          singleChunk = Optional.of(blob);
+        } else {
+          singleChunk = Optional.empty();
+          // 2nd through N chunks will happen off current thread in parallel
           final int chunkIndex = partNumber;
           chunkFutures.add(executorService.submit(() -> {
             log.debug("Uploading chunk {} for {} of {} bytes", chunkIndex, destination, chunk.length);
             BlobInfo blobInfo = BlobInfo.newBuilder(
-                bucket, toChunkName(destination, chunkIndex)).build();
+                bucket, chunkName).build();
             return storage.create(blobInfo, chunk);
           }));
         }
       }
 
-      final int numberOfChunks = chunkFutures.size();
-      CountDownLatch block = new CountDownLatch(1);
-      Futures.whenAllComplete(chunkFutures).run(() -> block.countDown() , MoreExecutors.directExecutor());
-      // create list of all the chunks
-      List<String> chunkBlobs = IntStream.rangeClosed(1, numberOfChunks)
-          .mapToObj(i -> toChunkName(destination, i))
-          .collect(Collectors.toList());
+      // return the single result if it exists; otherwise finalize the parallel multipart workers
+      return singleChunk.orElseGet(() -> {
+        CountDownLatch block = new CountDownLatch(1);
+        Futures.whenAllComplete(chunkFutures).run(() -> block.countDown() , MoreExecutors.directExecutor());
+        // wait for all the futures to complete
+        log.debug("waiting for {} remaining chunks to complete", chunkFutures.size());
+        try {
+          block.await();
+        }
+        catch (InterruptedException e) {
+          log.error("caught InterruptedException waiting for multipart upload to complete on {}", destination);
+          throw new RuntimeException(e);
+        }
+        log.debug("chunk uploads completed, sending compose request");
 
-      // wait for all the futures to complete
-      log.debug("waiting for {} chunks to complete", chunkFutures.size());
-      block.await();
-      log.debug("chunk uploads completed, sending compose request");
-      // finalize with compose request to coalesce the chunks
-      Blob finalBlob = storage.compose(ComposeRequest.of(bucket, chunkBlobs, destination));
-      log.debug("Multipart upload of {} complete", destination);
-
-      deferredCleanup(storage, bucket, chunkBlobs);
-
-      return finalBlob;
+        // finalize with compose request to coalesce the chunks
+        Blob finalBlob = storage.compose(ComposeRequest.of(bucket, chunkNames, destination));
+        log.debug("Multipart upload of {} complete", destination);
+        return finalBlob;
+      });
     }
     catch(Exception e) {
-      deferredCleanup(storage, bucket, parts);
       throw new BlobStoreException("Error uploading blob", e, null);
+    } finally {
+      deferredCleanup(storage, bucket, chunkNames);
     }
   }
 
@@ -171,14 +196,25 @@ public class MultipartUploader
     });
   }
 
+  /**
+   * The name of the first chunk should match the desired end destination.
+   * For any chunk index 2 or greater, this method will return the destination + the chunk name suffix.
+   *
+   * @param destination
+   * @param chunkNumber
+   * @return the name to store this chunk
+   */
   private String toChunkName(String destination, int chunkNumber) {
+    if (chunkNumber == 1) {
+      return destination;
+    }
     return destination + CHUNK_NAME_PART + chunkNumber;
   }
 
   /**
    * Read a chunk of the stream up to {@link #getChunkSize()} in length.
    *
-   * @param input
+   * @param input the stream to read
    * @return the read data as a byte array
    * @throws IOException
    */
