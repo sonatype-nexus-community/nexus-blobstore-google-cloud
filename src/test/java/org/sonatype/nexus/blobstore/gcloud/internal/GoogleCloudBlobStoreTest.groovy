@@ -134,6 +134,7 @@ class GoogleCloudBlobStoreTest
       storage.get('mybucket') >> bucket
       blobStore.init(config)
       blobStore.doStart()
+      storage.create(_, _) >> mockGoogleObject(tempFileBytes)
 
     when: 'call create'
       Blob blob = blobStore.create(new ByteArrayInputStream('hello world'.bytes), blobHeaders)
