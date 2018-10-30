@@ -146,6 +146,7 @@ class GoogleCloudBlobStoreTest
 
       blobStore.init(config)
       blobStore.doStart()
+      storage.create(_, _) >> mockGoogleObject(tempFileBytes)
 
       BlobId id = new BlobId(UUID.randomUUID().toString())
       String resolved = blobIdLocationResolver.getLocation(id)
