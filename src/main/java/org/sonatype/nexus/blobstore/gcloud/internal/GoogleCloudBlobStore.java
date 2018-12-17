@@ -29,6 +29,7 @@ import javax.inject.Inject;
 import javax.inject.Named;
 
 import org.sonatype.nexus.blobstore.BlobIdLocationResolver;
+import org.sonatype.nexus.blobstore.BlobStoreSupport;
 import org.sonatype.nexus.blobstore.BlobSupport;
 import org.sonatype.nexus.blobstore.MetricsInputStream;
 import org.sonatype.nexus.blobstore.StreamMetrics;
@@ -43,11 +44,11 @@ import org.sonatype.nexus.blobstore.api.BlobStoreMetrics;
 import org.sonatype.nexus.blobstore.api.BlobStoreUsageChecker;
 import org.sonatype.nexus.common.log.DryRunPrefix;
 import org.sonatype.nexus.common.stateguard.Guarded;
-import org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport;
 import org.sonatype.nexus.logging.task.ProgressLogIntervalHelper;
 import org.sonatype.nexus.scheduling.CancelableHelper;
 
 import com.google.cloud.ReadChannel;
+import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Bucket;
 import com.google.cloud.storage.BucketInfo;
 import com.google.cloud.storage.Storage;
@@ -58,7 +59,6 @@ import com.google.cloud.storage.StorageException;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Streams;
 import com.google.common.hash.HashCode;
 import org.joda.time.DateTime;
 
@@ -66,6 +66,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.cache.CacheLoader.from;
+import static com.google.common.collect.Streams.stream;
 import static java.lang.String.format;
 import static org.sonatype.nexus.blobstore.DirectPathLocationStrategy.DIRECT_PATH_ROOT;
 import static org.sonatype.nexus.blobstore.api.BlobAttributesConstants.HEADER_PREFIX;
@@ -79,8 +80,7 @@ import static org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport.St
  */
 @Named(GoogleCloudBlobStore.TYPE)
 public class GoogleCloudBlobStore
-    extends StateGuardLifecycleSupport
-    implements BlobStore
+    extends BlobStoreSupport
 {
   public static final String TYPE = "Google Cloud Storage";
 
@@ -108,11 +108,7 @@ public class GoogleCloudBlobStore
 
   private final GoogleCloudStorageFactory storageFactory;
 
-  private final BlobIdLocationResolver blobIdLocationResolver;
-
-  private final GoogleCloudBlobStoreMetricsStore metricsStore;
-
-  private BlobStoreConfiguration blobStoreConfiguration;
+  private final GoogleCloudBlobStoreMetricsStore storeMetrics;
 
   private Storage storage;
 
@@ -124,19 +120,16 @@ public class GoogleCloudBlobStore
 
   private LoadingCache<BlobId, GoogleCloudStorageBlob> liveBlobs;
 
-  private final DryRunPrefix dryRunPrefix;
-
   @Inject
   public GoogleCloudBlobStore(final GoogleCloudStorageFactory storageFactory,
                               final BlobIdLocationResolver blobIdLocationResolver,
-                              final GoogleCloudBlobStoreMetricsStore metricsStore,
+                              final GoogleCloudBlobStoreMetricsStore storeMetrics,
                               final GoogleCloudDatastoreFactory datastoreFactory,
                               final DryRunPrefix dryRunPrefix) {
+    super(blobIdLocationResolver, dryRunPrefix);
     this.storageFactory = checkNotNull(storageFactory);
-    this.blobIdLocationResolver = checkNotNull(blobIdLocationResolver);
-    this.metricsStore = metricsStore;
+    this.storeMetrics = storeMetrics;
     this.datastoreFactory = datastoreFactory;
-    this.dryRunPrefix = dryRunPrefix;
   }
 
   @Override
@@ -155,28 +148,28 @@ public class GoogleCloudBlobStore
     }
     liveBlobs = CacheBuilder.newBuilder().weakValues().build(from(GoogleCloudStorageBlob::new));
 
-    metricsStore.setBucket(bucket);
-    metricsStore.start();
+    storeMetrics.setBucket(bucket);
+    storeMetrics.start();
   }
 
   @Override
   protected void doStop() throws Exception {
     liveBlobs = null;
-    metricsStore.stop();
+    storeMetrics.stop();
   }
 
   @Override
-  @Guarded(by = STARTED)
-  public Blob create(final InputStream inputStream, final Map<String, String> headers) {
-    checkNotNull(inputStream);
-
+  protected Blob doCreate(final InputStream blobData,
+                          final Map<String, String> headers,
+                          @Nullable final BlobId blobId)
+  {
     return createInternal(headers, destination -> {
-      try (InputStream data = inputStream) {
+      try (InputStream data = blobData) {
         MetricsInputStream input = new MetricsInputStream(data);
         bucket.create(destination, input);
         return input.getMetrics();
       }
-    });
+    }, blobId);
   }
 
   @Override
@@ -194,7 +187,7 @@ public class GoogleCloudBlobStore
       sourceBlob.getBlob().copyTo(getConfiguredBucketName(), destination);
       BlobMetrics metrics = get(blobId).getMetrics();
       return new StreamMetrics(metrics.getContentSize(), metrics.getSha1Hash());
-    });
+    }, null);
   }
 
   @Nullable
@@ -243,13 +236,8 @@ public class GoogleCloudBlobStore
     return blob;
   }
 
-
-
   @Override
-  @Guarded(by = STARTED)
-  public boolean delete(final BlobId blobId, final String reason) {
-    checkNotNull(blobId);
-
+  protected boolean doDelete(final BlobId blobId, final String reason) {
     final GoogleCloudStorageBlob blob = liveBlobs.getUnchecked(blobId);
 
     Lock lock = blob.lock();
@@ -305,7 +293,7 @@ public class GoogleCloudBlobStore
       }
 
       if (blobDeleted && contentSize != null) {
-        metricsStore.recordDeletion(contentSize);
+        storeMetrics.recordDeletion(contentSize);
       }
 
       return blobDeleted;
@@ -318,7 +306,7 @@ public class GoogleCloudBlobStore
   @Override
   @Guarded(by = STARTED)
   public BlobStoreMetrics getMetrics() {
-    return metricsStore.getMetrics();
+    return storeMetrics.getMetrics();
   }
 
   @Override
@@ -352,8 +340,7 @@ public class GoogleCloudBlobStore
   }
 
   @Override
-  public void init(final BlobStoreConfiguration blobStoreConfiguration) throws Exception {
-    this.blobStoreConfiguration = blobStoreConfiguration;
+  protected void doInit(final BlobStoreConfiguration configuration) {
     try {
       this.storage = storageFactory.create(blobStoreConfiguration);
 
@@ -387,7 +374,7 @@ public class GoogleCloudBlobStore
     return blobStream(CONTENT_PREFIX)
         .filter(blob -> blob.getName().endsWith(BLOB_ATTRIBUTE_SUFFIX) &&
             !basename(blob).startsWith(TEMPORARY_BLOB_ID_PREFIX))
-        .map(com.google.cloud.storage.Blob::getBlobId)
+        .map(BlobInfo::getBlobId)
         .map(blobId -> new BlobId(blobId.toString()));
   }
 
@@ -421,11 +408,12 @@ public class GoogleCloudBlobStore
     return blobIdLocationResolver.fromHeaders(headers);
   }
 
-  Stream<com.google.cloud.storage.Blob> blobStream(final String path) {
-    return Streams.stream(bucket.list(BlobListOption.prefix(path)).iterateAll());
+  Stream<BlobInfo> blobStream(final String path) {
+    return stream(bucket.list(BlobListOption.prefix(path)).iterateAll())
+        .map(c -> c);
   }
 
-  String basename(final com.google.cloud.storage.Blob blob) {
+  String basename(final BlobInfo blob) {
     String name = blob.getName();
     return name.substring(name.lastIndexOf('/') + 1);
   }
@@ -512,6 +500,11 @@ public class GoogleCloudBlobStore
   }
 
   @Override
+  protected String attributePathString(final BlobId blobId) {
+    return attributePath(blobId);
+  }
+
+  @Override
   @Guarded(by = STARTED)
   public boolean isWritable() {
     try {
@@ -523,13 +516,16 @@ public class GoogleCloudBlobStore
     }
   }
 
-  Blob createInternal(final Map<String, String> headers, BlobIngester ingester) {
+  Blob createInternal(final Map<String, String> headers,
+                      final BlobIngester ingester,
+                      @Nullable final BlobId assignedBlobId)
+  {
     checkNotNull(headers);
 
     checkArgument(headers.containsKey(BLOB_NAME_HEADER), "Missing header: %s", BLOB_NAME_HEADER);
     checkArgument(headers.containsKey(CREATED_BY_HEADER), "Missing header: %s", CREATED_BY_HEADER);
 
-    final BlobId blobId = blobIdLocationResolver.fromHeaders(headers);
+    final BlobId blobId = getBlobId(headers, assignedBlobId);
 
     final String blobPath = contentPath(blobId);
     final String attributePath = attributePath(blobId);
@@ -545,7 +541,7 @@ public class GoogleCloudBlobStore
       GoogleCloudBlobAttributes blobAttributes = new GoogleCloudBlobAttributes(bucket, attributePath, headers, metrics);
 
       blobAttributes.store();
-      metricsStore.recordAddition(blobAttributes.getMetrics().getContentSize());
+      storeMetrics.recordAddition(blobAttributes.getMetrics().getContentSize());
 
       return blob;
     }
