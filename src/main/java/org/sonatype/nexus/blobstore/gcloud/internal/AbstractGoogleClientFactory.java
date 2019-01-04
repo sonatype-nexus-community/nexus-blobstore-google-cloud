@@ -16,9 +16,6 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
 import java.net.ProxySelector;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 
 import com.google.api.client.http.apache.ApacheHttpTransport;
 import com.google.cloud.TransportOptions;
@@ -79,7 +76,7 @@ public abstract class AbstractGoogleClientFactory
     HttpConnectionParams.setStaleCheckingEnabled(params, true);
     HttpConnectionParams.setSocketBufferSize(params, 8192);
     ConnManagerParams.setMaxTotalConnections(params, 200);
-    ConnManagerParams.setMaxConnectionsPerRoute(params, new ConnPerRouteBean(20));
+    ConnManagerParams.setMaxConnectionsPerRoute(params, new ConnPerRouteBean(200));
     return params;
   }
 

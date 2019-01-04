@@ -26,12 +26,19 @@ import org.sonatype.nexus.blobstore.api.BlobId
 import org.sonatype.nexus.blobstore.api.BlobStore
 import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration
 import org.sonatype.nexus.blobstore.api.BlobStoreUsageChecker
+import org.sonatype.nexus.common.hash.HashAlgorithm
+import org.sonatype.nexus.common.hash.MultiHashingInputStream
 import org.sonatype.nexus.common.log.DryRunPrefix
 import org.sonatype.nexus.common.node.NodeAccess
+import org.sonatype.nexus.repository.storage.TempBlob
 
 import com.google.cloud.storage.Blob.BlobSourceOption
 import com.google.cloud.storage.BlobInfo
 import com.google.cloud.storage.Storage
+import com.google.common.collect.ImmutableList
+import com.google.common.collect.ImmutableMap
+import com.google.common.collect.Maps
+import com.google.common.hash.Hashing
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import spock.lang.Specification
@@ -74,6 +81,10 @@ class GoogleCloudBlobStoreIT
   BlobStoreUsageChecker usageChecker = Mock()
 
   MultipartUploader uploader = new MultipartUploader(1024)
+
+  def hashAlgorithms = ImmutableList.of(
+      new HashAlgorithm("sha1", Hashing.sha1()),
+      new HashAlgorithm("md5", Hashing.md5()))
 
   def setup() {
     config.attributes = [
@@ -213,13 +224,43 @@ class GoogleCloudBlobStoreIT
             (BlobStore.CREATED_BY_HEADER): 'someuser' ] )
       assert blob != null
       // sit for at least the time on our keep alives, so that any held connections close
-      log.info("waiting for ${(KEEP_ALIVE_DURATION + 1000L) / 1000L} seconds any stale connections to close")
+      log.info("waiting for ${(KEEP_ALIVE_DURATION + 1000L) / 1000L} seconds so any stale connections close")
       sleep(KEEP_ALIVE_DURATION + 1000L)
 
       Blob blob2 = blobStore.create(new ByteArrayInputStream('hello'.getBytes()),
           [ (BlobStore.BLOB_NAME_HEADER): 'foo2',
             (BlobStore.CREATED_BY_HEADER): 'someuser' ] )
       assert blob2 != null
+  }
+
+  def "mimic storage facet write-temp-and-move"() {
+    given:
+      def expectedSize = 2048
+      byte[] data = new byte[expectedSize]
+      new Random().nextBytes(data)
+      def headers = ImmutableMap.of(
+          BlobStore.BLOB_NAME_HEADER, "temp",
+          BlobStore.CREATED_BY_HEADER, "system",
+          BlobStore.CREATED_BY_IP_HEADER, "system",
+          BlobStore.TEMPORARY_BLOB_HEADER, "")
+
+    expect:
+      // write tempBlob
+      MultiHashingInputStream hashingStream = new MultiHashingInputStream(hashAlgorithms,
+          new ByteArrayInputStream(data))
+      Blob blob = blobStore.create(hashingStream, headers)
+      TempBlob tempBlob = new TempBlob(blob, hashingStream.hashes(), true, blobStore)
+
+      assert tempBlob != null
+      assert tempBlob.blob.id.toString().startsWith('tmp$')
+      // put the tempBlob into the final location
+      Map<String, String> filtered = Maps.filterKeys(headers, { k -> !k.equals(BlobStore.TEMPORARY_BLOB_HEADER) })
+      Blob result = blobStore.copy(tempBlob.blob.id, filtered)
+      // close the tempBlob (results in deleteHard on the tempBlob)
+      tempBlob.close()
+
+      Blob retrieve = blobStore.get(result.getId())
+      assert retrieve != null
   }
 
   def createFile(Storage storage, String path, long size) {

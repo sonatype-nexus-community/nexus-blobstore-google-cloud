@@ -12,6 +12,7 @@
  */
 package org.sonatype.nexus.blobstore.gcloud.internal;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -38,7 +39,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import org.apache.commons.io.IOUtils;
 
 /**
  * Component that provides parallel multipart upload support for blob binary data (.bytes files).
@@ -74,6 +74,8 @@ public class MultipartUploader
   private final AtomicLong composeLimitHit = new AtomicLong(0);
 
   private static final byte[] EMPTY = new byte[0];
+
+  private static final InputStream EMPTY_STREAM = new ByteArrayInputStream(EMPTY);
 
   private final ListeningExecutorService executorService = MoreExecutors.listeningDecorator(
       Executors.newCachedThreadPool(
@@ -135,7 +137,17 @@ public class MultipartUploader
               "consider increasing '{}' beyond current value of {}", destination, CHUNK_SIZE_PROPERTY, getChunkSize());
           // we've hit compose request limit read the rest of the stream
           composeLimitHit.incrementAndGet();
-          chunk = IOUtils.toByteArray(current);
+          chunk = EMPTY;
+
+          final String finalChunkName = toChunkName(destination, COMPOSE_REQUEST_LIMIT);
+          chunkNames.add(finalChunkName);
+          chunkFutures.add(executorService.submit(() -> {
+            log.debug("Uploading final chunk {} for {} of unknown remaining bytes", COMPOSE_REQUEST_LIMIT, destination);
+            BlobInfo blobInfo = BlobInfo.newBuilder(
+                bucket, finalChunkName).build();
+            // read the rest of the current stream
+            return storage.create(blobInfo, current);
+          }));
         }
 
         if (chunk == EMPTY && partNumber > 1) {
@@ -144,6 +156,7 @@ public class MultipartUploader
 
         final String chunkName = toChunkName(destination, partNumber);
         chunkNames.add(chunkName);
+
         if (partNumber == 1) {
           // upload the first part on the current thread
           BlobInfo blobInfo = BlobInfo.newBuilder(bucket, chunkName).build();
@@ -186,14 +199,16 @@ public class MultipartUploader
     catch(Exception e) {
       throw new BlobStoreException("Error uploading blob", e, null);
     } finally {
+      // remove any .chunkN files off-thread
+      // make sure not to delete the first chunk (which has the desired destination name with no suffix)
       deferredCleanup(storage, bucket, chunkNames);
     }
   }
 
-  private void deferredCleanup(final Storage storage, final String bucket, final List<String> parts) {
-    executorService.submit(() -> {
-      parts.stream().forEach(part -> storage.delete(bucket, part));
-    });
+  private void deferredCleanup(final Storage storage, final String bucket, final List<String> chunkNames) {
+    executorService.submit(() -> chunkNames.stream()
+        .filter(part -> part.contains(CHUNK_NAME_PART))
+        .forEach(chunk -> storage.delete(bucket, chunk)));
   }
 
   /**
@@ -236,6 +251,27 @@ public class MultipartUploader
     }
     else {
       return EMPTY;
+    }
+  }
+
+  private InputStream streamChunk(final InputStream input) throws IOException {
+    byte[] buffer = new byte[chunkSize];
+    int offset = 0;
+    int remain = chunkSize;
+    int bytesRead = 0;
+
+    while (remain > 0 && bytesRead >= 0) {
+      bytesRead = input.read(buffer, offset, remain);
+      if (bytesRead > 0) {
+        offset += bytesRead;
+        remain -= bytesRead;
+      }
+    }
+    if (offset > 0) {
+      return new ByteArrayInputStream(buffer, 0, offset);
+    }
+    else {
+      return EMPTY_STREAM;
     }
   }
 }
