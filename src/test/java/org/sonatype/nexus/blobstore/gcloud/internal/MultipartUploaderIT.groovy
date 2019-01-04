@@ -77,6 +77,7 @@ class MultipartUploaderIT
 
     then:
       blob.size == expectedSize
+      storage.get(bucketName, 'vol-01/chap-01/control/multi_part').getContent() == data
   }
 
   def "confirm parts composed in order"() {
@@ -107,6 +108,7 @@ class MultipartUploaderIT
 
     then:
       blob.size == expectedSize
+      storage.get(bucketName, 'vol-01/chap-01/control/single_part').getContent() == data
   }
 
   def "zero byte file"() {
@@ -121,6 +123,7 @@ class MultipartUploaderIT
 
     then:
       blob.size == expectedSize
+      storage.get(bucketName, 'vol-01/chap-01/control/zero_byte').getContent() == data
   }
 
   def "hit compose limit slightly and still successful"() {
@@ -137,6 +140,7 @@ class MultipartUploaderIT
     then:
       blob.size == expectedSize
       uploader.numberOfTimesComposeLimitHit == 1L
+      storage.get(bucketName, 'vol-01/chap-01/composeLimitTest/small_miss').getContent() == data
   }
 
   def "hit compose limit poorly tuned, still successful" () {
@@ -153,8 +157,12 @@ class MultipartUploaderIT
     then:
       blob.size == expectedSize
       uploader.numberOfTimesComposeLimitHit == 1L
+      storage.get(bucketName, 'vol-01/chap-01/composeLimitTest/poor_tuning').getContent() == data
   }
 
+  /**
+   * Larger upload that still fits ideally within our default tuning. 100 MB will result in 20 5 MB chunks.
+   */
   def "upload 100 MB"() {
     given:
       long expectedSize = 1024 * 1024 * 100
@@ -173,5 +181,37 @@ class MultipartUploaderIT
           'vol-01/chap-02/large/one_hundred_MB', inputStream)
     then:
       blob.size == expectedSize
+      storage.get(bucketName, 'vol-01/chap-02/large/one_hundred_MB').size == expectedSize
+  }
+
+  /**
+   * The difference in this test beyond the 'upload 100 MB' test is that the upload will:
+   *
+   * a) result in incrementing {@link MultipartUploader#getNumberOfTimesComposeLimitHit()} and
+   * b) the last chunk will be significantly larger than the preceding 31.
+   *
+   * This represents a situation where the customer may need to adjust their chunk size upward. The larger final chunk
+   * may also elicit runtime pressure on memory.
+   */
+  def "upload 300 MB"() {
+    given:
+      long expectedSize = 1024 * 1024 * 300
+      BoundedInputStream inputStream = new BoundedInputStream(new InputStream() {
+        private Random random = new Random()
+        @Override
+        int read() throws IOException {
+          return random.nextInt()
+        }
+      }, expectedSize)
+      // with value of 5 MB per chunk, we'll upload 31 5 MB chunks and 1 145 MB chunk
+      MultipartUploader uploader = new MultipartUploader(1024 * 1024 * 5)
+
+    when:
+      Blob blob = uploader.upload(storage, bucketName,
+          'vol-01/chap-02/large/three_hundred_MB', inputStream)
+    then:
+      blob.size == expectedSize
+      uploader.getNumberOfTimesComposeLimitHit() == 1L
+      storage.get(bucketName, 'vol-01/chap-02/large/three_hundred_MB').size == expectedSize
   }
 }

@@ -218,7 +218,7 @@ class GoogleCloudBlobStoreIT
             (BlobStore.CREATED_BY_HEADER): 'someuser' ] )
       assert blob != null
       // sit for at least the time on our keep alives, so that any held connections close
-      log.info("waiting for ${(KEEP_ALIVE_DURATION + 1000L) / 1000L} seconds any stale connections to close")
+      log.info("waiting for ${(KEEP_ALIVE_DURATION + 1000L) / 1000L} seconds so any stale connections close")
       sleep(KEEP_ALIVE_DURATION + 1000L)
 
       Blob blob2 = blobStore.create(new ByteArrayInputStream('hello'.getBytes()),
@@ -425,6 +425,4 @@ class GoogleCloudBlobStoreIT
     storage.create(BlobInfo.newBuilder(bucketName, path).build(),
       content)
   }
-
-
 }
