@@ -179,17 +179,6 @@ public class GoogleCloudBlobStore
         MetricsInputStream input = new MetricsInputStream(data);
 
         multipartUploader.upload(storage, getConfiguredBucketName(), destination, input);
-       /* BlobInfo blobInfo = BlobInfo.newBuilder(getConfiguredBucketName(), destination).build();
-        try (WriteChannel writeChannel = storage.writer(blobInfo)) {
-          int limit;
-          // 1024 vs 1048576
-          byte[] buffer = new byte[1048576];
-          while ((limit = input.read(buffer)) >= 0) {
-            writeChannel.write(ByteBuffer.wrap(buffer, 0, limit));
-          }
-        }*/
-
-        //bucket.create(destination, input);
         return input.getMetrics();
       }
     });
