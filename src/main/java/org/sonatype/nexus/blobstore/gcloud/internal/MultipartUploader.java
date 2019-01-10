@@ -253,25 +253,4 @@ public class MultipartUploader
       return EMPTY;
     }
   }
-
-  private InputStream streamChunk(final InputStream input) throws IOException {
-    byte[] buffer = new byte[chunkSize];
-    int offset = 0;
-    int remain = chunkSize;
-    int bytesRead = 0;
-
-    while (remain > 0 && bytesRead >= 0) {
-      bytesRead = input.read(buffer, offset, remain);
-      if (bytesRead > 0) {
-        offset += bytesRead;
-        remain -= bytesRead;
-      }
-    }
-    if (offset > 0) {
-      return new ByteArrayInputStream(buffer, 0, offset);
-    }
-    else {
-      return EMPTY_STREAM;
-    }
-  }
 }
