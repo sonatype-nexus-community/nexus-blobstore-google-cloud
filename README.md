@@ -36,17 +36,29 @@ Requirements
 
 Also, there is a good amount of information available at [Bundle Development Overview](https://help.sonatype.com/display/NXRM3/Bundle+Development#BundleDevelopment-BundleDevelopmentOverview)
 
-Building
---------
+Google Cloud Services and IAM Roles
+-----------------------------------
+
+This plugin uses the following Google Cloud Platform services:
+
+* https://cloud.google.com/storage/ - for storing the content blobs
+* https://cloud.google.com/datastore/ - for storing some blobstore metadata
+
+To use this plugin (or execute the integration tests), you will need an account with the following roles:
+
+* [Storage Admin](https://cloud.google.com/storage/docs/access-control/iam-roles)
+* [Cloud Datastore Owner](https://cloud.google.com/datastore/docs/access/iam)
+
+The blobstore will create the storage bucket with the ['Multi-Regional' storage class](https://cloud.google.com/storage/sla).
+
+Building the Source
+-------------------
 
 To build the project and generate the bundle use Maven:
 
-    mvn clean install
+    mvn clean package
     
-Integration Tests
------------------
-
-Integration tests can be found within src/test/java and have the class suffix `IT`. [Additional documentation is provided about how to configure and run them](src/test/resources/README.md)
+Optional: review the [additional documentation to configure and run integration tests](src/test/resources/README.md).
 
 Installing
 ----------
@@ -56,28 +68,6 @@ After you have built the project, run the provided install script
 ```bash
 sh ./install-plugin.sh path/to/your/nxrm3/install
 ```
-
-Google Cloud Storage Permissions
---------------------------------
-
-Next, you will need to create an account with appropriate [permissions](https://cloud.google.com/storage/docs/access-control/iam-roles).
-
-Of the predefined account roles, `Storage Admin` will grant the plugin to create any Google Cloud Storage Buckets you 
-require and administer all of the objects within, but it will also have access to manage any other Google Cloud Storage
-Buckets associated with the project.
-
-If you are using custom roles, the account will need:
-
-1. (required) `storage.objects.*`
-2. (required) `storage.buckets.get` 
-3. or `storage.buckets.*`.
-
-If you only provide permissions 1 and 2, you will have to create any Google Cloud Storage Buckets in advance of assigning
-them to Nexus Repository Manager blob stores. The third option will allow the plugin to create buckets for you.
-
-If you are creating the Google Cloud Storage Buckets in advance, you should use either the 'Multi-Regional' or 'Regional'
-[storage class](https://cloud.google.com/storage/sla); 'Nearline' and 'Coldline' are not suitable for Nexus Repository Manager workloads.
-If you let the plugin create the bucket, it will use the 'Multi-Regional' storage class.
 
 Google Cloud Storage Authentication
 -----------------------------------
