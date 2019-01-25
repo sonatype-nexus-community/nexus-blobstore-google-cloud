@@ -18,9 +18,14 @@ Integration Tests for Nexus Repository Manager Google Cloud Storage Blobstore
 The integration tests for Nexus Repository Manager Google Cloud Storage Blobstore interact with
 Google Cloud Storage and require credentials to be provided.
 
-The integration tests look in this folder (`src/test/resource`) for a file named `gce-credentials.json`,
-which is ignored by git. The [root README](../../../README.md) for this project describes how to
-create this file and what roles/permissions are required.
+The integration tests look in this folder (`src/test/resources`) for a file named `gce-credentials.json`,
+which is ignored by git. 
+
+1. Log into the Google Cloud Console.
+2. Enter 'IAM & Admin->Service Accounts'
+3. Create an account with the 'Storage Admin' and 'Cloud Datastore Admin' roles.
+4. Click the 'Create Key' feature, and download as JSON.
+5. Move that file to this directory and name it `gce-credentials.json`
 
 See the [example file](.gce-credentials-example.json) in this directory.
 
