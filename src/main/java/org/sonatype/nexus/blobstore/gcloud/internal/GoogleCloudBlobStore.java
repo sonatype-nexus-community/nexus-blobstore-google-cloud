@@ -19,7 +19,6 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.stream.Stream;
@@ -32,6 +31,7 @@ import org.sonatype.nexus.blobstore.AttributesLocation;
 import org.sonatype.nexus.blobstore.BlobIdLocationResolver;
 import org.sonatype.nexus.blobstore.BlobStoreSupport;
 import org.sonatype.nexus.blobstore.BlobSupport;
+import org.sonatype.nexus.blobstore.DefaultBlobIdLocationResolver;
 import org.sonatype.nexus.blobstore.MetricsInputStream;
 import org.sonatype.nexus.blobstore.StreamMetrics;
 import org.sonatype.nexus.blobstore.api.Blob;
@@ -59,8 +59,8 @@ import com.google.cloud.storage.Storage.BlobListOption;
 import com.google.cloud.storage.StorageException;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.LoadingCache;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashCode;
+import org.apache.commons.lang.StringUtils;
 import org.joda.time.DateTime;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -104,7 +104,7 @@ public class GoogleCloudBlobStore
 
   private final GoogleCloudStorageFactory storageFactory;
 
-  private final GoogleCloudBlobStoreMetricsStore storeMetrics;
+  private final GoogleCloudBlobStoreMetricsStore metricsStore;
 
   private Storage storage;
 
@@ -119,13 +119,13 @@ public class GoogleCloudBlobStore
   @Inject
   public GoogleCloudBlobStore(final GoogleCloudStorageFactory storageFactory,
                               final BlobIdLocationResolver blobIdLocationResolver,
-                              final GoogleCloudBlobStoreMetricsStore storeMetrics,
+                              final GoogleCloudBlobStoreMetricsStore metricsStore,
                               final GoogleCloudDatastoreFactory datastoreFactory,
                               final DryRunPrefix dryRunPrefix)
   {
     super(blobIdLocationResolver, dryRunPrefix);
     this.storageFactory = checkNotNull(storageFactory);
-    this.storeMetrics = storeMetrics;
+    this.metricsStore = metricsStore;
     this.datastoreFactory = datastoreFactory;
   }
 
@@ -145,14 +145,14 @@ public class GoogleCloudBlobStore
     }
     liveBlobs = CacheBuilder.newBuilder().weakValues().build(from(GoogleCloudStorageBlob::new));
 
-    storeMetrics.setBucket(bucket);
-    storeMetrics.start();
+    metricsStore.setBucket(bucket);
+    metricsStore.start();
   }
 
   @Override
   protected void doStop() throws Exception {
     liveBlobs = null;
-    storeMetrics.stop();
+    metricsStore.stop();
   }
 
   @Override
@@ -287,7 +287,7 @@ public class GoogleCloudBlobStore
       }
 
       if (blobDeleted && contentSize != null) {
-        storeMetrics.recordDeletion(contentSize);
+        metricsStore.recordDeletion(contentSize);
       }
 
       return blobDeleted;
@@ -300,7 +300,7 @@ public class GoogleCloudBlobStore
   @Override
   @Guarded(by = STARTED)
   public BlobStoreMetrics getMetrics() {
-    return storeMetrics.getMetrics();
+    return metricsStore.getMetrics();
   }
 
   @Override
@@ -335,7 +335,7 @@ public class GoogleCloudBlobStore
   @Override
   protected BlobAttributes getBlobAttributes(final GoogleAttributesLocation attributesFilePath) throws IOException {
     GoogleCloudBlobAttributes googleCloudBlobAttributes = new GoogleCloudBlobAttributes(bucket,
-        attributesFilePath.getFileName());
+        attributesFilePath.getFullPath());
     googleCloudBlobAttributes.load();
     return googleCloudBlobAttributes;
   }
@@ -392,6 +392,22 @@ public class GoogleCloudBlobStore
 
   Stream<BlobInfo> blobStream(final String path) {
     return stream(bucket.list(BlobListOption.prefix(path)).iterateAll()).map(c -> c);
+  }
+
+  /**
+   * This method exists as a workaround to some unexpected behavior in
+   * {@link BlobStoreSupport#getBlobIdFromAttributeFilePath(AttributesLocation)}.
+   *
+   * @param attributesLocation
+   * @return the BlobId for the location as a String key
+   */
+  @Override
+  protected String getBlobIdFromAttributeFilePath(final GoogleAttributesLocation attributesLocation) {
+    if (attributesLocation.getFileName().startsWith(DefaultBlobIdLocationResolver.TEMPORARY_BLOB_ID_PREFIX)) {
+      String name = attributesLocation.getFileName();
+      return StringUtils.removeEnd(name.substring(name.lastIndexOf('/') + 1), BLOB_ATTRIBUTE_SUFFIX);
+    }
+    return super.getBlobIdFromAttributeFilePath(attributesLocation);
   }
 
   /**
@@ -485,7 +501,7 @@ public class GoogleCloudBlobStore
       GoogleCloudBlobAttributes blobAttributes = new GoogleCloudBlobAttributes(bucket, attributePath, headers, metrics);
 
       blobAttributes.store();
-      storeMetrics.recordAddition(blobAttributes.getMetrics().getContentSize());
+      metricsStore.recordAddition(blobAttributes.getMetrics().getContentSize());
 
       return blob;
     }

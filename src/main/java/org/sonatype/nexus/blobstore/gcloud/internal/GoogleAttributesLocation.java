@@ -9,16 +9,18 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class GoogleAttributesLocation
     implements AttributesLocation
 {
-  private String key;
+  private final String key;
+  private final String fullPath;
 
   public GoogleAttributesLocation(final BlobInfo blobInfo) {
     checkNotNull(blobInfo);
     this.key = checkNotNull(blobInfo.getName());
+    this.fullPath = key.substring(key.lastIndexOf('/') + 1);
   }
 
   @Override
   public String getFileName() {
-    return key.substring(key.lastIndexOf('/') + 1);
+    return this.fullPath;
   }
 
   @Override
