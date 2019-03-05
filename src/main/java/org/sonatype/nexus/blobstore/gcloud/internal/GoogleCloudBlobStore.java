@@ -146,6 +146,7 @@ public class GoogleCloudBlobStore
     liveBlobs = CacheBuilder.newBuilder().weakValues().build(from(GoogleCloudStorageBlob::new));
 
     metricsStore.setBucket(bucket);
+    metricsStore.setBlobStore(this);
     metricsStore.start();
   }
 
