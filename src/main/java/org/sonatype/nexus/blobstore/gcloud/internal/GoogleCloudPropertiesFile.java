@@ -17,6 +17,8 @@ import java.io.IOException;
 import java.nio.channels.Channels;
 import java.util.Properties;
 
+import org.sonatype.nexus.common.property.ImplicitSourcePropertiesFile;
+
 import com.google.cloud.ReadChannel;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.Bucket;
@@ -31,7 +33,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
  * {@link Properties} representation stored in Google Cloud Storage.
  */
 public class GoogleCloudPropertiesFile
-    extends Properties
+    extends ImplicitSourcePropertiesFile
 {
   private static final Logger log = LoggerFactory.getLogger(GoogleCloudPropertiesFile.class);
 

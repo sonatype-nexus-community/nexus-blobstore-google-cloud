@@ -26,12 +26,22 @@ import org.sonatype.nexus.blobstore.api.BlobId
 import org.sonatype.nexus.blobstore.api.BlobStore
 import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration
 import org.sonatype.nexus.blobstore.api.BlobStoreUsageChecker
+import org.sonatype.nexus.blobstore.quota.BlobStoreQuota
+import org.sonatype.nexus.blobstore.quota.BlobStoreQuotaService
+import org.sonatype.nexus.blobstore.quota.internal.BlobStoreQuotaServiceImpl
+import org.sonatype.nexus.common.hash.HashAlgorithm
+import org.sonatype.nexus.common.hash.MultiHashingInputStream
 import org.sonatype.nexus.common.log.DryRunPrefix
 import org.sonatype.nexus.common.node.NodeAccess
+import org.sonatype.nexus.repository.storage.TempBlob
 
 import com.google.cloud.storage.Blob.BlobSourceOption
 import com.google.cloud.storage.BlobInfo
 import com.google.cloud.storage.Storage
+import com.google.common.collect.ImmutableList
+import com.google.common.collect.ImmutableMap
+import com.google.common.collect.Maps
+import com.google.common.hash.Hashing
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import spock.lang.Specification
@@ -48,6 +58,10 @@ class GoogleCloudBlobStoreIT
   static final BlobStoreConfiguration config = new BlobStoreConfiguration()
 
   static String bucketName = "integration-test-${UUID.randomUUID().toString()}"
+
+  def hashAlgorithms = ImmutableList.of(
+      new HashAlgorithm("sha1", Hashing.sha1()),
+      new HashAlgorithm("md5", Hashing.md5()))
 
   PeriodicJobService periodicJobService = Mock({
     schedule(_, _) >> new PeriodicJob() {
@@ -71,6 +85,8 @@ class GoogleCloudBlobStoreIT
 
   GoogleCloudBlobStore blobStore
 
+  BlobStoreQuotaService quotaService = new BlobStoreQuotaServiceImpl(new HashMap<String, BlobStoreQuota>())
+
   BlobStoreUsageChecker usageChecker = Mock()
 
   def setup() {
@@ -83,7 +99,7 @@ class GoogleCloudBlobStoreIT
 
     log.info("Integration test using bucket ${bucketName}")
 
-    metricsStore = new GoogleCloudBlobStoreMetricsStore(periodicJobService, nodeAccess)
+    metricsStore = new GoogleCloudBlobStoreMetricsStore(periodicJobService, nodeAccess, quotaService, 60)
     // can't start metrics store until blobstore init is done (which creates the bucket)
     blobStore = new GoogleCloudBlobStore(storageFactory, blobIdLocationResolver, metricsStore, datastoreFactory,
         new DryRunPrefix("TEST "))
@@ -138,11 +154,14 @@ class GoogleCloudBlobStoreIT
     given:
       Storage storage = storageFactory.create(config)
       // mimic some RHC content, which is stored as directpath blobs
-      // 4 files, but only 2 blobIds (a .bytes and a .properties blob for each blobId)
-      createFile(storage, "content/directpath/health-check/repo1/report.properties.bytes")
-      createFile(storage, "content/directpath/health-check/repo1/report.properties.properties")
-      createFile(storage, "content/directpath/health-check/repo1/details/bootstrap.min.css.properties")
-      createFile(storage, "content/directpath/health-check/repo1/details/bootstrap.min.css.bytes")
+      blobStore.create(new ByteArrayInputStream('some text content'.getBytes()),
+          [ (BlobStore.BLOB_NAME_HEADER): 'health-check/repo1/report.properties',
+            (BlobStore.CREATED_BY_HEADER): 'someuser',
+            (BlobStore.DIRECT_PATH_BLOB_HEADER): 'true'] )
+       blobStore.create(new ByteArrayInputStream('some css content'.getBytes()),
+          [ (BlobStore.BLOB_NAME_HEADER): 'health-check/repo1/details/bootstrap.min.css',
+            (BlobStore.CREATED_BY_HEADER): 'someuser',
+            (BlobStore.DIRECT_PATH_BLOB_HEADER): 'true'] )
 
     when:
      Stream<BlobId> stream = blobStore.getDirectPathBlobIdStream('health-check/repo1')
@@ -220,8 +239,43 @@ class GoogleCloudBlobStoreIT
       assert blob2 != null
   }
 
-  def createFile(Storage storage, String path) {
-    storage.create(BlobInfo.newBuilder(bucketName, path).build(),
-      "content".bytes)
+  def "mimic storage facet write-temp-and-move"() {
+    given:
+      def expectedSize = 2048
+      byte[] data = new byte[expectedSize]
+      new Random().nextBytes(data)
+      def headers = ImmutableMap.of(
+          BlobStore.BLOB_NAME_HEADER, "temp",
+          BlobStore.CREATED_BY_HEADER, "system",
+          BlobStore.CREATED_BY_IP_HEADER, "system",
+          BlobStore.TEMPORARY_BLOB_HEADER, "")
+
+    expect:
+      // write tempBlob
+      MultiHashingInputStream hashingStream = new MultiHashingInputStream(hashAlgorithms,
+          new ByteArrayInputStream(data))
+      Blob blob = blobStore.create(hashingStream, headers)
+      TempBlob tempBlob = new TempBlob(blob, hashingStream.hashes(), true, blobStore)
+
+      assert tempBlob != null
+      assert tempBlob.blob.id.toString().startsWith('tmp$')
+      // put the tempBlob into the final location
+      Map<String, String> filtered = Maps.filterKeys(headers, { k -> !k.equals(BlobStore.TEMPORARY_BLOB_HEADER) })
+      Blob result = blobStore.copy(tempBlob.blob.id, filtered)
+      // close the tempBlob (results in deleteHard on the tempBlob)
+      tempBlob.close()
+
+      Blob retrieve = blobStore.get(result.getId())
+      assert retrieve != null
+  }
+
+  def createRegularFile(Storage storage, String path) {
+    createRegularFile(storage, path, 'content')
+  }
+
+  def createRegularFile(Storage storage, String path, long size) {
+    byte [] content = new byte[size]
+    new Random().nextBytes(content)
+    storage.create(BlobInfo.newBuilder(bucketName, path).build(), content)
   }
 }

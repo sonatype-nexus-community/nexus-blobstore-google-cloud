@@ -129,6 +129,7 @@ class GoogleCloudBlobStoreTest
   def 'store a blob successfully'() {
     given: 'blobstore setup'
       storage.get('mybucket') >> bucket
+      storage.testIamPermissions(*_) >> Collections.singletonList(true)
       blobStore.init(config)
       blobStore.doStart()
 
@@ -159,10 +160,14 @@ class GoogleCloudBlobStoreTest
       storage.get('mybucket') >> bucket
       blobStore.init(config)
       blobStore.doStart()
+      storage.testIamPermissions(*_) >> Collections.singletonList(true)
       def b1 = com.google.cloud.storage.BlobId.of('foo', 'notundercontent.txt')
-      def b2 = com.google.cloud.storage.BlobId.of('foo', 'content/vol-01/chap-08/thing.properties')
-      def b3 = com.google.cloud.storage.BlobId.of('foo', 'content/vol-01/chap-08/thing.bytes')
-      def b4 = com.google.cloud.storage.BlobId.of('foo', 'content/vol-02/chap-09/tmp$thing.properties')
+      def b2 = com.google.cloud.storage.BlobId.of('foo',
+          'content/vol-01/chap-08/c2fc8932-6fae-45b8-a6da-d955663844d2.properties')
+      def b3 = com.google.cloud.storage.BlobId.of('foo',
+          'content/vol-01/chap-08/c2fc8932-6fae-45b8-a6da-d955663844d2.bytes')
+      def b4 = com.google.cloud.storage.BlobId.of('foo',
+          'content/vol-02/chap-09/tmp$cdfe6d4f-5d95-4102-b174-65c07cf3a488.properties')
       def page = Mock(Page)
 
       bucket.list(BlobListOption.prefix(GoogleCloudBlobStore.CONTENT_PREFIX)) >> page
@@ -172,10 +177,11 @@ class GoogleCloudBlobStoreTest
     when: 'getBlobIdStream called'
       Stream<BlobId> stream = blobStore.getBlobIdStream()
 
-    then: 'expected behavior'
-      def list = stream.collect(Collectors.toList())
-      list.size() == 1
-      list.contains(new BlobId(b2.toString()))
+    then: 'stream includes the BlobIds from matching properties files'
+      List<BlobId> list = stream.collect(Collectors.toList())
+      list.size() == 2
+      list.contains(new BlobId('c2fc8932-6fae-45b8-a6da-d955663844d2'))
+      list.contains(new BlobId('tmp$cdfe6d4f-5d95-4102-b174-65c07cf3a488'))
   }
 
   def 'start will accept a metadata.properties originally created with file blobstore'() {
