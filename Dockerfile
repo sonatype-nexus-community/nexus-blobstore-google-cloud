@@ -1,7 +1,7 @@
-FROM maven as nexus-blobstore-google-cloud
+FROM maven:3.6-jdk-8-alpine as nexus-blobstore-google-cloud
 WORKDIR /build
-RUN git clone https://github.com/sonatype-nexus-community/nexus-blobstore-google-cloud.git .
-RUN mvn clean install
+COPY . /build/.
+RUN mvn clean package
 
 FROM sonatype/nexus3:3.13.0
 ADD install-plugin.sh /opt/plugins/nexus-blobstore-google-cloud/
