@@ -18,8 +18,6 @@ import java.util.stream.StreamSupport
 
 import org.sonatype.nexus.blobstore.BlobIdLocationResolver
 import org.sonatype.nexus.blobstore.DefaultBlobIdLocationResolver
-import org.sonatype.nexus.blobstore.PeriodicJobService
-import org.sonatype.nexus.blobstore.PeriodicJobService.PeriodicJob
 import org.sonatype.nexus.blobstore.api.Blob
 import org.sonatype.nexus.blobstore.api.BlobAttributes
 import org.sonatype.nexus.blobstore.api.BlobId
@@ -34,6 +32,8 @@ import org.sonatype.nexus.common.hash.MultiHashingInputStream
 import org.sonatype.nexus.common.log.DryRunPrefix
 import org.sonatype.nexus.common.node.NodeAccess
 import org.sonatype.nexus.repository.storage.TempBlob
+import org.sonatype.nexus.scheduling.PeriodicJobService
+import org.sonatype.nexus.scheduling.PeriodicJobService.PeriodicJob
 
 import com.google.cloud.storage.Blob.BlobSourceOption
 import com.google.cloud.storage.BlobInfo

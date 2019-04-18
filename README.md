@@ -18,8 +18,21 @@ Nexus Repository Google Cloud Storage Blobstore
 [![Build Status](https://travis-ci.org/sonatype-nexus-community/nexus-blobstore-google-cloud.svg?branch=master)](https://travis-ci.org/sonatype-nexus-community/nexus-blobstore-google-cloud) [![Join the chat at https://gitter.im/sonatype/nexus-developers](https://badges.gitter.im/sonatype/nexus-developers.svg)](https://gitter.im/sonatype/nexus-developers?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 This project adds [Google Cloud Object Storage](https://cloud.google.com/storage/) backed blobstores to Sonatype Nexus 
-Repository 3.15 and later.  It allows Nexus Repository to store the components and assets in Google Cloud instead of a
+Repository 3 and later.  It allows Nexus Repository to store the components and assets in Google Cloud instead of a
 local filesystem.
+
+Which Version do I use?
+-----------------------
+
+For the best experience, you should upgrade your Nexus Repository Manager and Google Cloud Blobstore plugin to the latest versions.
+
+
+| Nexus Repository Manager 3 Version | Google Cloud Storage Blobstore Version |
+| ---------------------------------- |--------------------------------------- |
+| 3.16                               | 0.5.0                                  |
+| 3.15                               | 0.4.0                                  |
+| 3.13, 3.14                         | 0.3.0                                  |
+| 3.11, 3.12                         | 0.2.0                                  |
 
 Contribution Guidelines
 -----------------------
