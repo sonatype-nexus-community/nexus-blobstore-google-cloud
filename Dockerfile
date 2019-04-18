@@ -3,7 +3,7 @@ WORKDIR /build
 COPY . /build/.
 RUN mvn clean package
 
-FROM sonatype/nexus3:3.15.2
+FROM sonatype/nexus3:3.16.1
 ADD install-plugin.sh /opt/plugins/nexus-blobstore-google-cloud/
 COPY --from=nexus-blobstore-google-cloud /build/target/ /opt/plugins/nexus-blobstore-google-cloud/target/
 COPY --from=nexus-blobstore-google-cloud /build/pom.xml /opt/plugins/nexus-blobstore-google-cloud/

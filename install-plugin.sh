@@ -9,7 +9,7 @@ Usage:
  The path argument is required
 
 Examples:
-sh ./install-plugin.sh ../nexus-public/target/nexus-professional-3.13.0-SNAPSHOT
+sh ./install-plugin.sh ../nexus-public/target/nexus-professional-3.16.1-02
 EOM
 }
 
