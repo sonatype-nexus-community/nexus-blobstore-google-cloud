@@ -24,6 +24,7 @@ import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration
 import org.sonatype.nexus.blobstore.api.BlobStoreException
 import org.sonatype.nexus.common.log.DryRunPrefix
 
+import com.codahale.metrics.MetricRegistry
 import com.google.api.gax.paging.Page
 import com.google.cloud.datastore.Datastore
 import com.google.cloud.datastore.KeyFactory
@@ -47,6 +48,8 @@ class GoogleCloudBlobStoreTest
 
   Bucket bucket = Mock()
 
+  MetricRegistry metricRegistry = Mock()
+
   GoogleCloudDatastoreFactory datastoreFactory = Mock()
 
   Datastore datastore = Mock()
@@ -58,7 +61,8 @@ class GoogleCloudBlobStoreTest
       (BlobStore.CREATED_BY_HEADER): 'admin'
   ]
   GoogleCloudBlobStore blobStore = new GoogleCloudBlobStore(
-      storageFactory, blobIdLocationResolver, metricsStore, datastoreFactory, new DryRunPrefix("TEST "))
+      storageFactory, blobIdLocationResolver, metricsStore, datastoreFactory, new DryRunPrefix("TEST "),
+      metricRegistry)
 
   def config = new BlobStoreConfiguration()
 
