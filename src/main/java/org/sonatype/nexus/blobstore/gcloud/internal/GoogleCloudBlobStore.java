@@ -60,7 +60,6 @@ import com.google.cloud.storage.Storage.BlobGetOption;
 import com.google.cloud.storage.Storage.BlobListOption;
 import com.google.cloud.storage.StorageException;
 import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheStats;
 import com.google.common.cache.LoadingCache;
 import com.google.common.hash.HashCode;
 import org.apache.commons.lang.StringUtils;
@@ -152,10 +151,13 @@ public class GoogleCloudBlobStore
     }
     liveBlobs = CacheBuilder.newBuilder().weakValues().build(from(GoogleCloudStorageBlob::new));
     
-    wrapWithGauge(".size", () -> liveBlobs.size());
-    wrapWithGauge(".hitRate", () -> liveBlobs.stats().hitRate());
-    wrapWithGauge(".missRate", () -> liveBlobs.stats().missRate());
-    wrapWithGauge(".averageLoadPenalty", () -> liveBlobs.stats().averageLoadPenalty());
+    wrapWithGauge(".liveBlobsCache.size", () -> liveBlobs.size());
+    wrapWithGauge(".liveBlobsCache.hitCount", () -> liveBlobs.stats().hitCount());
+    wrapWithGauge(".liveBlobsCache.missCount", () -> liveBlobs.stats().missCount());
+    wrapWithGauge(".liveBlobsCache.totalLoadTime", () -> liveBlobs.stats().totalLoadTime());
+    wrapWithGauge(".liveBlobsCache.evictionCount", () -> liveBlobs.stats().evictionCount());
+    wrapWithGauge(".liveBlobsCache.loadCount", () -> liveBlobs.stats().loadCount());
+    wrapWithGauge(".liveBlobsCache.requestCount", () -> liveBlobs.stats().requestCount());
     
     metricsStore.setBucket(bucket);
     metricsStore.setBlobStore(this);
@@ -172,6 +174,7 @@ public class GoogleCloudBlobStore
     metricRegistry.gauge(GoogleCloudBlobStore.class.getName() + nameSuffix,
         () -> () -> valueSupplier.get());
   }
+
   @Override
   protected Blob doCreate(final InputStream blobData,
                           final Map<String, String> headers,
