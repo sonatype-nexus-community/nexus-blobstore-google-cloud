@@ -149,7 +149,7 @@ public class GoogleCloudBlobStore
       metadata.setProperty(TYPE_KEY, TYPE_V1);
       metadata.store();
     }
-    liveBlobs = CacheBuilder.newBuilder().weakValues().build(from(GoogleCloudStorageBlob::new));
+    liveBlobs = CacheBuilder.newBuilder().weakValues().recordStats().build(from(GoogleCloudStorageBlob::new));
     
     wrapWithGauge(".liveBlobsCache.size", () -> liveBlobs.size());
     wrapWithGauge(".liveBlobsCache.hitCount", () -> liveBlobs.stats().hitCount());
