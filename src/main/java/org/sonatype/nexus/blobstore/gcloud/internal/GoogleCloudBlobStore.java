@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 import javax.annotation.Nullable;
@@ -48,6 +49,7 @@ import org.sonatype.nexus.common.stateguard.Guarded;
 import org.sonatype.nexus.logging.task.ProgressLogIntervalHelper;
 import org.sonatype.nexus.scheduling.CancelableHelper;
 
+import com.codahale.metrics.MetricRegistry;
 import com.google.cloud.ReadChannel;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Bucket;
@@ -116,17 +118,21 @@ public class GoogleCloudBlobStore
 
   private LoadingCache<BlobId, GoogleCloudStorageBlob> liveBlobs;
 
+  private MetricRegistry metricRegistry;
+  
   @Inject
   public GoogleCloudBlobStore(final GoogleCloudStorageFactory storageFactory,
                               final BlobIdLocationResolver blobIdLocationResolver,
                               final GoogleCloudBlobStoreMetricsStore metricsStore,
                               final GoogleCloudDatastoreFactory datastoreFactory,
-                              final DryRunPrefix dryRunPrefix)
+                              final DryRunPrefix dryRunPrefix,
+                              final MetricRegistry metricRegistry)
   {
     super(blobIdLocationResolver, dryRunPrefix);
     this.storageFactory = checkNotNull(storageFactory);
     this.metricsStore = metricsStore;
     this.datastoreFactory = datastoreFactory;
+    this.metricRegistry = metricRegistry;
   }
 
   @Override
@@ -143,8 +149,15 @@ public class GoogleCloudBlobStore
       metadata.setProperty(TYPE_KEY, TYPE_V1);
       metadata.store();
     }
-    liveBlobs = CacheBuilder.newBuilder().weakValues().build(from(GoogleCloudStorageBlob::new));
-
+    liveBlobs = CacheBuilder.newBuilder().weakValues().recordStats().build(from(GoogleCloudStorageBlob::new));
+    
+    wrapWithGauge(".liveBlobsCache.size", () -> liveBlobs.size());
+    wrapWithGauge(".liveBlobsCache.hitCount", () -> liveBlobs.stats().hitCount());
+    wrapWithGauge(".liveBlobsCache.missCount", () -> liveBlobs.stats().missCount());
+    wrapWithGauge(".liveBlobsCache.totalLoadTime", () -> liveBlobs.stats().totalLoadTime());
+    wrapWithGauge(".liveBlobsCache.evictionCount", () -> liveBlobs.stats().evictionCount());
+    wrapWithGauge(".liveBlobsCache.requestCount", () -> liveBlobs.stats().requestCount());
+    
     metricsStore.setBucket(bucket);
     metricsStore.setBlobStore(this);
     metricsStore.start();
@@ -154,6 +167,11 @@ public class GoogleCloudBlobStore
   protected void doStop() throws Exception {
     liveBlobs = null;
     metricsStore.stop();
+  }
+
+  protected void wrapWithGauge(String nameSuffix, Supplier valueSupplier) {
+    metricRegistry.gauge(GoogleCloudBlobStore.class.getName() + nameSuffix,
+        () -> () -> valueSupplier.get());
   }
 
   @Override
@@ -197,6 +215,7 @@ public class GoogleCloudBlobStore
 
   @Nullable
   @Override
+  @Guarded(by = STARTED)
   public Blob get(final BlobId blobId, final boolean includeDeleted) {
     checkNotNull(blobId);
 
