@@ -156,7 +156,6 @@ public class GoogleCloudBlobStore
     wrapWithGauge(".liveBlobsCache.missCount", () -> liveBlobs.stats().missCount());
     wrapWithGauge(".liveBlobsCache.totalLoadTime", () -> liveBlobs.stats().totalLoadTime());
     wrapWithGauge(".liveBlobsCache.evictionCount", () -> liveBlobs.stats().evictionCount());
-    wrapWithGauge(".liveBlobsCache.loadCount", () -> liveBlobs.stats().loadCount());
     wrapWithGauge(".liveBlobsCache.requestCount", () -> liveBlobs.stats().requestCount());
     
     metricsStore.setBucket(bucket);
@@ -216,6 +215,7 @@ public class GoogleCloudBlobStore
 
   @Nullable
   @Override
+  @Guarded(by = STARTED)
   public Blob get(final BlobId blobId, final boolean includeDeleted) {
     checkNotNull(blobId);
 
