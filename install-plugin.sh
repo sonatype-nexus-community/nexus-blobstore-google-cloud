@@ -25,7 +25,7 @@ if [ ! -d "$nxrmPath/system" ] ; then
 fi
 
 if [ ! -f "target/feature/feature.xml" ] ; then
-  >&2 echo "Make sure you build the plugin first with 'mvn clean install'."
+  >&2 echo "Make sure you build the plugin first with 'mvn clean package'."
   exit 1
 fi
 
