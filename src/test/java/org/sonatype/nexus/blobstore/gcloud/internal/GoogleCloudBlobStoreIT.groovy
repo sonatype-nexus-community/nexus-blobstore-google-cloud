@@ -35,6 +35,7 @@ import org.sonatype.nexus.repository.storage.TempBlob
 import org.sonatype.nexus.scheduling.PeriodicJobService
 import org.sonatype.nexus.scheduling.PeriodicJobService.PeriodicJob
 
+import com.codahale.metrics.MetricRegistry
 import com.google.cloud.storage.Blob.BlobSourceOption
 import com.google.cloud.storage.BlobInfo
 import com.google.cloud.storage.Storage
@@ -89,6 +90,8 @@ class GoogleCloudBlobStoreIT
 
   BlobStoreUsageChecker usageChecker = Mock()
 
+  MetricRegistry metricRegistry = Mock()
+
   def setup() {
     config.attributes = [
         'google cloud storage': [
@@ -102,7 +105,7 @@ class GoogleCloudBlobStoreIT
     metricsStore = new GoogleCloudBlobStoreMetricsStore(periodicJobService, nodeAccess, quotaService, 60)
     // can't start metrics store until blobstore init is done (which creates the bucket)
     blobStore = new GoogleCloudBlobStore(storageFactory, blobIdLocationResolver, metricsStore, datastoreFactory,
-        new DryRunPrefix("TEST "))
+        new DryRunPrefix("TEST "), metricRegistry)
     blobStore.init(config)
 
     blobStore.start()
