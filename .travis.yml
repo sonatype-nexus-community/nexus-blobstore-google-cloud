@@ -4,7 +4,7 @@ services:
   - docker
 
 before_install:
-  - docker build -t sonatype/test_build_nexues_blobstore_google_cloud .
+  - docker build -t sonatype/test_build_nexus_blobstore_google_cloud .
 
 jdk:
   - openjdk8

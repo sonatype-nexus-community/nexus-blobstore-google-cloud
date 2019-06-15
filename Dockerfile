@@ -4,6 +4,6 @@ COPY . /build/.
 RUN mvn clean package
 
 FROM sonatype/nexus3:3.16.2
-ADD target/nexus-blobstore-google-cloud*.kar /opt/sonatype/nexus/deploy
+ADD /build/target/nexus-blobstore-google-cloud*.kar /opt/sonatype/nexus/deploy
 
 USER nexus
