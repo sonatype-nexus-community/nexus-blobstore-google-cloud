@@ -76,10 +76,10 @@ Optional: review the [additional documentation to configure and run integration 
 Installing
 ----------
 
-After you have built the project, run the provided install script
+After you have built the project, copy the kar file to the `deploy` directory in your Nexus Repository Manager install:
 
 ```bash
-sh ./install-plugin.sh path/to/your/nxrm3/install
+cp target/*.kar /path/to/your/nxrm3/install/deploy
 ```
 
 Google Cloud Storage Authentication
