@@ -31,9 +31,7 @@ jobs:
     environment:
       MAVEN_OPTS: -Xmx3200m
     steps:
-      - run:
-          name: Configure GPG private key for signing project artifacts in OSS Sonatype
-          command: echo $SECRING_GPG_ASC_BASE64
+      - run: echo $SECRING_GPG_ASC_BASE64
       - run: mvn clean deploy -PbuildKar -s .maven.xml -B -U -DskipTests -Prelease
 
 workflows:
