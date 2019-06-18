@@ -31,8 +31,7 @@ jobs:
     steps:
       - run:
           name: Maven Deploy
-          command:
-            - mvn -PbuildKar -s .maven.xml -DskipTests deploy
+          command: mvn -PbuildKar -s .maven.xml -DskipTests deploy
 
   workflows:
     version: 2.1
