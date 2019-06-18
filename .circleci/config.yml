@@ -30,9 +30,9 @@ jobs:
     working_directory: ~/nexus-blobstore-google-cloud
     steps:
       - run:
-        name: Maven Deploy
-        command:
-          - mvn -PbuildKar -s .maven.xml -DskipTests deploy
+          name: Maven Deploy
+          command:
+            - mvn -PbuildKar -s .maven.xml -DskipTests deploy
 
   workflows:
     version: 2.1
