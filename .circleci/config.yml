@@ -43,6 +43,7 @@ workflows:
     jobs:
       - build
       - deploy:
+          context: rso
           requires:
             - build
           filters:
