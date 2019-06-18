@@ -24,10 +24,24 @@ jobs:
           path: ~/results/test-results
       - store_artifacts:
           path: ~/results
+  deploy:
+    docker:
+      - image: circleci/openjdk:8-jdk
+    working_directory: ~/nexus-blobstore-google-cloud
+    steps:
+      - run:
+        name: Maven Deploy
+        command:
+          - mvn -PbuildKar -s .maven.xml -DskipTests deploy
 
-  deployment:
-    main:
-      branch: master
-      commands:
-        - mvn -PbuildKar -s .maven.xml -DskipTests deploy
-
+  workflows:
+    version: 2.1
+      build-deploy:
+        jobs:
+          - build
+          - deploy:
+              requires:
+                - build
+              filters:
+                branches:
+                  only: master
