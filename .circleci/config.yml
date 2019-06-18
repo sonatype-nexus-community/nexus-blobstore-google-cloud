@@ -33,8 +33,7 @@ jobs:
     steps:
       - run:
           name: Configure GPG private key for signing project artifacts in OSS Sonatype
-          command: |
-            echo $SECRING_GPG_ASC_BASE64
+          command: echo $SECRING_GPG_ASC_BASE64
       - run: mvn clean deploy -PbuildKar -s .maven.xml -B -U -DskipTests -Prelease
 
 workflows:
