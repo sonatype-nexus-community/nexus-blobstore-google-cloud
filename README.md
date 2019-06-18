@@ -15,6 +15,8 @@
 Nexus Repository Google Cloud Storage Blobstore
 ==============================
 
+[![CircleCI](https://circleci.com/gh/sonatype-nexus-community/nexus-blobstore-google-cloud.svg?style=svg)](https://circleci.com/gh/sonatype-nexus-community/nexus-blobstore-google-cloud)
+
 [![Build Status](https://travis-ci.org/sonatype-nexus-community/nexus-blobstore-google-cloud.svg?branch=master)](https://travis-ci.org/sonatype-nexus-community/nexus-blobstore-google-cloud) [![Join the chat at https://gitter.im/sonatype/nexus-developers](https://badges.gitter.im/sonatype/nexus-developers.svg)](https://gitter.im/sonatype/nexus-developers?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 This project adds [Google Cloud Object Storage](https://cloud.google.com/storage/) backed blobstores to Sonatype Nexus 
