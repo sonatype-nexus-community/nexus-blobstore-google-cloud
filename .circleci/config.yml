@@ -28,19 +28,19 @@ jobs:
     docker:
       - image: circleci/openjdk:8-jdk
     working_directory: ~/nexus-blobstore-google-cloud
+    environment:
+      MAVEN_OPTS: -Xmx3200m
     steps:
-      - run:
-          name: Maven Deploy
-          command: mvn -PbuildKar -s .maven.xml -DskipTests deploy
+      - run: mvn -PbuildKar -s .maven.xml -DskipTests deploy
 
-  workflows:
-    version: 2
-    build-deploy:
-      jobs:
-        - build
-        - deploy:
-            requires:
-              - build
-            filters:
-              branches:
-                only: master
+workflows:
+  version: 2
+  build-deploy:
+    jobs:
+      - build
+      - deploy:
+          requires:
+            - build
+          filters:
+            branches:
+              only: master
