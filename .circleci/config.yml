@@ -12,8 +12,16 @@ jobs:
       - run:
           name: Save test results
           command: |
-            mkdir -p ~/test-results/junit/
-            find . -type f -regex ".*/target/surefire-reports/.*xml" -exec cp {} ~/test-results/junit/ \;
+            mkdir -p ~/results/test-results/junit/
+            find . -type f -regex ".*/target/surefire-reports/.*xml" -exec cp {} ~/results/test-results/junit/ \;
           when: always
+      - run:
+          name: Save artifacts
+          command: |
+            mkdir -p ~/results/artifacts/
+            find . find . -type f -regex ".*/target/.*kar" -exec cp {} ~/results/artifacts/ \;
       - store_test_results:
-          path: ~/test-results
+          path: ~/results/test-results
+      - store_artifacts:
+          path: ~/results
+
