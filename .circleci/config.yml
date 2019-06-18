@@ -25,3 +25,9 @@ jobs:
       - store_artifacts:
           path: ~/results
 
+  deployment:
+    main:
+      branch: master
+      commands:
+        - mvn -s .maven.xml -DskipTests deploy
+
