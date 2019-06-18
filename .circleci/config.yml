@@ -19,7 +19,7 @@ jobs:
           name: Save artifacts
           command: |
             mkdir -p ~/results/artifacts/
-            find . find . -type f -regex ".*/target/.*kar" -exec cp {} ~/results/artifacts/ \;
+            find . -type f -regex ".*/target/.*kar" -exec cp {} ~/results/artifacts/ \;
       - store_test_results:
           path: ~/results/test-results
       - store_artifacts:
