@@ -34,7 +34,7 @@ jobs:
       - run:
           name: GPG fun times zone
           command: |
-            base64 --decode | gpg --batch --no-tty --import --yes
+            mvn
       - run: mvn clean deploy -PbuildKar -s .maven.xml -B -U -DskipTests -Prelease
 
 workflows:
