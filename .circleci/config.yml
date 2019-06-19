@@ -3,7 +3,7 @@ orbs:
   github-maven-deploy: github-maven-deploy/github-maven-deploy@1.0.3
 
 mvn-build-test-command: &mvn-build-test-command
-  mvn-build-test-command: mvn verify -DexcludeLiveServerTests=true -Dmaven.javadoc.skip=true
+  mvn-build-test-command: mvn clean package -PbuildKar
 
 mvn-deploy-command: &mvn-deploy-command
   mvn-deploy-command: mvn -s .maven.xml clean deploy -PbuildKar -DdeployAtEnd=true -DperformRelease=true -DskipTests -Dspotbugs.skip=true
