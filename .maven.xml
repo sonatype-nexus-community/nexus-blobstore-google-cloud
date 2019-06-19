@@ -3,7 +3,7 @@
   <servers>
     <server>
       <!-- Maven Central Deployment -->
-      <id>ossrh</id>
+      <id>rso</id>
       <username>${env.SONATYPE_USERNAME}</username>
       <password>${env.SONATYPE_PASSWORD}</password>
     </server>
