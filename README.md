@@ -31,7 +31,7 @@ For the best experience, you should upgrade your Nexus Repository Manager and Go
 
 | Nexus Repository Manager 3 Version | Google Cloud Storage Blobstore Version |
 | ---------------------------------- |--------------------------------------- |
-| 3.16                               | 0.5.1                                  |
+| 3.16                               | 0.6.1                                  |
 | 3.15                               | 0.4.0                                  |
 | 3.13, 3.14                         | 0.3.0                                  |
 | 3.11, 3.12                         | 0.2.0                                  |
