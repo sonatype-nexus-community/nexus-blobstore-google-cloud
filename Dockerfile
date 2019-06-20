@@ -1,9 +1,8 @@
-FROM maven:3.6-jdk-8-alpine as nexus-blobstore-google-cloud
-WORKDIR /build
-COPY . /build/.
-RUN mvn clean package
-
 FROM sonatype/nexus3:3.16.2
-COPY --from=nexus-blobstore-google-cloud /build/target/nexus-blobstore-google-cloud*.kar /opt/sonatype/nexus/deploy
+
+ARG PLUGIN_VERSION=0.6.1
+ARG BUNDLE_NAME=nexus-blobstore-google-cloud-${PLUGIN_VERSION}-bundle.kar
+ARG KAR_URL=https://repository.sonatype.org/service/local/repositories/releases/content/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/${PLUGIN_VERSION}/${BUNDLE_NAME}
+ADD --chown=nexus:nexus ${KAR_URL} /opt/sonatype/nexus/deploy
 
 USER nexus
