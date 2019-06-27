@@ -14,28 +14,45 @@ workflows:
     jobs:
       - github-maven-deploy/build-and-test:
           <<: *mvn-build-test-command
-
       - github-maven-deploy/approve-deploy-patch-version:
           type: approval
           requires:
             - github-maven-deploy/build-and-test
+          filters:
+            branches:
+              only: master
       - github-maven-deploy/approve-deploy-minor-version:
           type: approval
           requires:
             - github-maven-deploy/build-and-test
+          filters:
+            branches:
+              only: master
       - github-maven-deploy/approve-deploy-major-version:
           type: approval
           requires:
             - github-maven-deploy/build-and-test
+          filters:
+            branches:
+              only: master
       - github-maven-deploy/deploy-patch-version:
           requires:
             - github-maven-deploy/approve-deploy-patch-version
           <<: *mvn-deploy-command
+          filters:
+            branches:
+              only: master
       - github-maven-deploy/deploy-minor-version:
           requires:
             - github-maven-deploy/approve-deploy-minor-version
           <<: *mvn-deploy-command
+          filters:
+            branches:
+              only: master
       - github-maven-deploy/deploy-major-version:
           requires:
             - github-maven-deploy/approve-deploy-major-version
           <<: *mvn-deploy-command
+          filters:
+            branches:
+              only: master
