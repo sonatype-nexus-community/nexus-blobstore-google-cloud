@@ -1,6 +1,6 @@
 version: 2.1
 orbs:
-  github-maven-deploy: github-maven-deploy/github-maven-deploy@1.0.3
+  github-maven-deploy: github-maven-deploy/github-maven-deploy@1.0.5
 
 mvn-build-test-command: &mvn-build-test-command
   mvn-build-test-command: mvn clean package -PbuildKar
@@ -9,11 +9,18 @@ mvn-deploy-command: &mvn-deploy-command
   mvn-deploy-command: mvn -s .maven.xml clean deploy -PbuildKar -DdeployAtEnd=true -DperformRelease=true -DskipTests -Dspotbugs.skip=true
   context: rso
 
+mvn-collect-artifacts-command: &mvn-collect-artifacts-command
+  mvn-collect-artifacts-command: |
+    mkdir -p ~/project/artifacts/junit/
+    cp ~/project/target/surefire-reports/*.xml ~/project/artifacts/junit/
+    cp ~/project/target/nexus-blobstore-* ~/project/artifacts/
+
 workflows:
   workflow:
     jobs:
       - github-maven-deploy/build-and-test:
           <<: *mvn-build-test-command
+          <<: *mvn-collect-artifacts-command
       - github-maven-deploy/approve-deploy-patch-version:
           type: approval
           requires:
