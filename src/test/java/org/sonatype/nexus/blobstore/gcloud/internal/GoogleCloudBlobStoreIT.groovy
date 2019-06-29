@@ -12,6 +12,7 @@
  */
 package org.sonatype.nexus.blobstore.gcloud.internal
 
+import java.util.function.Predicate
 import java.util.stream.Collectors
 import java.util.stream.Stream
 import java.util.stream.StreamSupport
@@ -35,6 +36,7 @@ import org.sonatype.nexus.repository.storage.TempBlob
 import org.sonatype.nexus.scheduling.PeriodicJobService
 import org.sonatype.nexus.scheduling.PeriodicJobService.PeriodicJob
 
+import com.codahale.metrics.MetricRegistry
 import com.google.cloud.storage.Blob.BlobSourceOption
 import com.google.cloud.storage.BlobInfo
 import com.google.cloud.storage.Storage
@@ -75,6 +77,8 @@ class GoogleCloudBlobStoreIT
     getId() >> 'integration-test'
   })
 
+  MetricRegistry metricRegistry = Mock()
+
   GoogleCloudStorageFactory storageFactory = new GoogleCloudStorageFactory()
 
   BlobIdLocationResolver blobIdLocationResolver =  new DefaultBlobIdLocationResolver()
@@ -90,6 +94,7 @@ class GoogleCloudBlobStoreIT
   BlobStoreUsageChecker usageChecker = Mock()
 
   def setup() {
+    config.name = 'GoogleCloudBlobStoreIT'
     config.attributes = [
         'google cloud storage': [
             bucket: bucketName,
@@ -102,7 +107,7 @@ class GoogleCloudBlobStoreIT
     metricsStore = new GoogleCloudBlobStoreMetricsStore(periodicJobService, nodeAccess, quotaService, 60)
     // can't start metrics store until blobstore init is done (which creates the bucket)
     blobStore = new GoogleCloudBlobStore(storageFactory, blobIdLocationResolver, metricsStore, datastoreFactory,
-        new DryRunPrefix("TEST "))
+        new DryRunPrefix("TEST "), metricRegistry)
     blobStore.init(config)
 
     blobStore.start()
@@ -117,7 +122,7 @@ class GoogleCloudBlobStoreIT
 
   def cleanupSpec() {
     Storage storage = new GoogleCloudStorageFactory().create(config)
-    log.debug("Tests complete, deleting files from ${bucketName}")
+    log.debug("Integration tests complete, deleting files from ${bucketName}...")
     // must delete all the files within the bucket before we can delete the bucket
     Iterator<com.google.cloud.storage.Blob> list = storage.list(bucketName,
         Storage.BlobListOption.prefix("")).iterateAll()
@@ -127,7 +132,11 @@ class GoogleCloudBlobStoreIT
     StreamSupport.stream(iterable.spliterator(), true)
         .forEach({ b -> b.delete(BlobSourceOption.generationMatch()) })
     storage.delete(bucketName)
-    log.info("Integration test complete, bucket ${bucketName} deleted")
+    log.info("bucket ${bucketName} deleted; deleting Datastore entries...")
+
+    DeletedBlobIndex index = new DeletedBlobIndex(new GoogleCloudDatastoreFactory(), config)
+    index.contents.forEach({b -> index.remove(b)})
+    log.info("Datastore entries removed")
   }
 
   def "isWritable true for buckets created by the Integration Test"() {
@@ -267,6 +276,39 @@ class GoogleCloudBlobStoreIT
 
       Blob retrieve = blobStore.get(result.getId())
       assert retrieve != null
+  }
+
+  def "soft delete results in BlobId being tracked correctly in DeletedBlobIndex"() {
+    given: 'we have stored a blob'
+      Blob blob = blobStore.create(new ByteArrayInputStream('hello'.getBytes()),
+          [ (BlobStore.BLOB_NAME_HEADER): 'foo1',
+            (BlobStore.CREATED_BY_HEADER): 'someuser' ] )
+      assert blob != null
+
+    when: 'we soft delete it'
+      blobStore.delete(blob.id, "integration test")
+
+    then: 'the blobId is present in the DeletedBlobIndex'
+      blobStore.getDeletedBlobIndex().getContents().anyMatch(Predicate.isEqual(blob.id))
+
+    cleanup:
+      blobStore.deleteHard(blob.id)
+  }
+
+  def "compaction after soft delete results in empty DeletedBlobIndex"() {
+    given: 'we have stored a blob, and we soft deleted it'
+      Blob blob = blobStore.create(new ByteArrayInputStream('hello'.getBytes()),
+          [ (BlobStore.BLOB_NAME_HEADER): 'foo1',
+            (BlobStore.CREATED_BY_HEADER): 'someuser' ] )
+      assert blob != null
+      blobStore.delete(blob.id, "integration test")
+      assert blobStore.getDeletedBlobIndex().getContents().iterator().hasNext()
+
+    when: 'we run compaction'
+      blobStore.compact(null)
+
+    then: 'the blobId is present in the DeletedBlobIndex'
+      blobStore.getDeletedBlobIndex().getContents().count() == 0L
   }
 
   def createRegularFile(Storage storage, String path) {

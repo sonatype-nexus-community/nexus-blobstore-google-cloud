@@ -102,6 +102,7 @@ class GoogleCloudBlobStoreTest
     blobIdLocationResolver.getLocation(_) >> { args -> args[0].toString() }
     blobIdLocationResolver.fromHeaders(_) >> new BlobId(UUID.randomUUID().toString())
     storageFactory.create(_) >> storage
+    config.name = 'GoogleCloudBlobStoreTest'
     config.attributes = [ 'google cloud storage': [bucket: 'mybucket'] ]
 
     datastoreFactory.create(_) >> datastore
