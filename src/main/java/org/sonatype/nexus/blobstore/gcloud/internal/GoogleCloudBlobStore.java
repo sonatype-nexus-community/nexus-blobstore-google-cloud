@@ -48,6 +48,7 @@ import org.sonatype.nexus.common.log.DryRunPrefix;
 import org.sonatype.nexus.common.stateguard.Guarded;
 import org.sonatype.nexus.logging.task.ProgressLogIntervalHelper;
 import org.sonatype.nexus.scheduling.CancelableHelper;
+import org.sonatype.nexus.scheduling.PeriodicJobService;
 
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.annotation.Timed;
@@ -59,7 +60,6 @@ import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.Storage.BlobField;
 import com.google.cloud.storage.Storage.BlobGetOption;
 import com.google.cloud.storage.Storage.BlobListOption;
-import com.google.cloud.storage.Storage.BucketListOption;
 import com.google.cloud.storage.StorageException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
@@ -109,7 +109,7 @@ public class GoogleCloudBlobStore
 
   private final GoogleCloudStorageFactory storageFactory;
 
-  private final GoogleCloudBlobStoreMetricsStore metricsStore;
+  private final ShardedCounterMetricsStore metricsStore;
 
   private Storage storage;
 
@@ -126,14 +126,14 @@ public class GoogleCloudBlobStore
   @Inject
   public GoogleCloudBlobStore(final GoogleCloudStorageFactory storageFactory,
                               final BlobIdLocationResolver blobIdLocationResolver,
-                              final GoogleCloudBlobStoreMetricsStore metricsStore,
                               final GoogleCloudDatastoreFactory datastoreFactory,
+                              final PeriodicJobService periodicJobService,
                               final DryRunPrefix dryRunPrefix,
                               final MetricRegistry metricRegistry)
   {
     super(blobIdLocationResolver, dryRunPrefix);
     this.storageFactory = checkNotNull(storageFactory);
-    this.metricsStore = metricsStore;
+    this.metricsStore = new ShardedCounterMetricsStore(blobIdLocationResolver, datastoreFactory, periodicJobService);
     this.datastoreFactory = datastoreFactory;
     this.metricRegistry = metricRegistry;
   }
@@ -160,10 +160,8 @@ public class GoogleCloudBlobStore
     wrapWithGauge("liveBlobsCache.totalLoadTime", () -> liveBlobs.stats().totalLoadTime());
     wrapWithGauge("liveBlobsCache.evictionCount", () -> liveBlobs.stats().evictionCount());
     wrapWithGauge("liveBlobsCache.requestCount", () -> liveBlobs.stats().requestCount());
-    
-    metricsStore.setBucket(bucket);
-    metricsStore.setBlobStore(this);
-    metricsStore.start();
+
+    metricsStore.init(getBlobStoreConfiguration());
   }
 
   @Override
@@ -205,7 +203,8 @@ public class GoogleCloudBlobStore
 
     return createInternal(headers, destination -> {
       sourceBlob.getBlob().copyTo(getConfiguredBucketName(), destination);
-      BlobMetrics metrics = get(blobId).getMetrics();
+
+      BlobMetrics metrics = sourceBlob.getMetrics();
       return new StreamMetrics(metrics.getContentSize(), metrics.getSha1Hash());
     }, null);
   }
@@ -253,8 +252,7 @@ public class GoogleCloudBlobStore
       }
     }
 
-    log.debug("Accessing blob {}", blobId);
-
+    log.debug("get blob {}", blobId);
     return blob;
   }
 
@@ -301,18 +299,13 @@ public class GoogleCloudBlobStore
     try {
       log.debug("Hard deleting blob {}", blobId);
 
-      String attributePath = attributePath(blobId);
-      GoogleCloudBlobAttributes blobAttributes = new GoogleCloudBlobAttributes(bucket, attributePath);
-      Long contentSize = getContentSizeForDeletion(blobAttributes);
-
       boolean blobDeleted = storage.delete(getConfiguredBucketName(), contentPath(blobId));
       if (blobDeleted) {
+        String attributePath = attributePath(blobId);
+        BlobAttributes attributes = getBlobAttributes(blobId);
+        metricsStore.recordDeletion(blobId, attributes.getMetrics().getContentSize());
         storage.delete(getConfiguredBucketName(), attributePath);
         deletedBlobIndex.remove(blobId);
-      }
-
-      if (blobDeleted && contentSize != null) {
-        metricsStore.recordDeletion(contentSize);
       }
 
       return blobDeleted;
@@ -391,6 +384,9 @@ public class GoogleCloudBlobStore
   @Override
   @Guarded(by = {NEW, STOPPED, FAILED})
   public void remove() {
+    metricsStore.removeData();
+    deletedBlobIndex.removeData();
+
     // TODO delete bucket only if it is empty
   }
 
@@ -526,7 +522,7 @@ public class GoogleCloudBlobStore
       GoogleCloudBlobAttributes blobAttributes = new GoogleCloudBlobAttributes(bucket, attributePath, headers, metrics);
 
       blobAttributes.store();
-      metricsStore.recordAddition(blobAttributes.getMetrics().getContentSize());
+      metricsStore.recordAddition(blobId, metrics.getContentSize());
 
       return blob;
     }
@@ -587,17 +583,6 @@ public class GoogleCloudBlobStore
 
   private String getConfiguredBucketName() {
     return blobStoreConfiguration.attributes(CONFIG_KEY).require(BUCKET_KEY).toString();
-  }
-
-  private Long getContentSizeForDeletion(final GoogleCloudBlobAttributes blobAttributes) {
-    try {
-      blobAttributes.load();
-      return blobAttributes.getMetrics() != null ? blobAttributes.getMetrics().getContentSize() : null;
-    }
-    catch (Exception e) {
-      log.warn("Unable to load attributes {}, delete will not be added to metrics.", blobAttributes, e);
-      return null;
-    }
   }
 
   class GoogleCloudStorageBlob

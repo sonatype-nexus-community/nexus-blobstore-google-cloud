@@ -25,13 +25,9 @@ import org.sonatype.nexus.blobstore.api.BlobId
 import org.sonatype.nexus.blobstore.api.BlobStore
 import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration
 import org.sonatype.nexus.blobstore.api.BlobStoreUsageChecker
-import org.sonatype.nexus.blobstore.quota.BlobStoreQuota
-import org.sonatype.nexus.blobstore.quota.BlobStoreQuotaService
-import org.sonatype.nexus.blobstore.quota.internal.BlobStoreQuotaServiceImpl
 import org.sonatype.nexus.common.hash.HashAlgorithm
 import org.sonatype.nexus.common.hash.MultiHashingInputStream
 import org.sonatype.nexus.common.log.DryRunPrefix
-import org.sonatype.nexus.common.node.NodeAccess
 import org.sonatype.nexus.repository.storage.TempBlob
 import org.sonatype.nexus.scheduling.PeriodicJobService
 import org.sonatype.nexus.scheduling.PeriodicJobService.PeriodicJob
@@ -73,23 +69,15 @@ class GoogleCloudBlobStoreIT
     }
   })
 
-  NodeAccess nodeAccess = Mock({
-    getId() >> 'integration-test'
-  })
-
   MetricRegistry metricRegistry = Mock()
 
   GoogleCloudStorageFactory storageFactory = new GoogleCloudStorageFactory()
 
-  BlobIdLocationResolver blobIdLocationResolver =  new DefaultBlobIdLocationResolver()
-
-  GoogleCloudBlobStoreMetricsStore metricsStore
+  static final BlobIdLocationResolver blobIdLocationResolver =  new DefaultBlobIdLocationResolver()
 
   GoogleCloudDatastoreFactory datastoreFactory = new GoogleCloudDatastoreFactory()
 
   GoogleCloudBlobStore blobStore
-
-  BlobStoreQuotaService quotaService = new BlobStoreQuotaServiceImpl(new HashMap<String, BlobStoreQuota>())
 
   BlobStoreUsageChecker usageChecker = Mock()
 
@@ -104,20 +92,18 @@ class GoogleCloudBlobStoreIT
 
     log.info("Integration test using bucket ${bucketName}")
 
-    metricsStore = new GoogleCloudBlobStoreMetricsStore(periodicJobService, nodeAccess, quotaService, 60)
-    // can't start metrics store until blobstore init is done (which creates the bucket)
-    blobStore = new GoogleCloudBlobStore(storageFactory, blobIdLocationResolver, metricsStore, datastoreFactory,
-        new DryRunPrefix("TEST "), metricRegistry)
+    blobStore = new GoogleCloudBlobStore(storageFactory, blobIdLocationResolver, datastoreFactory,
+        periodicJobService, new DryRunPrefix("TEST "), metricRegistry)
     blobStore.init(config)
 
     blobStore.start()
-    metricsStore.start()
 
     usageChecker.test(_, _, _) >> true
   }
 
   def cleanup() {
     blobStore.stop()
+    blobStore.remove()
   }
 
   def cleanupSpec() {
@@ -132,11 +118,7 @@ class GoogleCloudBlobStoreIT
     StreamSupport.stream(iterable.spliterator(), true)
         .forEach({ b -> b.delete(BlobSourceOption.generationMatch()) })
     storage.delete(bucketName)
-    log.info("bucket ${bucketName} deleted; deleting Datastore entries...")
-
-    DeletedBlobIndex index = new DeletedBlobIndex(new GoogleCloudDatastoreFactory(), config)
-    index.contents.forEach({b -> index.remove(b)})
-    log.info("Datastore entries removed")
+    log.info("bucket ${bucketName} deleted")
   }
 
   def "isWritable true for buckets created by the Integration Test"() {
@@ -307,7 +289,7 @@ class GoogleCloudBlobStoreIT
     when: 'we run compaction'
       blobStore.compact(null)
 
-    then: 'the blobId is present in the DeletedBlobIndex'
+    then: 'the blobId is no longer present in the DeletedBlobIndex'
       blobStore.getDeletedBlobIndex().getContents().count() == 0L
   }
 

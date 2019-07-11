@@ -12,11 +12,14 @@
  */
 package org.sonatype.nexus.blobstore.gcloud.internal;
 
+import java.util.List;
 import java.util.Spliterator;
 import java.util.Spliterators;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
+import org.sonatype.goodies.common.ComponentSupport;
 import org.sonatype.nexus.blobstore.api.BlobId;
 import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration;
 
@@ -29,9 +32,12 @@ import com.google.cloud.datastore.Query;
 import com.google.cloud.datastore.QueryResults;
 import com.google.cloud.datastore.StructuredQuery.PropertyFilter;
 
+import static org.sonatype.nexus.blobstore.gcloud.internal.DatastoreKeyHierarchy.GOOGLE_CLOUD_BLOB_STORE;
+import static org.sonatype.nexus.blobstore.gcloud.internal.DatastoreKeyHierarchy.NXRM_ROOT;
+
 /**
  * Index of soft-deleted {@link BlobId}s, stored in Google Datastore.
- *
+ **
  * The key ancestry looks like:
  * <pre>
  kind=Sonatype,name=Nexus Repository Manager
@@ -42,9 +48,8 @@ import com.google.cloud.datastore.StructuredQuery.PropertyFilter;
  * This key ancestry is intended to support separation of deleted blobs for multiple google cloud blobstore instances.
  */
 class DeletedBlobIndex
+    extends ComponentSupport
 {
-  public static final String GOOGLE_CLOUD_BLOB_STORE = "Google Cloud BlobStore";
-
   private Datastore gcsDatastore;
 
   private KeyFactory deletedBlobsKeyFactory;
@@ -52,8 +57,6 @@ class DeletedBlobIndex
   private static final String DELETED_BLOBS = "DeletedBlobs";
 
   static final Integer WARN_LIMIT = 1000;
-
-  static final PathElement NXRM_ROOT = PathElement.of("Sonatype", "Nexus Repository Manager");
 
   final Key deletedBlobsRootKey;
 
@@ -87,6 +90,24 @@ class DeletedBlobIndex
     gcsDatastore.delete(deletedBlobsKeyFactory.newKey(blobId.asUniqueString()));
   }
 
+  /**
+   * Removes all deleted blobs tracked in this index.
+   *
+   */
+  void removeData() {
+    log.warn("removing all entries in the index of soft-deleted blobs...");
+    Query<Entity> query = Query.newEntityQueryBuilder()
+        .setFilter(PropertyFilter.hasAncestor(deletedBlobsRootKey))
+        .setKind(DELETED_BLOBS)
+        .build();
+    QueryResults<Entity> results = gcsDatastore.run(query);
+    List<Key> keys = StreamSupport.stream(
+        Spliterators.spliteratorUnknownSize(results, Spliterator.ORDERED),
+        false).map(entity -> entity.getKey()).collect(Collectors.toList());
+
+    gcsDatastore.delete(keys.toArray(new Key[keys.size()]));
+    log.warn("deleted {} blobIds from the soft-deleted blob index", keys.size());
+  }
   /**
    * @return a (finite) {@link Stream} of {@link BlobId}s that have been soft-deleted.
    */
