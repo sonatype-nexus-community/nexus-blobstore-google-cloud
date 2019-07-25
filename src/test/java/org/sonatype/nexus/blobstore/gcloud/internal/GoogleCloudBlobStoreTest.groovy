@@ -17,16 +17,22 @@ import java.util.stream.Collectors
 import java.util.stream.Stream
 
 import org.sonatype.nexus.blobstore.BlobIdLocationResolver
+import org.sonatype.nexus.blobstore.DefaultBlobIdLocationResolver
 import org.sonatype.nexus.blobstore.api.Blob
 import org.sonatype.nexus.blobstore.api.BlobId
 import org.sonatype.nexus.blobstore.api.BlobStore
 import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration
 import org.sonatype.nexus.blobstore.api.BlobStoreException
+import org.sonatype.nexus.blobstore.quota.BlobStoreQuotaService
 import org.sonatype.nexus.common.log.DryRunPrefix
+import org.sonatype.nexus.scheduling.PeriodicJobService
 
 import com.codahale.metrics.MetricRegistry
 import com.google.api.gax.paging.Page
 import com.google.cloud.datastore.Datastore
+import com.google.cloud.datastore.Entity
+import com.google.cloud.datastore.FullEntity
+import com.google.cloud.datastore.Key
 import com.google.cloud.datastore.KeyFactory
 import com.google.cloud.storage.Bucket
 import com.google.cloud.storage.Storage
@@ -40,9 +46,9 @@ class GoogleCloudBlobStoreTest
 
   GoogleCloudStorageFactory storageFactory = Mock()
 
-  BlobIdLocationResolver blobIdLocationResolver =  Mock()
+  BlobIdLocationResolver blobIdLocationResolver = new DefaultBlobIdLocationResolver()
 
-  GoogleCloudBlobStoreMetricsStore metricsStore = Mock()
+  PeriodicJobService periodicJobService = Mock()
 
   Storage storage = Mock()
 
@@ -54,6 +60,8 @@ class GoogleCloudBlobStoreTest
 
   Datastore datastore = Mock()
 
+  BlobStoreQuotaService quotaService = Mock()
+
   KeyFactory keyFactory = new KeyFactory("testing")
 
   def blobHeaders = [
@@ -61,8 +69,8 @@ class GoogleCloudBlobStoreTest
       (BlobStore.CREATED_BY_HEADER): 'admin'
   ]
   GoogleCloudBlobStore blobStore = new GoogleCloudBlobStore(
-      storageFactory, blobIdLocationResolver, metricsStore, datastoreFactory, new DryRunPrefix("TEST "),
-      metricRegistry)
+      storageFactory, blobIdLocationResolver, datastoreFactory, periodicJobService, new DryRunPrefix("TEST "),
+      metricRegistry, quotaService, 60)
 
   def config = new BlobStoreConfiguration()
 
@@ -99,9 +107,8 @@ class GoogleCloudBlobStoreTest
   }
 
   def setup() {
-    blobIdLocationResolver.getLocation(_) >> { args -> args[0].toString() }
-    blobIdLocationResolver.fromHeaders(_) >> new BlobId(UUID.randomUUID().toString())
     storageFactory.create(_) >> storage
+    config.name = 'GoogleCloudBlobStoreTest'
     config.attributes = [ 'google cloud storage': [bucket: 'mybucket'] ]
 
     datastoreFactory.create(_) >> datastore
@@ -134,11 +141,24 @@ class GoogleCloudBlobStoreTest
     given: 'blobstore setup'
       storage.get('mybucket') >> bucket
       storage.testIamPermissions(*_) >> Collections.singletonList(true)
+
       blobStore.init(config)
       blobStore.doStart()
 
+      BlobId id = new BlobId(UUID.randomUUID().toString())
+      String resolved = blobIdLocationResolver.getLocation(id)
+      Key key = new KeyFactory("fakeproject")
+          .setKind(ShardedCounterMetricsStore.SHARD)
+          .newKey(resolved)
+      Entity entity = new Entity(FullEntity.newBuilder(key)
+        .set("size", 1234L)
+        .set("count", 10L)
+        .build())
+
+      datastore.get(_) >> entity
+
     when: 'call create'
-      Blob blob = blobStore.create(new ByteArrayInputStream('hello world'.bytes), blobHeaders)
+      Blob blob = blobStore.create(new ByteArrayInputStream('hello world'.bytes), blobHeaders, id)
 
     then: 'blob stored'
       blob != null
@@ -149,11 +169,14 @@ class GoogleCloudBlobStoreTest
       storage.get('mybucket') >> bucket
       blobStore.init(config)
       blobStore.doStart()
-      bucket.get('content/existing.properties', _) >> mockGoogleObject(tempFileAttributes)
-      bucket.get('content/existing.bytes', _) >> mockGoogleObject(tempFileBytes)
+
+      BlobId id = new BlobId(UUID.randomUUID().toString())
+      String resolved = blobIdLocationResolver.getLocation(id)
+      bucket.get("content/${resolved}.properties", _) >> mockGoogleObject(tempFileAttributes)
+      bucket.get("content/${resolved}.bytes", _) >> mockGoogleObject(tempFileBytes)
 
     when: 'call create'
-      Blob blob = blobStore.get(new BlobId('existing'))
+      Blob blob = blobStore.get(id)
 
     then: 'blob contains expected content'
       blob.getInputStream().text == 'some blob contents'
@@ -220,10 +243,12 @@ class GoogleCloudBlobStoreTest
       storage.get('mybucket') >> bucket
       blobStore.init(config)
       blobStore.doStart()
-      bucket.get('content/existing.properties', _) >> mockGoogleObject(tempFileAttributes)
+      BlobId id = new BlobId(UUID.randomUUID().toString())
+      String resolved = blobIdLocationResolver.getLocation(id)
+      bucket.get("content/${resolved}.properties", _) >> mockGoogleObject(tempFileAttributes)
 
     when: 'call exists'
-      boolean exists = blobStore.exists(new BlobId('existing'))
+      boolean exists = blobStore.exists(id)
 
     then: 'returns true'
       exists
@@ -236,7 +261,7 @@ class GoogleCloudBlobStoreTest
       blobStore.doStart()
 
     when: 'call exists'
-      boolean exists = blobStore.exists(new BlobId('missing'))
+      boolean exists = blobStore.exists(new BlobId(UUID.randomUUID().toString()))
 
     then: 'returns false'
       !exists
@@ -247,10 +272,12 @@ class GoogleCloudBlobStoreTest
       storage.get('mybucket') >> bucket
       blobStore.init(config)
       blobStore.doStart()
-      bucket.get('content/existing.properties', _) >> { throw new IOException("this is a test") }
+      BlobId id = new BlobId(UUID.randomUUID().toString())
+      String resolved = blobIdLocationResolver.getLocation(id)
+      bucket.get("content/${resolved}.properties", _) >> { throw new IOException("this is a test") }
 
     when: 'call exists'
-      blobStore.exists(new BlobId('existing'))
+      blobStore.exists(id)
 
     then: 'returns false'
       thrown(BlobStoreException.class)

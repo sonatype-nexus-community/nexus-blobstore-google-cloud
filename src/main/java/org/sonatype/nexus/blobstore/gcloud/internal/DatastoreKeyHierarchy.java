@@ -12,32 +12,14 @@
  */
 package org.sonatype.nexus.blobstore.gcloud.internal;
 
-import org.sonatype.nexus.blobstore.AttributesLocation;
+import com.google.cloud.datastore.PathElement;
 
-import com.google.cloud.storage.BlobInfo;
-
-import static com.google.common.base.Preconditions.checkNotNull;
-
-public class GoogleAttributesLocation
-    implements AttributesLocation
+/**
+ * Class to document the hierarchy of keys for our {@link com.google.cloud.datastore.Datastore} usage.
+ */
+final class DatastoreKeyHierarchy
 {
-  private final String key;
-  private final String fullPath;
+  static final PathElement NXRM_ROOT = PathElement.of("Sonatype", "Nexus Repository Manager");
 
-  public GoogleAttributesLocation(final BlobInfo blobInfo) {
-    checkNotNull(blobInfo);
-    this.key = checkNotNull(blobInfo.getName());
-    this.fullPath = key.substring(key.lastIndexOf('/') + 1);
-  }
-
-  @Override
-  public String getFileName() {
-    return this.fullPath;
-  }
-
-  @Override
-  public String getFullPath() {
-    return key;
-  }
-
+  static final String GOOGLE_CLOUD_BLOB_STORE = "Google Cloud BlobStore";
 }

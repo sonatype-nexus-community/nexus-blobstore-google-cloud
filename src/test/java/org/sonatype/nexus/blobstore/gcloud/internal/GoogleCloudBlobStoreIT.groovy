@@ -12,6 +12,7 @@
  */
 package org.sonatype.nexus.blobstore.gcloud.internal
 
+import java.util.function.Predicate
 import java.util.stream.Collectors
 import java.util.stream.Stream
 import java.util.stream.StreamSupport
@@ -24,13 +25,13 @@ import org.sonatype.nexus.blobstore.api.BlobId
 import org.sonatype.nexus.blobstore.api.BlobStore
 import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration
 import org.sonatype.nexus.blobstore.api.BlobStoreUsageChecker
-import org.sonatype.nexus.blobstore.quota.BlobStoreQuota
 import org.sonatype.nexus.blobstore.quota.BlobStoreQuotaService
+import org.sonatype.nexus.blobstore.quota.BlobStoreQuotaSupport
 import org.sonatype.nexus.blobstore.quota.internal.BlobStoreQuotaServiceImpl
+import org.sonatype.nexus.blobstore.quota.internal.SpaceUsedQuota
 import org.sonatype.nexus.common.hash.HashAlgorithm
 import org.sonatype.nexus.common.hash.MultiHashingInputStream
 import org.sonatype.nexus.common.log.DryRunPrefix
-import org.sonatype.nexus.common.node.NodeAccess
 import org.sonatype.nexus.repository.storage.TempBlob
 import org.sonatype.nexus.scheduling.PeriodicJobService
 import org.sonatype.nexus.scheduling.PeriodicJobService.PeriodicJob
@@ -58,6 +59,8 @@ class GoogleCloudBlobStoreIT
 
   static final BlobStoreConfiguration config = new BlobStoreConfiguration()
 
+  static final long quotaLimit = 512000L
+
   static String bucketName = "integration-test-${UUID.randomUUID().toString()}"
 
   def hashAlgorithms = ImmutableList.of(
@@ -72,55 +75,56 @@ class GoogleCloudBlobStoreIT
     }
   })
 
-  NodeAccess nodeAccess = Mock({
-    getId() >> 'integration-test'
-  })
+  MetricRegistry metricRegistry = Mock()
 
   GoogleCloudStorageFactory storageFactory = new GoogleCloudStorageFactory()
 
-  BlobIdLocationResolver blobIdLocationResolver =  new DefaultBlobIdLocationResolver()
-
-  GoogleCloudBlobStoreMetricsStore metricsStore
+  static final BlobIdLocationResolver blobIdLocationResolver =  new DefaultBlobIdLocationResolver()
 
   GoogleCloudDatastoreFactory datastoreFactory = new GoogleCloudDatastoreFactory()
 
-  GoogleCloudBlobStore blobStore
+  BlobStoreQuotaService quotaService
 
-  BlobStoreQuotaService quotaService = new BlobStoreQuotaServiceImpl(new HashMap<String, BlobStoreQuota>())
+  GoogleCloudBlobStore blobStore
 
   BlobStoreUsageChecker usageChecker = Mock()
 
-  MetricRegistry metricRegistry = Mock()
-
   def setup() {
+    quotaService = new BlobStoreQuotaServiceImpl([
+        (SpaceUsedQuota.ID): new SpaceUsedQuota()
+    ])
+
+    config.name = 'GoogleCloudBlobStoreIT'
     config.attributes = [
-        'google cloud storage': [
+        'google cloud storage'          : [
             bucket: bucketName,
             credential_file: this.getClass().getResource('/gce-credentials.json').getFile()
+        ],
+        (BlobStoreQuotaSupport.ROOT_KEY): [
+            (BlobStoreQuotaSupport.TYPE_KEY): (SpaceUsedQuota.ID),
+            (BlobStoreQuotaSupport.LIMIT_KEY): quotaLimit
         ]
     ]
 
     log.info("Integration test using bucket ${bucketName}")
 
-    metricsStore = new GoogleCloudBlobStoreMetricsStore(periodicJobService, nodeAccess, quotaService, 60)
-    // can't start metrics store until blobstore init is done (which creates the bucket)
-    blobStore = new GoogleCloudBlobStore(storageFactory, blobIdLocationResolver, metricsStore, datastoreFactory,
-        new DryRunPrefix("TEST "), metricRegistry)
+    blobStore = new GoogleCloudBlobStore(storageFactory, blobIdLocationResolver, datastoreFactory,
+        periodicJobService, new DryRunPrefix("TEST "), metricRegistry, quotaService, 60)
     blobStore.init(config)
 
     blobStore.start()
-    metricsStore.start()
 
     usageChecker.test(_, _, _) >> true
   }
 
   def cleanup() {
     blobStore.stop()
+    blobStore.remove()
   }
 
   def cleanupSpec() {
     Storage storage = new GoogleCloudStorageFactory().create(config)
-    log.debug("Tests complete, deleting files from ${bucketName}")
+    log.debug("Integration tests complete, deleting files from ${bucketName}...")
     // must delete all the files within the bucket before we can delete the bucket
     Iterator<com.google.cloud.storage.Blob> list = storage.list(bucketName,
         Storage.BlobListOption.prefix("")).iterateAll()
@@ -130,7 +134,7 @@ class GoogleCloudBlobStoreIT
     StreamSupport.stream(iterable.spliterator(), true)
         .forEach({ b -> b.delete(BlobSourceOption.generationMatch()) })
     storage.delete(bucketName)
-    log.info("Integration test complete, bucket ${bucketName} deleted")
+    log.info("bucket ${bucketName} deleted")
   }
 
   def "isWritable true for buckets created by the Integration Test"() {
@@ -270,6 +274,73 @@ class GoogleCloudBlobStoreIT
 
       Blob retrieve = blobStore.get(result.getId())
       assert retrieve != null
+  }
+
+  def "soft delete results in BlobId being tracked correctly in DeletedBlobIndex"() {
+    given: 'we have stored a blob'
+      Blob blob = blobStore.create(new ByteArrayInputStream('hello'.getBytes()),
+          [ (BlobStore.BLOB_NAME_HEADER): 'foo1',
+            (BlobStore.CREATED_BY_HEADER): 'someuser' ] )
+      assert blob != null
+
+    when: 'we soft delete it'
+      blobStore.delete(blob.id, "integration test")
+
+    then: 'the blobId is present in the DeletedBlobIndex'
+      blobStore.getDeletedBlobIndex().getContents().anyMatch(Predicate.isEqual(blob.id))
+
+    cleanup:
+      blobStore.deleteHard(blob.id)
+  }
+
+  def "compaction after soft delete results in empty DeletedBlobIndex"() {
+    given: 'we have stored a blob, and we soft deleted it'
+      Blob blob = blobStore.create(new ByteArrayInputStream('hello'.getBytes()),
+          [ (BlobStore.BLOB_NAME_HEADER): 'foo1',
+            (BlobStore.CREATED_BY_HEADER): 'someuser' ] )
+      assert blob != null
+      blobStore.delete(blob.id, "integration test")
+      assert blobStore.getDeletedBlobIndex().getContents().iterator().hasNext()
+
+    when: 'we run compaction'
+      blobStore.compact(null)
+
+    then: 'the blobId is no longer present in the DeletedBlobIndex'
+      blobStore.getDeletedBlobIndex().getContents().count() == 0L
+  }
+
+  def "quota violation properly reported when exceeded"() {
+    given:
+      def expectedSize = quotaLimit / 10
+      for (int i = 0; i < 9; i++) {
+        byte[] data = new byte[expectedSize]
+        new Random().nextBytes(data)
+        Blob blob = blobStore.create(new ByteArrayInputStream(data),
+            [ (BlobStore.BLOB_NAME_HEADER): "foo${i}".toString(),
+              (BlobStore.CREATED_BY_HEADER): 'someuser' ] )
+        assert blob != null
+      }
+
+      // force a metrics store flush to guarantee we don't have any pending deltas to store
+      blobStore.flushMetricsStore()
+
+      def quotaResult = quotaService.checkQuota(blobStore)
+      assert !quotaResult.violation
+
+      // 1 byte over should trigger quota violation
+      byte[] data = new byte[expectedSize + 1]
+      new Random().nextBytes(data)
+      Blob blob = blobStore.create(new ByteArrayInputStream(data),
+          [ (BlobStore.BLOB_NAME_HEADER): 'overquota',
+            (BlobStore.CREATED_BY_HEADER): 'someuser' ] )
+      assert blob != null
+      blobStore.flushMetricsStore()
+
+    when:
+      quotaResult = quotaService.checkQuota(blobStore)
+
+    then:
+      quotaResult.violation
   }
 
   def createRegularFile(Storage storage, String path) {
