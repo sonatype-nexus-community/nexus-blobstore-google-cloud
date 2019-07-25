@@ -18,9 +18,9 @@ This design document will not apply to the metadata attached to the blobs themse
 ## Context
 
 Getting an accurate count of all blobs and their total size in a Blobstore in real time is computationally 
-very expensive. Querying the underlying storage for a count and full size on demand is not possible, 
+very expensive. Querying the underlying storage for a count and full size on demand is not possible. 
 
-The Blobstore create and delete operations wrap the `Inputstream` of content with a byte counter. Adds/removes
+The BlobStore create and delete operations wrap the `Inputstream` of content with a byte counter. Adds/removes
 to these counters are performed using Java concurrent counters internally, and periodically flushed to a single source.
 
 The original Filesystem implementation of Blobstore has the reference implementation. 
@@ -33,7 +33,7 @@ blobCount=30
 ```
 
 The Object Storage backed blobstore implementations (S3, this plugin, and Azure) have borrowed the same implementation, 
-simply replacing the read/write from disk with an appropriate HTTP operation from the Object Storage.
+simply replacing the read/write from disk with an appropriate HTTP operation to/from the Object Storage.
 
 Pros to Metrics File approach?
 
@@ -43,14 +43,13 @@ Pros to Metrics File approach?
 
 Cons to Metrics file approach
 
-* Cost on every blobstore create and delete operation. 
 * Tricky to get consistency right.
-* In HA-C environments, we have a separate file per node, then logic to aggregate the results on read
-
+* In HA-C environments, we have a separate file per node, then logic to aggregate the results on read.
+ 
 ## Design Goals for Google Cloud Blobstore Metadata
 
 1. Get accurate and consistent values for the number of blobs and their total size in bytes.
-2. Dissociate the time to track changes to the size and count from the Blobstore create and delete operations.
+2. Preserve the dissociation of the time to track changes to the size and count from the Blobstore create and delete operations.
 3. Leverage Google Cloud native services to store size and count in a cost efficient manner.
 
 ## Implementation
@@ -129,4 +128,4 @@ accumulated in memory and written out to disk periodically.
 [ShardedCounterMetricsStore](../src/main/java/org/sonatype/nexus/blobstore/gcloud/internal/ShardedCounterMetricsStore.java) 
 takes a similar approach. A thread safe Queue is kept in memory to track all deltas, and a periodic task drains those 
 deltas to the Datastore every 5 seconds.
-This queue allows us to achieve design goal #2 (no drag on create/delete)
+This queue allows us to achieve design goal #2 (no drag on create/delete).
