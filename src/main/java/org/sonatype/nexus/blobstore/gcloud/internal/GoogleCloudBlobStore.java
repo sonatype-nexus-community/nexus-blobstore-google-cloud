@@ -44,11 +44,13 @@ import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration;
 import org.sonatype.nexus.blobstore.api.BlobStoreException;
 import org.sonatype.nexus.blobstore.api.BlobStoreMetrics;
 import org.sonatype.nexus.blobstore.api.BlobStoreUsageChecker;
+import org.sonatype.nexus.blobstore.quota.BlobStoreQuotaService;
 import org.sonatype.nexus.common.log.DryRunPrefix;
 import org.sonatype.nexus.common.stateguard.Guarded;
 import org.sonatype.nexus.logging.task.ProgressLogIntervalHelper;
 import org.sonatype.nexus.scheduling.CancelableHelper;
 import org.sonatype.nexus.scheduling.PeriodicJobService;
+import org.sonatype.nexus.scheduling.PeriodicJobService.PeriodicJob;
 
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.annotation.Timed;
@@ -75,6 +77,7 @@ import static com.google.common.cache.CacheLoader.from;
 import static com.google.common.collect.Streams.stream;
 import static java.lang.String.format;
 import static org.sonatype.nexus.blobstore.DirectPathLocationStrategy.DIRECT_PATH_ROOT;
+import static org.sonatype.nexus.blobstore.quota.BlobStoreQuotaSupport.createQuotaCheckJob;
 import static org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport.State.FAILED;
 import static org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport.State.NEW;
 import static org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport.State.STARTED;
@@ -122,6 +125,8 @@ public class GoogleCloudBlobStore
   private LoadingCache<BlobId, GoogleCloudStorageBlob> liveBlobs;
 
   private MetricRegistry metricRegistry;
+
+  private PeriodicJob quotaCheckingJob;
   
   @Inject
   public GoogleCloudBlobStore(final GoogleCloudStorageFactory storageFactory,
@@ -129,13 +134,18 @@ public class GoogleCloudBlobStore
                               final GoogleCloudDatastoreFactory datastoreFactory,
                               final PeriodicJobService periodicJobService,
                               final DryRunPrefix dryRunPrefix,
-                              final MetricRegistry metricRegistry)
+                              final MetricRegistry metricRegistry,
+                              final BlobStoreQuotaService quotaService,
+                              @Named("${nexus.blobstore.quota.warnIntervalSeconds:-60}")
+                              final int quotaCheckInterval)
   {
     super(blobIdLocationResolver, dryRunPrefix);
     this.storageFactory = checkNotNull(storageFactory);
     this.metricsStore = new ShardedCounterMetricsStore(blobIdLocationResolver, datastoreFactory, periodicJobService);
     this.datastoreFactory = datastoreFactory;
     this.metricRegistry = metricRegistry;
+    this.quotaCheckingJob = periodicJobService.schedule(createQuotaCheckJob(this, quotaService, log), quotaCheckInterval);
+
   }
 
   @Override
@@ -168,6 +178,7 @@ public class GoogleCloudBlobStore
   protected void doStop() throws Exception {
     liveBlobs = null;
     metricsStore.stop();
+    quotaCheckingJob.cancel();
   }
 
   protected void wrapWithGauge(String nameSuffix, Supplier valueSupplier) {
@@ -252,7 +263,7 @@ public class GoogleCloudBlobStore
       }
     }
 
-    log.debug("get blob {}", blobId);
+    log.debug("Accessing blob {}", blobId);
     return blob;
   }
 
@@ -543,6 +554,11 @@ public class GoogleCloudBlobStore
   @VisibleForTesting
   DeletedBlobIndex getDeletedBlobIndex() {
     return this.deletedBlobIndex;
+  }
+
+  @VisibleForTesting
+  void flushMetricsStore() {
+    this.metricsStore.flush();
   }
 
   /**

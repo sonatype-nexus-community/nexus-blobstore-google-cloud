@@ -14,6 +14,7 @@ import com.google.common.base.Stopwatch
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import spock.lang.Specification
+import spock.util.concurrent.PollingConditions
 
 
 class ShardedCounterMetricsStoreIT
@@ -93,13 +94,12 @@ class ShardedCounterMetricsStoreIT
       metrics.totalSize == 0L
   }
 
-  def "consistent getMetrics() results after concurrent adds/deletes"() {
+  def "eventually consistent getMetrics() results after concurrent adds/deletes"() {
     given:
       def number_of_records = 300
       def size_of_record = 1024L
 
       IntStream.range(0, number_of_records)
-          .parallel()
           .forEach({ i ->
             BlobId id = new BlobId(UUID.randomUUID().toString())
              if (i % 2 == 0) {
@@ -109,20 +109,24 @@ class ShardedCounterMetricsStoreIT
               metricsStore.recordDeletion(id, size_of_record)
             }
           })
-      // with the preceding writes happening concurrently, there's a high likelihood we have deltas in the queue
-      // forcing a flush here will act like a latch; block until the rate limiter lets us write to datastore again
       metricsStore.flush()
 
     when:
       Stopwatch stopwatch = Stopwatch.createStarted()
       def metrics = metricsStore.metrics
       stopwatch.stop()
-      log.info("stored {} records, getMetrics() call elapsed {}", number_of_records, stopwatch)
+      log.info("stored {} records, getMetrics() call elapsed {}, result {} ", number_of_records, stopwatch, metrics)
 
     then:
       stopwatch.elapsed(TimeUnit.SECONDS) < 1
-      metrics.blobCount == number_of_records / 2
-      metrics.totalSize == (number_of_records / 2) * size_of_record
-  }
+      def conditions = new PollingConditions(timeout: 5, initialDelay: 0, factor: 1)
+        // datastore is eventually consistent
+        // even though we have flushed, there are times that those writes are not immediately read-visible
+      conditions.eventually {
+        metrics.blobCount == number_of_records / 2
+        metrics.totalSize == (number_of_records / 2) * size_of_record
+        metrics = metricsStore.metrics
+      }
 
+  }
 }

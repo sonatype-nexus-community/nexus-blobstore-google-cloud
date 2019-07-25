@@ -23,6 +23,7 @@ import org.sonatype.nexus.blobstore.api.BlobId
 import org.sonatype.nexus.blobstore.api.BlobStore
 import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration
 import org.sonatype.nexus.blobstore.api.BlobStoreException
+import org.sonatype.nexus.blobstore.quota.BlobStoreQuotaService
 import org.sonatype.nexus.common.log.DryRunPrefix
 import org.sonatype.nexus.scheduling.PeriodicJobService
 
@@ -59,6 +60,8 @@ class GoogleCloudBlobStoreTest
 
   Datastore datastore = Mock()
 
+  BlobStoreQuotaService quotaService = Mock()
+
   KeyFactory keyFactory = new KeyFactory("testing")
 
   def blobHeaders = [
@@ -67,7 +70,7 @@ class GoogleCloudBlobStoreTest
   ]
   GoogleCloudBlobStore blobStore = new GoogleCloudBlobStore(
       storageFactory, blobIdLocationResolver, datastoreFactory, periodicJobService, new DryRunPrefix("TEST "),
-      metricRegistry)
+      metricRegistry, quotaService, 60)
 
   def config = new BlobStoreConfiguration()
 
@@ -104,8 +107,6 @@ class GoogleCloudBlobStoreTest
   }
 
   def setup() {
-    /*blobIdLocationResolver.getLocation(_) >> { args -> args[0].toString() }
-    blobIdLocationResolver.fromHeaders(_) >> new BlobId(UUID.randomUUID().toString())*/
     storageFactory.create(_) >> storage
     config.name = 'GoogleCloudBlobStoreTest'
     config.attributes = [ 'google cloud storage': [bucket: 'mybucket'] ]

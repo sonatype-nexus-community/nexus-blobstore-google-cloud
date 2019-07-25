@@ -31,9 +31,12 @@ import com.google.cloud.datastore.ProjectionEntity;
 import com.google.cloud.datastore.Query;
 import com.google.cloud.datastore.QueryResults;
 import com.google.cloud.datastore.StructuredQuery.PropertyFilter;
+import com.google.cloud.datastore.Transaction;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.RateLimiter;
+import com.google.datastore.v1.TransactionOptions;
+import com.google.datastore.v1.TransactionOptions.ReadOnly;
 import org.apache.commons.lang.StringUtils;
 
 import static java.lang.String.format;
@@ -98,6 +101,11 @@ public class ShardedCounterMetricsStore
 
   private PeriodicJob flushJob;
 
+  /**
+   * @param locationResolver
+   * @param datastoreFactory
+   * @param periodicJobService
+   */
   public ShardedCounterMetricsStore(final BlobIdLocationResolver locationResolver,
                                     final GoogleCloudDatastoreFactory datastoreFactory,
                                     final PeriodicJobService periodicJobService) {
@@ -150,28 +158,36 @@ public class ShardedCounterMetricsStore
    * @return a {@link BlobStoreMetrics} containing the sums of size and count across all shards
    */
   public BlobStoreMetrics getMetrics() {
-    Query<ProjectionEntity> countQuery = Query.newProjectionEntityQueryBuilder()
-        .setKind(SHARD)
-        .setProjection(COUNT)
-        .build();
-
-    QueryResults<ProjectionEntity> results = datastore.run(countQuery);
-    Long count = StreamSupport.stream(Spliterators.spliteratorUnknownSize(results, Spliterator.NONNULL), false)
-        .map(entity -> Long.valueOf(entity.getLong(COUNT)))
-        .reduce(0L, (valueA, valueB) -> valueA + valueB);
-
-    Query<ProjectionEntity> sizeQuery = Query.newProjectionEntityQueryBuilder()
-        .setKind(SHARD)
-        .setProjection(SIZE)
-        .build();
-
-    results = datastore.run(sizeQuery);
-    Long size = StreamSupport.stream(Spliterators.spliteratorUnknownSize(results, Spliterator.NONNULL), false)
-        .map(entity -> Long.valueOf(entity.getLong(SIZE)))
-        .reduce(0L, (valueA, valueB) -> valueA + valueB);
+    Long count = getCount(COUNT);
+    Long size = getCount(SIZE);
 
     // TODO consider merge with values in pending queue
-    return new BaseMetrics(count, size);
+    return new GoogleBlobStoreMetrics(count, size);
+  }
+
+  private Long getCount(String fieldName) {
+    Transaction txn = datastore.newTransaction(
+        TransactionOptions.newBuilder()
+            .setReadOnly(ReadOnly.newBuilder().build())
+            .build()
+    );
+
+    QueryResults<ProjectionEntity> results;
+    try {
+      Query<ProjectionEntity> countQuery = Query.newProjectionEntityQueryBuilder()
+          .setKind(SHARD)
+          .setProjection(fieldName)
+          .build();
+
+      results = datastore.run(countQuery);
+      return StreamSupport.stream(Spliterators.spliteratorUnknownSize(results, Spliterator.NONNULL), false)
+          .map(entity -> Long.valueOf(entity.getLong(fieldName)))
+          .reduce(0L, (valueA, valueB) -> valueA + valueB);
+    } finally {
+      if (txn.isActive()) {
+        txn.rollback();
+      }
+    }
   }
 
   Entity getShardCounter(final String location) {
@@ -247,20 +263,29 @@ public class ShardedCounterMetricsStore
       log.debug("sending {} mutations to datastore", list.size());
       // write the batch off to datastore
       if (!list.isEmpty()) {
-        datastore.put(list.toArray(new FullEntity[list.size()]));
+        Transaction txn = datastore.newTransaction();
+        try {
+          txn.put(list.toArray(new FullEntity[list.size()]));
+          txn.commit();
+        } finally {
+          if (txn.isActive()) {
+            txn.rollback();
+          }
+        }
         log.debug("drained {} mutations to datastore", list.size());
       }
     }
   }
 
-  class BaseMetrics implements BlobStoreMetrics
+  class GoogleBlobStoreMetrics
+      implements BlobStoreMetrics
   {
 
     private final long blobCount;
 
     private final long totalSize;
 
-    BaseMetrics(final long blobCount, final long totalSize) {
+    GoogleBlobStoreMetrics(final long blobCount, final long totalSize) {
       this.blobCount = blobCount;
       this.totalSize = totalSize;
     }
@@ -288,6 +313,14 @@ public class ShardedCounterMetricsStore
     @Override
     public final Map<String, Long> getAvailableSpaceByFileStore() {
       return Collections.emptyMap();
+    }
+
+    @Override
+    public String toString() {
+      return "GoogleBlobStoreMetrics{" +
+          "blobCount=" + blobCount +
+          ", totalSize=" + totalSize +
+          '}';
     }
   }
 

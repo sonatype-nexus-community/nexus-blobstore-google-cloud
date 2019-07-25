@@ -25,6 +25,10 @@ import org.sonatype.nexus.blobstore.api.BlobId
 import org.sonatype.nexus.blobstore.api.BlobStore
 import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration
 import org.sonatype.nexus.blobstore.api.BlobStoreUsageChecker
+import org.sonatype.nexus.blobstore.quota.BlobStoreQuotaService
+import org.sonatype.nexus.blobstore.quota.BlobStoreQuotaSupport
+import org.sonatype.nexus.blobstore.quota.internal.BlobStoreQuotaServiceImpl
+import org.sonatype.nexus.blobstore.quota.internal.SpaceUsedQuota
 import org.sonatype.nexus.common.hash.HashAlgorithm
 import org.sonatype.nexus.common.hash.MultiHashingInputStream
 import org.sonatype.nexus.common.log.DryRunPrefix
@@ -55,6 +59,8 @@ class GoogleCloudBlobStoreIT
 
   static final BlobStoreConfiguration config = new BlobStoreConfiguration()
 
+  static final long quotaLimit = 512000L
+
   static String bucketName = "integration-test-${UUID.randomUUID().toString()}"
 
   def hashAlgorithms = ImmutableList.of(
@@ -77,23 +83,33 @@ class GoogleCloudBlobStoreIT
 
   GoogleCloudDatastoreFactory datastoreFactory = new GoogleCloudDatastoreFactory()
 
+  BlobStoreQuotaService quotaService
+
   GoogleCloudBlobStore blobStore
 
   BlobStoreUsageChecker usageChecker = Mock()
 
   def setup() {
+    quotaService = new BlobStoreQuotaServiceImpl([
+        (SpaceUsedQuota.ID): new SpaceUsedQuota()
+    ])
+
     config.name = 'GoogleCloudBlobStoreIT'
     config.attributes = [
-        'google cloud storage': [
+        'google cloud storage'          : [
             bucket: bucketName,
             credential_file: this.getClass().getResource('/gce-credentials.json').getFile()
+        ],
+        (BlobStoreQuotaSupport.ROOT_KEY): [
+            (BlobStoreQuotaSupport.TYPE_KEY): (SpaceUsedQuota.ID),
+            (BlobStoreQuotaSupport.LIMIT_KEY): quotaLimit
         ]
     ]
 
     log.info("Integration test using bucket ${bucketName}")
 
     blobStore = new GoogleCloudBlobStore(storageFactory, blobIdLocationResolver, datastoreFactory,
-        periodicJobService, new DryRunPrefix("TEST "), metricRegistry)
+        periodicJobService, new DryRunPrefix("TEST "), metricRegistry, quotaService, 60)
     blobStore.init(config)
 
     blobStore.start()
@@ -291,6 +307,40 @@ class GoogleCloudBlobStoreIT
 
     then: 'the blobId is no longer present in the DeletedBlobIndex'
       blobStore.getDeletedBlobIndex().getContents().count() == 0L
+  }
+
+  def "quota violation properly reported when exceeded"() {
+    given:
+      def expectedSize = quotaLimit / 10
+      for (int i = 0; i < 9; i++) {
+        byte[] data = new byte[expectedSize]
+        new Random().nextBytes(data)
+        Blob blob = blobStore.create(new ByteArrayInputStream(data),
+            [ (BlobStore.BLOB_NAME_HEADER): "foo${i}".toString(),
+              (BlobStore.CREATED_BY_HEADER): 'someuser' ] )
+        assert blob != null
+      }
+
+      // force a metrics store flush to guarantee we don't have any pending deltas to store
+      blobStore.flushMetricsStore()
+
+      def quotaResult = quotaService.checkQuota(blobStore)
+      assert !quotaResult.violation
+
+      // 1 byte over should trigger quota violation
+      byte[] data = new byte[expectedSize + 1]
+      new Random().nextBytes(data)
+      Blob blob = blobStore.create(new ByteArrayInputStream(data),
+          [ (BlobStore.BLOB_NAME_HEADER): 'overquota',
+            (BlobStore.CREATED_BY_HEADER): 'someuser' ] )
+      assert blob != null
+      blobStore.flushMetricsStore()
+
+    when:
+      quotaResult = quotaService.checkQuota(blobStore)
+
+    then:
+      quotaResult.violation
   }
 
   def createRegularFile(Storage storage, String path) {
