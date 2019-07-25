@@ -47,6 +47,7 @@ import com.google.common.hash.Hashing
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import spock.lang.Specification
+import spock.util.concurrent.PollingConditions
 
 import static org.sonatype.nexus.blobstore.DirectPathLocationStrategy.DIRECT_PATH_PREFIX
 import static org.sonatype.nexus.blobstore.gcloud.internal.AbstractGoogleClientFactory.KEEP_ALIVE_DURATION
@@ -340,7 +341,13 @@ class GoogleCloudBlobStoreIT
       quotaResult = quotaService.checkQuota(blobStore)
 
     then:
-      quotaResult.violation
+      def conditions = new PollingConditions(timeout: 5, initialDelay: 0, factor: 1)
+      // datastore is eventually consistent
+      // even though we have flushed, there are times that those writes are not immediately read-visible
+      conditions.eventually {
+        quotaResult.violation
+        quotaResult = quotaService.checkQuota(blobStore)
+      }
   }
 
   def createRegularFile(Storage storage, String path) {
