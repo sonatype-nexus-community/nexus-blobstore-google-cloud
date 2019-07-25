@@ -129,3 +129,23 @@ accumulated in memory and written out to disk periodically.
 takes a similar approach. A thread safe Queue is kept in memory to track all deltas, and a periodic task drains those 
 deltas to the Datastore every 5 seconds.
 This queue allows us to achieve design goal #2 (no drag on create/delete).
+
+### Summary of benefits to Datastore approach
+
+* Reads and writes of blobstore metadata are isolated from BlobStore content activity
+* Simplified aggregation for HA-C environments
+* Improved consistency of count and totalSize metadata
+* Zero financial overhead
+
+### Shortcomings
+
+There is one circumstance where blobstore count and size metadata may be inconsistent.
+
+* If there are queued deltas from Blobstore create/delete operations that have been flushed, and the JVM exits
+unexpectedly, those deltas will be lost.
+
+Mitigations:
+
+* Orderly shutdown of Nexus Repository Manager will wait for a flush of these deltas to occur.
+* We have set a flush frequency of 5 seconds; this value is chosen to be frequent enough to reduce the impact of this
+obscure occurrence and fit well within Google Cloud's recommendations for write frequency for Datastore.

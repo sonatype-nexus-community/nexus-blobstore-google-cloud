@@ -75,6 +75,8 @@ import static org.sonatype.nexus.blobstore.gcloud.internal.DatastoreKeyHierarchy
 public class ShardedCounterMetricsStore
     extends StateGuardLifecycleSupport
 {
+  private static final int FLUSH_FREQUENCY_IN_SECONDS = 5;
+
   static final String METRICS_STORE = "MetricsStore";
 
   static final String SHARD = "MetricsStoreShard";
@@ -123,7 +125,7 @@ public class ShardedCounterMetricsStore
         PathElement.of(GOOGLE_CLOUD_BLOB_STORE, blobStoreInstanceName)
     ).setKind(METRICS_STORE).newKey(1L);
 
-    this.flushJob = periodicJobService.schedule(() -> flush(), 5);
+    this.flushJob = periodicJobService.schedule(() -> flush(), FLUSH_FREQUENCY_IN_SECONDS);
   }
 
   @Override
