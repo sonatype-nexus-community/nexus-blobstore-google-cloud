@@ -18,6 +18,9 @@
     Relax protobuf import constraints so we can use latest release of Guava
     -->
     <bundle>wrap:${mvn:protobuf-java-util}$overwrite=merge&amp;Import-Package=com.google.common.*,*</bundle>
+    <bundle>wrap:${mvn:google-api-client}$overwrite=merge&amp;Import-Package=com.google.common.*,*</bundle>
+    <bundle>wrap:${mvn:google-http-client}$overwrite=merge&amp;Import-Package=com.google.common.*,*</bundle>
+    <bundle>wrap:${mvn:google-oauth-client}$overwrite=merge&amp;Import-Package=com.google.common.*,*</bundle>
     <bundle>wrap:${mvn:grpc-core}$Bundle-SymbolicName=grpc-core</bundle>
     <bundle>wrap:${mvn:grpc-context}$Bundle-SymbolicName=grpc-context&amp;Fragment-Host=grpc-core</bundle>
   </feature>
