@@ -20,6 +20,4 @@ import com.google.cloud.datastore.PathElement;
 final class DatastoreKeyHierarchy
 {
   static final PathElement NXRM_ROOT = PathElement.of("Sonatype", "Nexus Repository Manager");
-
-  static final String GOOGLE_CLOUD_BLOB_STORE = "Google Cloud BlobStore";
 }

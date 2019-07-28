@@ -52,7 +52,6 @@ import com.google.datastore.v1.TransactionOptions.ReadOnly;
 import org.apache.commons.lang.StringUtils;
 
 import static java.lang.String.format;
-import static org.sonatype.nexus.blobstore.gcloud.internal.DatastoreKeyHierarchy.GOOGLE_CLOUD_BLOB_STORE;
 import static org.sonatype.nexus.blobstore.gcloud.internal.DatastoreKeyHierarchy.NXRM_ROOT;
 
 /**
@@ -65,12 +64,12 @@ import static org.sonatype.nexus.blobstore.gcloud.internal.DatastoreKeyHierarchy
  * The counts and sizes are sharded along the following key hierarchy:
  *
  *  <pre>
+ *  [namespace: /BlobStoreConfiguration.getName()/]
  *  kind=Sonatype,name=Nexus Repository Manager
- *  --> kind=Google Cloud BlobStore,name=[BlobStoreConfiguration.getName()]
- *  ------> kind=MetricsStore
- *  ----------> kind=Shard,name=vol-01 [size=2048,count=2]
- *  ----------> kind=Shard,name=vol-02 [size=0,count=0]
- *  ----------> kind=Shard,name=vol-03 [size=123456,count=11]
+ *  --> kind=MetricsStore
+ *  ------> kind=Shard,name=vol-01 [size=2048,count=2]
+ *  ------> kind=Shard,name=vol-02 [size=0,count=0]
+ *  ------> kind=Shard,name=vol-03 [size=123456,count=11]
  *  ...
  *  </pre>
  *
@@ -89,7 +88,7 @@ public class ShardedCounterMetricsStore
 {
   private static final int FLUSH_FREQUENCY_IN_SECONDS = 5;
 
-  static final String METRICS_STORE = "MetricsStore";
+  private static final String METRICS_STORE = "MetricsStore";
 
   static final String SHARD = "MetricsStoreShard";
 
@@ -132,10 +131,11 @@ public class ShardedCounterMetricsStore
     this.datastore = datastoreFactory.create(configuration);
     this.blobStoreInstanceName = configuration.getName();
 
-    this.shardRoot = datastore.newKeyFactory().addAncestors(
-        NXRM_ROOT,
-        PathElement.of(GOOGLE_CLOUD_BLOB_STORE, blobStoreInstanceName)
-    ).setKind(METRICS_STORE).newKey(1L);
+    this.shardRoot = datastore.newKeyFactory()
+        .addAncestors(NXRM_ROOT)
+        .setNamespace(blobStoreInstanceName)
+        .setKind(METRICS_STORE)
+        .newKey(1L);
 
     this.flushJob = periodicJobService.schedule(() -> flush(), FLUSH_FREQUENCY_IN_SECONDS);
   }
@@ -190,6 +190,7 @@ public class ShardedCounterMetricsStore
     try {
       Query<ProjectionEntity> countQuery = Query.newProjectionEntityQueryBuilder()
           .setKind(SHARD)
+          .setNamespace(blobStoreInstanceName)
           .setProjection(fieldName)
           .build();
 
@@ -207,15 +208,17 @@ public class ShardedCounterMetricsStore
   Entity getShardCounter(final String location) {
     KeyFactory keyFactory = datastore.newKeyFactory().addAncestors(
         NXRM_ROOT,
-        PathElement.of(GOOGLE_CLOUD_BLOB_STORE, blobStoreInstanceName),
         PathElement.of(METRICS_STORE, 1L)
     );
-    Key key = keyFactory.setKind(SHARD).newKey(location);
+    Key key = keyFactory.setNamespace(blobStoreInstanceName)
+        .setKind(SHARD).newKey(location);
     Entity exists = datastore.get(key);
     if (exists != null) {
+      log.debug("counter for {} already present", location);
       return exists;
     }
 
+    log.debug("creating counter for {}", location);
     // otherwise make it
     Entity entity = Entity.newBuilder(key)
         .set(SIZE, LongValue.newBuilder(0L).build())
@@ -237,6 +240,7 @@ public class ShardedCounterMetricsStore
   QueryResults<Entity> getShards() {
     Query<Entity> shardQuery = Query.newEntityQueryBuilder()
         .setFilter(PropertyFilter.hasAncestor(shardRoot))
+        .setNamespace(blobStoreInstanceName)
         .setKind(SHARD)
         .build();
 

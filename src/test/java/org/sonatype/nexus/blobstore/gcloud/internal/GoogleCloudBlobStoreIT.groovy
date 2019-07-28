@@ -38,7 +38,6 @@ import org.sonatype.nexus.scheduling.PeriodicJobService.PeriodicJob
 
 import com.codahale.metrics.MetricRegistry
 import com.google.cloud.storage.Blob.BlobSourceOption
-import com.google.cloud.storage.BlobInfo
 import com.google.cloud.storage.Storage
 import com.google.common.collect.ImmutableList
 import com.google.common.collect.ImmutableMap
@@ -58,7 +57,7 @@ class GoogleCloudBlobStoreIT
 
   static final Logger log = LoggerFactory.getLogger(GoogleCloudBlobStoreIT.class)
 
-  static final BlobStoreConfiguration config = new BlobStoreConfiguration()
+  static BlobStoreConfiguration config = new BlobStoreConfiguration()
 
   static final long quotaLimit = 512000L
 
@@ -95,17 +94,7 @@ class GoogleCloudBlobStoreIT
         (SpaceUsedQuota.ID): new SpaceUsedQuota()
     ])
 
-    config.name = 'GoogleCloudBlobStoreIT'
-    config.attributes = [
-        'google cloud storage'          : [
-            bucket: bucketName,
-            credential_file: this.getClass().getResource('/gce-credentials.json').getFile()
-        ],
-        (BlobStoreQuotaSupport.ROOT_KEY): [
-            (BlobStoreQuotaSupport.TYPE_KEY): (SpaceUsedQuota.ID),
-            (BlobStoreQuotaSupport.LIMIT_KEY): quotaLimit
-        ]
-    ]
+    config = makeConfig('GoogleCloudBlobStoreIT', bucketName)
 
     log.info("Integration test using bucket ${bucketName}")
 
@@ -124,18 +113,7 @@ class GoogleCloudBlobStoreIT
   }
 
   def cleanupSpec() {
-    Storage storage = new GoogleCloudStorageFactory().create(config)
-    log.debug("Integration tests complete, deleting files from ${bucketName}...")
-    // must delete all the files within the bucket before we can delete the bucket
-    Iterator<com.google.cloud.storage.Blob> list = storage.list(bucketName,
-        Storage.BlobListOption.prefix("")).iterateAll()
-        .iterator()
-
-    Iterable<com.google.cloud.storage.Blob> iterable = { _ -> list }
-    StreamSupport.stream(iterable.spliterator(), true)
-        .forEach({ b -> b.delete(BlobSourceOption.generationMatch()) })
-    storage.delete(bucketName)
-    log.info("bucket ${bucketName} deleted")
+    cleanupBucket(config, bucketName)
   }
 
   def "isWritable true for buckets created by the Integration Test"() {
@@ -160,7 +138,6 @@ class GoogleCloudBlobStoreIT
 
   def "getDirectPathBlobIdStream returns expected content"() {
     given:
-      Storage storage = storageFactory.create(config)
       // mimic some RHC content, which is stored as directpath blobs
       blobStore.create(new ByteArrayInputStream('some text content'.getBytes()),
           [ (BlobStore.BLOB_NAME_HEADER): 'health-check/repo1/report.properties',
@@ -350,13 +327,93 @@ class GoogleCloudBlobStoreIT
       }
   }
 
-  def createRegularFile(Storage storage, String path) {
-    createRegularFile(storage, path, 'content')
+  def "metadata is multi-tenant"() {
+    given:
+      // we already have one blobstore
+      // make a second
+      def bucket2 = "multi-tenancy-test-${UUID.randomUUID().toString()}"
+      def config2 = makeConfig('multi-tenant-test', bucket2)
+      def blobStore2 = new GoogleCloudBlobStore(storageFactory, blobIdLocationResolver, datastoreFactory,
+          periodicJobService, new DryRunPrefix("TEST "), metricRegistry, quotaService, 60)
+      blobStore2.init(config2)
+      blobStore2.start()
+
+      // write one file to blobstore1
+      byte[] data = new byte[256]
+      new Random().nextBytes(data)
+      blobStore.create(new ByteArrayInputStream(data),
+          [ (BlobStore.BLOB_NAME_HEADER): 'fileinblobstore1',
+            (BlobStore.CREATED_BY_HEADER): 'someuser' ] )
+      // write a different size file to blobstore2
+      byte[] data2 = new byte[312]
+      new Random().nextBytes(data2)
+      blobStore2.create(new ByteArrayInputStream(data2),
+          [ (BlobStore.BLOB_NAME_HEADER): 'fileinblobstore2',
+            (BlobStore.CREATED_BY_HEADER): 'someuser' ] )
+      // write a second file to blobstore2
+      byte[] data3 = new byte[112]
+      new Random().nextBytes(data2)
+      Blob blob3 = blobStore2.create(new ByteArrayInputStream(data3),
+          [ (BlobStore.BLOB_NAME_HEADER): 'file2inblobstore2',
+            (BlobStore.CREATED_BY_HEADER): 'someuser' ] )
+      // soft delete the second file
+      blobStore2.delete(blob3.id, 'testing')
+
+      blobStore2.flushMetricsStore()
+      blobStore2.flushMetricsStore()
+
+    when:
+      // get deleted blob index for each
+      // get metrics data for each
+      def metrics1 = blobStore.metrics
+      def metrics2 = blobStore2.metrics
+
+    then:
+      // assert deleted blob index is separate
+      blobStore.getDeletedBlobIndex().contents.count() == 0L
+      blobStore2.getDeletedBlobIndex().contents.count() == 1L
+      // assert metrics data separate
+      def conditions = new PollingConditions(timeout: 5, initialDelay: 0, factor: 1)
+      conditions.eventually {
+        metrics1.totalSize == 256L
+        metrics2.totalSize == 312L
+        metrics1 = blobStore.metrics
+        metrics2 = blobStore2.metrics
+      }
+
+    cleanup:
+      blobStore2.stop()
+      blobStore2.remove()
+      cleanupBucket(config2, bucket2)
   }
 
-  def createRegularFile(Storage storage, String path, long size) {
-    byte [] content = new byte[size]
-    new Random().nextBytes(content)
-    storage.create(BlobInfo.newBuilder(bucketName, path).build(), content)
+  def makeConfig(String name, String bucket) {
+    config.name = name
+    config.attributes = [
+        'google cloud storage': [
+            bucket: bucket,
+            credential_file: this.getClass().getResource('/gce-credentials.json').getFile()
+        ],
+        (BlobStoreQuotaSupport.ROOT_KEY): [
+            (BlobStoreQuotaSupport.TYPE_KEY): (SpaceUsedQuota.ID),
+            (BlobStoreQuotaSupport.LIMIT_KEY): quotaLimit
+        ]
+    ]
+    return config
+  }
+
+  static def cleanupBucket(def config, def bucket) {
+    Storage storage = new GoogleCloudStorageFactory().create(config)
+    log.debug("Deleting files from ${bucket}...")
+    // must delete all the files within the bucket before we can delete the bucket
+    Iterator<com.google.cloud.storage.Blob> list = storage.list(bucket,
+        Storage.BlobListOption.prefix("")).iterateAll()
+        .iterator()
+
+    Iterable<com.google.cloud.storage.Blob> iterable = { _ -> list }
+    StreamSupport.stream(iterable.spliterator(), true)
+        .forEach({ b -> b.delete(BlobSourceOption.generationMatch()) })
+    storage.delete(bucket)
+    log.info("bucket ${bucket} deleted")
   }
 }

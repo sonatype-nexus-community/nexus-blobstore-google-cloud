@@ -27,12 +27,9 @@ import com.google.cloud.datastore.Datastore;
 import com.google.cloud.datastore.Entity;
 import com.google.cloud.datastore.Key;
 import com.google.cloud.datastore.KeyFactory;
-import com.google.cloud.datastore.PathElement;
 import com.google.cloud.datastore.Query;
 import com.google.cloud.datastore.QueryResults;
-import com.google.cloud.datastore.StructuredQuery.PropertyFilter;
 
-import static org.sonatype.nexus.blobstore.gcloud.internal.DatastoreKeyHierarchy.GOOGLE_CLOUD_BLOB_STORE;
 import static org.sonatype.nexus.blobstore.gcloud.internal.DatastoreKeyHierarchy.NXRM_ROOT;
 
 /**
@@ -40,9 +37,9 @@ import static org.sonatype.nexus.blobstore.gcloud.internal.DatastoreKeyHierarchy
  **
  * The key ancestry looks like:
  * <pre>
+ * [namespace: /BlobStoreConfiguration.getName()/]
  kind=Sonatype,name=Nexus Repository Manager
- --> kind=Google Cloud BlobStore,name=[BlobStoreConfiguration.getName()]
- ------> kind=DeletedBlobs
+ --> kind=DeletedBlobs
  * </pre>
  *
  * This key ancestry is intended to support separation of deleted blobs for multiple google cloud blobstore instances.
@@ -54,23 +51,21 @@ class DeletedBlobIndex
 
   private KeyFactory deletedBlobsKeyFactory;
 
+  private String blobStoreName;
+
   private static final String DELETED_BLOBS = "DeletedBlobs";
 
   static final Integer WARN_LIMIT = 1000;
 
-  final Key deletedBlobsRootKey;
-
   DeletedBlobIndex(final GoogleCloudDatastoreFactory factory, final BlobStoreConfiguration blobStoreConfiguration)
       throws Exception {
     this.gcsDatastore = factory.create(blobStoreConfiguration);
+    this.blobStoreName = blobStoreConfiguration.getName();
     // this key factory will be used to add/remove blobIds from within the DELETED_BLOBS kind
     this.deletedBlobsKeyFactory = gcsDatastore.newKeyFactory()
-        .addAncestors(NXRM_ROOT,
-            PathElement.of(GOOGLE_CLOUD_BLOB_STORE, blobStoreConfiguration.getName()))
+        .addAncestors(NXRM_ROOT)
+        .setNamespace(blobStoreConfiguration.getName())
         .setKind(DELETED_BLOBS);
-    // this key represents the direct ancestor above the DELETED_BLOBS kind
-    this.deletedBlobsRootKey = gcsDatastore.newKeyFactory().addAncestor(NXRM_ROOT)
-        .setKind(GOOGLE_CLOUD_BLOB_STORE).newKey(blobStoreConfiguration.getName());
   }
 
   /**
@@ -97,7 +92,7 @@ class DeletedBlobIndex
   void removeData() {
     log.warn("removing all entries in the index of soft-deleted blobs...");
     Query<Entity> query = Query.newEntityQueryBuilder()
-        .setFilter(PropertyFilter.hasAncestor(deletedBlobsRootKey))
+        .setNamespace(blobStoreName)
         .setKind(DELETED_BLOBS)
         .build();
     QueryResults<Entity> results = gcsDatastore.run(query);
@@ -113,8 +108,8 @@ class DeletedBlobIndex
    */
   Stream<BlobId> getContents() {
     Query<Entity> query = Query.newEntityQueryBuilder()
-        .setFilter(PropertyFilter.hasAncestor(deletedBlobsRootKey))
         .setKind(DELETED_BLOBS)
+        .setNamespace(blobStoreName)
         .setLimit(WARN_LIMIT)
         .build();
     QueryResults<Entity> results = gcsDatastore.run(query);
