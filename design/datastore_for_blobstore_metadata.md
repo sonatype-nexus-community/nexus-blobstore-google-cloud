@@ -81,9 +81,9 @@ namespace with no key hierarchy.
 In order to organize this content, a new key hierarchy is established, the follows this model:
 
 ```
+ namespace=blobstore-[BlobStoreConfiguration.getName()]
  kind=Sonatype,name=Nexus Repository Manager
- --> kind=Google Cloud BlobStore,name=[BlobStoreConfiguration.getName()]
- ------> kind=DeletedBlob
+ --> kind=DeletedBlob
 ```
 
 The absence of the blobstore's name in the hierarchy meant previous implementations of the blobstore would not support
@@ -105,14 +105,14 @@ even use a projection query to return those values easily for summation.
 The implementation of Blobstore Metrics uses a similar key hierarchy:
 
 ```
+ namespace=blobstore-[BlobStoreConfiguration.getName()]
  kind=Sonatype,name=Nexus Repository Manager
-   --> kind=Google Cloud BlobStore,name=[BlobStoreConfiguration.getName()]
-   ------> kind=MetricsStore
-   ----------> kind=MetricsStoreShard,name=directpath [size=2048,count=2]
-   ----------> kind=MetricsStoreShard,name=tmp [size=2048,count=2]
-   ----------> kind=MetricsStoreShard,name=vol-01 [size=2048,count=2]
-   ----------> kind=MetricsStoreShard,name=vol-02 [size=0,count=0]
-   ----------> kind=MetricsStoreShard,name=vol-03 [size=123456,count=11]
+   --> kind=MetricsStore
+   ------> kind=MetricsStoreShard,name=directpath [size=2048,count=2]
+   ------> kind=MetricsStoreShard,name=tmp [size=2048,count=2]
+   ------> kind=MetricsStoreShard,name=vol-01 [size=2048,count=2]
+   ------> kind=MetricsStoreShard,name=vol-02 [size=0,count=0]
+   ------> kind=MetricsStoreShard,name=vol-03 [size=123456,count=11]
    ...
 ```
 

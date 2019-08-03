@@ -51,7 +51,7 @@ class ShardedCounterMetricsStoreIT
   ShardedCounterMetricsStore metricsStore
 
   def setupSpec() {
-    config.name = 'ShardedCounterMetricsStoreIT'
+    config.name = "ShardedCounterMetricsStoreIT"
     config.attributes = [
         'google cloud storage': [
             credential_file: this.getClass().getResource('/gce-credentials.json').getFile()

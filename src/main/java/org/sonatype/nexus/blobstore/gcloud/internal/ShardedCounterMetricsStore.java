@@ -52,6 +52,7 @@ import com.google.datastore.v1.TransactionOptions.ReadOnly;
 import org.apache.commons.lang.StringUtils;
 
 import static java.lang.String.format;
+import static org.sonatype.nexus.blobstore.gcloud.internal.DatastoreKeyHierarchy.NAMESPACE_PREFIX;
 import static org.sonatype.nexus.blobstore.gcloud.internal.DatastoreKeyHierarchy.NXRM_ROOT;
 
 /**
@@ -64,13 +65,13 @@ import static org.sonatype.nexus.blobstore.gcloud.internal.DatastoreKeyHierarchy
  * The counts and sizes are sharded along the following key hierarchy:
  *
  *  <pre>
- *  [namespace: /BlobStoreConfiguration.getName()/]
- *  kind=Sonatype,name=Nexus Repository Manager
- *  --> kind=MetricsStore
- *  ------> kind=Shard,name=vol-01 [size=2048,count=2]
- *  ------> kind=Shard,name=vol-02 [size=0,count=0]
- *  ------> kind=Shard,name=vol-03 [size=123456,count=11]
- *  ...
+   [namespace: blobstore-/BlobStoreConfiguration.getName()/]
+   kind=Sonatype,name=Nexus Repository Manager
+   --> kind=MetricsStore
+   ------> kind=MetricsStoreShard,name=vol-01 [size=2048,count=2]
+   ------> kind=MetricsStoreShard,name=vol-02 [size=0,count=0]
+   ------> kind=MetricsStoreShard,name=vol-03 [size=123456,count=11]
+   ...
  *  </pre>
  *
  * Writing to these Shards synchronously for each {@link #recordAddition(BlobId, long)} and
@@ -104,8 +105,6 @@ public class ShardedCounterMetricsStore
 
   private Datastore datastore;
 
-  private String blobStoreInstanceName;
-
   private Key shardRoot;
 
   private Queue<Mutation> pending = new ConcurrentLinkedDeque<>();
@@ -113,6 +112,8 @@ public class ShardedCounterMetricsStore
   private RateLimiter rateLimiter = RateLimiter.create(1);
 
   private PeriodicJob flushJob;
+
+  private String namespace;
 
   /**
    * @param locationResolver
@@ -129,11 +130,10 @@ public class ShardedCounterMetricsStore
 
   public void init(final BlobStoreConfiguration configuration) throws Exception {
     this.datastore = datastoreFactory.create(configuration);
-    this.blobStoreInstanceName = configuration.getName();
-
+    this.namespace = NAMESPACE_PREFIX + configuration.getName();
     this.shardRoot = datastore.newKeyFactory()
         .addAncestors(NXRM_ROOT)
-        .setNamespace(blobStoreInstanceName)
+        .setNamespace(namespace)
         .setKind(METRICS_STORE)
         .newKey(1L);
 
@@ -190,7 +190,7 @@ public class ShardedCounterMetricsStore
     try {
       Query<ProjectionEntity> countQuery = Query.newProjectionEntityQueryBuilder()
           .setKind(SHARD)
-          .setNamespace(blobStoreInstanceName)
+          .setNamespace(namespace)
           .setProjection(fieldName)
           .build();
 
@@ -210,15 +210,15 @@ public class ShardedCounterMetricsStore
         NXRM_ROOT,
         PathElement.of(METRICS_STORE, 1L)
     );
-    Key key = keyFactory.setNamespace(blobStoreInstanceName)
+    Key key = keyFactory.setNamespace(namespace)
         .setKind(SHARD).newKey(location);
     Entity exists = datastore.get(key);
     if (exists != null) {
-      log.debug("counter for {} already present", location);
+      log.trace("counter for {} already present", location);
       return exists;
     }
 
-    log.debug("creating counter for {}", location);
+    log.debug("creating metrics store counter shard for {}", location);
     // otherwise make it
     Entity entity = Entity.newBuilder(key)
         .set(SIZE, LongValue.newBuilder(0L).build())
@@ -240,7 +240,7 @@ public class ShardedCounterMetricsStore
   QueryResults<Entity> getShards() {
     Query<Entity> shardQuery = Query.newEntityQueryBuilder()
         .setFilter(PropertyFilter.hasAncestor(shardRoot))
-        .setNamespace(blobStoreInstanceName)
+        .setNamespace(namespace)
         .setKind(SHARD)
         .build();
 

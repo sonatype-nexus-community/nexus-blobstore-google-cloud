@@ -29,7 +29,9 @@ import com.google.cloud.datastore.Key;
 import com.google.cloud.datastore.KeyFactory;
 import com.google.cloud.datastore.Query;
 import com.google.cloud.datastore.QueryResults;
+import com.google.common.collect.Lists;
 
+import static org.sonatype.nexus.blobstore.gcloud.internal.DatastoreKeyHierarchy.NAMESPACE_PREFIX;
 import static org.sonatype.nexus.blobstore.gcloud.internal.DatastoreKeyHierarchy.NXRM_ROOT;
 
 /**
@@ -37,7 +39,7 @@ import static org.sonatype.nexus.blobstore.gcloud.internal.DatastoreKeyHierarchy
  **
  * The key ancestry looks like:
  * <pre>
- * [namespace: /BlobStoreConfiguration.getName()/]
+ [namespace: blobstore-/BlobStoreConfiguration.getName()/]
  kind=Sonatype,name=Nexus Repository Manager
  --> kind=DeletedBlobs
  * </pre>
@@ -51,7 +53,7 @@ class DeletedBlobIndex
 
   private KeyFactory deletedBlobsKeyFactory;
 
-  private String blobStoreName;
+  private final String namespace;
 
   private static final String DELETED_BLOBS = "DeletedBlobs";
 
@@ -60,11 +62,11 @@ class DeletedBlobIndex
   DeletedBlobIndex(final GoogleCloudDatastoreFactory factory, final BlobStoreConfiguration blobStoreConfiguration)
       throws Exception {
     this.gcsDatastore = factory.create(blobStoreConfiguration);
-    this.blobStoreName = blobStoreConfiguration.getName();
+    this.namespace = NAMESPACE_PREFIX + blobStoreConfiguration.getName();
     // this key factory will be used to add/remove blobIds from within the DELETED_BLOBS kind
     this.deletedBlobsKeyFactory = gcsDatastore.newKeyFactory()
         .addAncestors(NXRM_ROOT)
-        .setNamespace(blobStoreConfiguration.getName())
+        .setNamespace(namespace)
         .setKind(DELETED_BLOBS);
   }
 
@@ -92,7 +94,7 @@ class DeletedBlobIndex
   void removeData() {
     log.warn("removing all entries in the index of soft-deleted blobs...");
     Query<Entity> query = Query.newEntityQueryBuilder()
-        .setNamespace(blobStoreName)
+        .setNamespace(namespace)
         .setKind(DELETED_BLOBS)
         .build();
     QueryResults<Entity> results = gcsDatastore.run(query);
@@ -100,7 +102,10 @@ class DeletedBlobIndex
         Spliterators.spliteratorUnknownSize(results, Spliterator.ORDERED),
         false).map(entity -> entity.getKey()).collect(Collectors.toList());
 
-    gcsDatastore.delete(keys.toArray(new Key[keys.size()]));
+    // datastore has a hard limit of 500 keys in a single delete
+    List<List<Key>> partitions = Lists.partition(keys, 500);
+    partitions.stream().forEach(partition -> gcsDatastore.delete(partition.toArray(new Key[partition.size()])) );
+
     log.warn("deleted {} blobIds from the soft-deleted blob index", keys.size());
   }
   /**
@@ -109,7 +114,7 @@ class DeletedBlobIndex
   Stream<BlobId> getContents() {
     Query<Entity> query = Query.newEntityQueryBuilder()
         .setKind(DELETED_BLOBS)
-        .setNamespace(blobStoreName)
+        .setNamespace(namespace)
         .setLimit(WARN_LIMIT)
         .build();
     QueryResults<Entity> results = gcsDatastore.run(query);

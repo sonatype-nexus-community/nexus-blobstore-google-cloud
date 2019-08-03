@@ -61,7 +61,8 @@ class GoogleCloudBlobStoreIT
 
   static final long quotaLimit = 512000L
 
-  static String bucketName = "integration-test-${UUID.randomUUID().toString()}"
+  static final String uid = UUID.randomUUID().toString().substring(0,4)
+  static String bucketName = "integration-test-${uid}"
 
   def hashAlgorithms = ImmutableList.of(
       new HashAlgorithm("sha1", Hashing.sha1()),
@@ -94,7 +95,7 @@ class GoogleCloudBlobStoreIT
         (SpaceUsedQuota.ID): new SpaceUsedQuota()
     ])
 
-    config = makeConfig('GoogleCloudBlobStoreIT', bucketName)
+    config = makeConfig("GoogleCloudBlobStoreIT-${uid.substring(0, 6)}", bucketName)
 
     log.info("Integration test using bucket ${bucketName}")
 
@@ -331,8 +332,8 @@ class GoogleCloudBlobStoreIT
     given:
       // we already have one blobstore
       // make a second
-      def bucket2 = "multi-tenancy-test-${UUID.randomUUID().toString()}"
-      def config2 = makeConfig('multi-tenant-test', bucket2)
+      def bucket2 = "multi-tenancy-test-${uid}"
+      def config2 = makeConfig("multi-tenant-test-${uid}", bucket2)
       def blobStore2 = new GoogleCloudBlobStore(storageFactory, blobIdLocationResolver, datastoreFactory,
           periodicJobService, new DryRunPrefix("TEST "), metricRegistry, quotaService, 60)
       blobStore2.init(config2)
