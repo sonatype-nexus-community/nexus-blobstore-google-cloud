@@ -144,6 +144,20 @@ takes a similar approach. A thread safe Queue is kept in memory to track all del
 deltas to the Datastore every 5 seconds.
 This queue allows us to achieve design goal #2 (no drag on create/delete).
 
+### Results
+
+In this example, we have two Google Cloud Storage backed blobstores, `default` and `gcs2`: 
+![image of blobstores in NXRM](img/blobstore-ui.png)
+
+In Google Cloud Console, under Datastore, we can see the metadata for `default`: 
+![image of blobstore metadata in google cloud console](img/datastore-blobstore-1.png)
+
+Similarly, the metadata for `gcs2`: 
+![image of blobstore metadata in google cloud console](img/datastore-blobstore-2.png)
+
+If your NXRM instance (and Google Cloud project) only hosts one blobstore, the `Namespace` dropdown will not
+be displayed in the Datastore console.
+
 ### Summary of benefits to Datastore approach
 
 * Reads and writes of blobstore metadata are isolated from BlobStore content activity
