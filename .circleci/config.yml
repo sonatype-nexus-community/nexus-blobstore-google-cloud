@@ -9,6 +9,7 @@ mvn-deploy-command: &mvn-deploy-command
   mvn-deploy-command: mvn -s .maven.xml clean deploy -PbuildKar -DdeployAtEnd=true -DperformRelease=true -DskipTests -Dspotbugs.skip=true
   context: rso-dantest
 
+
 mvn-collect-artifacts-command: &mvn-collect-artifacts-command
   mvn-collect-artifacts-command: |
     mkdir -p ~/project/artifacts/junit/
