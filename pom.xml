@@ -26,7 +26,7 @@
   <artifactId>nexus-blobstore-google-cloud</artifactId>
   <name>${project.groupId}:${project.artifactId}</name>
   <inceptionYear>2017</inceptionYear>
-  <version>0.8.1</version>
+  <version>0.8.2</version>
   <packaging>bundle</packaging>
 
   <properties>
