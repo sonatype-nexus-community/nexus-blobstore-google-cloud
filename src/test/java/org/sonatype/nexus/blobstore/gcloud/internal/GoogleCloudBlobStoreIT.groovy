@@ -95,7 +95,7 @@ class GoogleCloudBlobStoreIT
         (SpaceUsedQuota.ID): new SpaceUsedQuota()
     ])
 
-    config = makeConfig("GoogleCloudBlobStoreIT-${uid.substring(0, 6)}", bucketName)
+    config = makeConfig("GoogleCloudBlobStoreIT-${uid}", bucketName)
 
     log.info("Integration test using bucket ${bucketName}")
 
