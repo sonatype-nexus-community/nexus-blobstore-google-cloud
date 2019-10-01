@@ -609,7 +609,7 @@ public class GoogleCloudBlobStore
     }
 
     @Override
-    public InputStream getInputStream() {
+    public InputStream doGetInputStream() {
       com.google.cloud.storage.Blob blob = getBlob();
       ReadChannel channel = blob.reader();
       return Channels.newInputStream(channel);
