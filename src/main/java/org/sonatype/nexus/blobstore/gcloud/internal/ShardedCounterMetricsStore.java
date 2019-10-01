@@ -334,6 +334,11 @@ public class ShardedCounterMetricsStore
     }
 
     @Override
+    public boolean isUnavailable() {
+      return false;
+    }
+
+    @Override
     public String toString() {
       return "GoogleBlobStoreMetrics{" +
           "blobCount=" + blobCount +
