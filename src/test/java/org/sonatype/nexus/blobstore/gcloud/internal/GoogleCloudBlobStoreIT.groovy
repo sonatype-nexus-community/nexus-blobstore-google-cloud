@@ -360,11 +360,10 @@ class GoogleCloudBlobStoreIT
       // soft delete the second file
       blobStore2.delete(blob3.id, 'testing')
 
-      blobStore2.flushMetricsStore()
+      blobStore.flushMetricsStore()
       blobStore2.flushMetricsStore()
 
     when:
-      // get deleted blob index for each
       // get metrics data for each
       def metrics1 = blobStore.metrics
       def metrics2 = blobStore2.metrics
