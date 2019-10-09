@@ -136,7 +136,10 @@ public class ShardedCounterMetricsStore
         .setNamespace(namespace)
         .setKind(METRICS_STORE)
         .newKey(1L);
+  }
 
+  @Override
+  public void doStart() {
     this.flushJob = periodicJobService.schedule(() -> flush(), FLUSH_FREQUENCY_IN_SECONDS);
   }
 
