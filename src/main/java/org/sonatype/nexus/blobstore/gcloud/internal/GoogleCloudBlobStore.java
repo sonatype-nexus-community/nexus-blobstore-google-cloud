@@ -126,7 +126,13 @@ public class GoogleCloudBlobStore
 
   private MetricRegistry metricRegistry;
 
+  private PeriodicJobService periodicJobService;
+
+  private BlobStoreQuotaService quotaService;
+
   private PeriodicJob quotaCheckingJob;
+
+  private final int quotaCheckInterval;
   
   @Inject
   public GoogleCloudBlobStore(final GoogleCloudStorageFactory storageFactory,
@@ -144,8 +150,9 @@ public class GoogleCloudBlobStore
     this.metricsStore = new ShardedCounterMetricsStore(blobIdLocationResolver, datastoreFactory, periodicJobService);
     this.datastoreFactory = datastoreFactory;
     this.metricRegistry = metricRegistry;
-    this.quotaCheckingJob = periodicJobService.schedule(createQuotaCheckJob(this, quotaService, log), quotaCheckInterval);
-
+    this.periodicJobService = periodicJobService;
+    this.quotaService = quotaService;
+    this.quotaCheckInterval = quotaCheckInterval;
   }
 
   @Override
@@ -172,6 +179,7 @@ public class GoogleCloudBlobStore
     wrapWithGauge("liveBlobsCache.requestCount", () -> liveBlobs.stats().requestCount());
 
     metricsStore.init(getBlobStoreConfiguration());
+    this.quotaCheckingJob = periodicJobService.schedule(createQuotaCheckJob(this, quotaService, log), quotaCheckInterval);
   }
 
   @Override
