@@ -15,6 +15,7 @@ package org.sonatype.nexus.blobstore.gcloud.internal;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.Writer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -30,6 +31,7 @@ import javax.inject.Named;
 import org.sonatype.nexus.blobstore.api.BlobStoreException;
 import org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport;
 
+import com.google.cloud.WriteChannel;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
@@ -133,6 +135,8 @@ public class MultipartUploader
           chunk = readChunk(current);
         }
         else {
+          // TODO trigger compose for preceding 32 chunks instead (off-thread)
+          // TODO start writing as next chunk of chunk size
           log.debug("Upload for {} has hit Google Cloud Storage multipart-compose limits; " +
               "consider increasing '{}' beyond current value of {}", destination, CHUNK_SIZE_PROPERTY, getChunkSize());
           // we've hit compose request limit read the rest of the stream
