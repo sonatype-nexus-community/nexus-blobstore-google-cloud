@@ -62,6 +62,8 @@ class GoogleCloudBlobStoreTest
 
   BlobStoreQuotaService quotaService = Mock()
 
+  ShardedCounterMetricsStore metricsStore = Mock()
+
   KeyFactory keyFactory = new KeyFactory("testing")
 
   def blobHeaders = [
@@ -69,8 +71,8 @@ class GoogleCloudBlobStoreTest
       (BlobStore.CREATED_BY_HEADER): 'admin'
   ]
   GoogleCloudBlobStore blobStore = new GoogleCloudBlobStore(
-      storageFactory, blobIdLocationResolver, datastoreFactory, periodicJobService, new DryRunPrefix("TEST "),
-      metricRegistry, quotaService, 60)
+      storageFactory, blobIdLocationResolver, periodicJobService, metricsStore, datastoreFactory,
+      new DryRunPrefix("TEST "), metricRegistry, quotaService, 60)
 
   def config = new BlobStoreConfiguration()
 

@@ -126,13 +126,20 @@ public class GoogleCloudBlobStore
 
   private MetricRegistry metricRegistry;
 
+  private PeriodicJobService periodicJobService;
+
+  private BlobStoreQuotaService quotaService;
+
   private PeriodicJob quotaCheckingJob;
+
+  private final int quotaCheckInterval;
   
   @Inject
   public GoogleCloudBlobStore(final GoogleCloudStorageFactory storageFactory,
                               final BlobIdLocationResolver blobIdLocationResolver,
-                              final GoogleCloudDatastoreFactory datastoreFactory,
                               final PeriodicJobService periodicJobService,
+                              final ShardedCounterMetricsStore metricsStore,
+                              final GoogleCloudDatastoreFactory datastoreFactory,
                               final DryRunPrefix dryRunPrefix,
                               final MetricRegistry metricRegistry,
                               final BlobStoreQuotaService quotaService,
@@ -140,12 +147,13 @@ public class GoogleCloudBlobStore
                               final int quotaCheckInterval)
   {
     super(blobIdLocationResolver, dryRunPrefix);
+    this.periodicJobService = periodicJobService;
     this.storageFactory = checkNotNull(storageFactory);
-    this.metricsStore = new ShardedCounterMetricsStore(blobIdLocationResolver, datastoreFactory, periodicJobService);
+    this.metricsStore = metricsStore;
     this.datastoreFactory = datastoreFactory;
     this.metricRegistry = metricRegistry;
-    this.quotaCheckingJob = periodicJobService.schedule(createQuotaCheckJob(this, quotaService, log), quotaCheckInterval);
-
+    this.quotaService = quotaService;
+    this.quotaCheckInterval = quotaCheckInterval;
   }
 
   @Override
@@ -171,7 +179,9 @@ public class GoogleCloudBlobStore
     wrapWithGauge("liveBlobsCache.evictionCount", () -> liveBlobs.stats().evictionCount());
     wrapWithGauge("liveBlobsCache.requestCount", () -> liveBlobs.stats().requestCount());
 
-    metricsStore.init(getBlobStoreConfiguration());
+    metricsStore.setBlobStore(this);
+    metricsStore.start();
+    this.quotaCheckingJob = periodicJobService.schedule(createQuotaCheckJob(this, quotaService, log), quotaCheckInterval);
   }
 
   @Override
