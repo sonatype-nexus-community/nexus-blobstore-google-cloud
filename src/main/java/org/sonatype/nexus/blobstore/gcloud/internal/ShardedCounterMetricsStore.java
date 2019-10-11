@@ -24,10 +24,15 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.StreamSupport;
 
+import javax.inject.Inject;
+import javax.inject.Named;
+
 import org.sonatype.nexus.blobstore.BlobIdLocationResolver;
 import org.sonatype.nexus.blobstore.api.BlobId;
+import org.sonatype.nexus.blobstore.api.BlobStore;
 import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration;
 import org.sonatype.nexus.blobstore.api.BlobStoreMetrics;
+import org.sonatype.nexus.common.stateguard.Guarded;
 import org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport;
 import org.sonatype.nexus.scheduling.PeriodicJobService;
 import org.sonatype.nexus.scheduling.PeriodicJobService.PeriodicJob;
@@ -51,9 +56,12 @@ import com.google.datastore.v1.TransactionOptions;
 import com.google.datastore.v1.TransactionOptions.ReadOnly;
 import org.apache.commons.lang.StringUtils;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static org.sonatype.nexus.blobstore.gcloud.internal.DatastoreKeyHierarchy.NAMESPACE_PREFIX;
 import static org.sonatype.nexus.blobstore.gcloud.internal.DatastoreKeyHierarchy.NXRM_ROOT;
+import static org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport.State.STARTED;
 
 /**
  * This duck type of NXRM blobstore MetricsStores intends to achieve cost efficient eventual consistency
@@ -84,6 +92,7 @@ import static org.sonatype.nexus.blobstore.gcloud.internal.DatastoreKeyHierarchy
  * This falls within Google Cloud's best practices for use, and results in a cheap and efficient way to store
  * blobstore metrics with high accuracy.
  */
+@Named
 public class ShardedCounterMetricsStore
     extends StateGuardLifecycleSupport
 {
@@ -115,11 +124,14 @@ public class ShardedCounterMetricsStore
 
   private String namespace;
 
+  private BlobStore blobStore;
+
   /**
    * @param locationResolver
    * @param datastoreFactory
    * @param periodicJobService
    */
+  @Inject
   public ShardedCounterMetricsStore(final BlobIdLocationResolver locationResolver,
                                     final GoogleCloudDatastoreFactory datastoreFactory,
                                     final PeriodicJobService periodicJobService) {
@@ -128,7 +140,15 @@ public class ShardedCounterMetricsStore
     this.periodicJobService = periodicJobService;
   }
 
-  public void init(final BlobStoreConfiguration configuration) throws Exception {
+  public void setBlobStore(final BlobStore blobStore) {
+    checkState(this.blobStore == null, "Do not initialize twice");
+    checkNotNull(blobStore);
+    this.blobStore = blobStore;
+  }
+
+  @Override
+  public void doStart() throws Exception {
+    BlobStoreConfiguration configuration = this.blobStore.getBlobStoreConfiguration();
     this.datastore = datastoreFactory.create(configuration);
     this.namespace = NAMESPACE_PREFIX + configuration.getName();
     this.shardRoot = datastore.newKeyFactory()
@@ -136,10 +156,6 @@ public class ShardedCounterMetricsStore
         .setNamespace(namespace)
         .setKind(METRICS_STORE)
         .newKey(1L);
-  }
-
-  @Override
-  public void doStart() {
     this.flushJob = periodicJobService.schedule(() -> flush(), FLUSH_FREQUENCY_IN_SECONDS);
   }
 
@@ -161,11 +177,14 @@ public class ShardedCounterMetricsStore
         .forEach( shard -> datastore.delete(shard));
     log.warn("Blobstore metrics data removed");
   }
+
+  @Guarded(by = STARTED)
   public void recordDeletion(final BlobId blobId, final long size) {
     String shard = getShardLocation(blobId);
     pending.add(new Mutation(shard, -size, -1L));
   }
 
+  @Guarded(by = STARTED)
   public void recordAddition(final BlobId blobId, final long size) {
     String shard = getShardLocation(blobId);
     pending.add(new Mutation(shard, size, 1L));
@@ -174,6 +193,7 @@ public class ShardedCounterMetricsStore
   /**
    * @return a {@link BlobStoreMetrics} containing the sums of size and count across all shards
    */
+  @Guarded(by = STARTED)
   public BlobStoreMetrics getMetrics() {
     Long count = getCount(COUNT);
     Long size = getCount(SIZE);
@@ -208,7 +228,7 @@ public class ShardedCounterMetricsStore
     }
   }
 
-  Entity getShardCounter(final String location) {
+  private Entity getShardCounter(final String location) {
     KeyFactory keyFactory = datastore.newKeyFactory().addAncestors(
         NXRM_ROOT,
         PathElement.of(METRICS_STORE, 1L)
@@ -231,7 +251,7 @@ public class ShardedCounterMetricsStore
     return datastore.put(entity);
   }
 
-  String getShardLocation(final BlobId blobId) {
+  private String getShardLocation(final BlobId blobId) {
     String location = locationResolver.getLocation(blobId);
     if (!location.contains("/")) {
       throw new IllegalArgumentException(
@@ -240,7 +260,7 @@ public class ShardedCounterMetricsStore
     return StringUtils.split(location, "/")[0];
   }
 
-  QueryResults<Entity> getShards() {
+  private QueryResults<Entity> getShards() {
     Query<Entity> shardQuery = Query.newEntityQueryBuilder()
         .setFilter(PropertyFilter.hasAncestor(shardRoot))
         .setNamespace(namespace)

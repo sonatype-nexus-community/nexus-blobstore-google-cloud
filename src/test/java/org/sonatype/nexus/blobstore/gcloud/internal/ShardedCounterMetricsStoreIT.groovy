@@ -18,6 +18,7 @@ import java.util.stream.IntStream
 import org.sonatype.nexus.blobstore.BlobIdLocationResolver
 import org.sonatype.nexus.blobstore.DefaultBlobIdLocationResolver
 import org.sonatype.nexus.blobstore.api.BlobId
+import org.sonatype.nexus.blobstore.api.BlobStore
 import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration
 import org.sonatype.nexus.scheduling.PeriodicJobService
 import org.sonatype.nexus.scheduling.PeriodicJobService.PeriodicJob
@@ -40,6 +41,8 @@ class ShardedCounterMetricsStoreIT
 
   GoogleCloudDatastoreFactory datastoreFactory = new GoogleCloudDatastoreFactory()
 
+  BlobStore blobStore = Mock()
+
   PeriodicJobService periodicJobService = Mock({
     schedule(_, _) >> new PeriodicJob() {
       @Override
@@ -59,11 +62,14 @@ class ShardedCounterMetricsStoreIT
     ]
   }
   def setup() {
+    blobStore.getBlobStoreConfiguration() >> config
     metricsStore = new ShardedCounterMetricsStore(blobIdLocationResolver, datastoreFactory, periodicJobService)
-    metricsStore.init(config)
+    metricsStore.setBlobStore(blobStore)
+    metricsStore.start()
   }
 
   def cleanup() {
+    metricsStore.stop()
     metricsStore.removeData()
   }
 

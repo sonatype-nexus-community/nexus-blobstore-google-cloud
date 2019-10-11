@@ -90,6 +90,8 @@ class GoogleCloudBlobStoreIT
 
   BlobStoreUsageChecker usageChecker = Mock()
 
+  ShardedCounterMetricsStore metricsStore
+
   def setup() {
     quotaService = new BlobStoreQuotaServiceImpl([
         (SpaceUsedQuota.ID): new SpaceUsedQuota()
@@ -99,11 +101,14 @@ class GoogleCloudBlobStoreIT
 
     log.info("Integration test using bucket ${bucketName}")
 
-    blobStore = new GoogleCloudBlobStore(storageFactory, blobIdLocationResolver, datastoreFactory,
-        periodicJobService, new DryRunPrefix("TEST "), metricRegistry, quotaService, 60)
-    blobStore.init(config)
+    metricsStore = new ShardedCounterMetricsStore(blobIdLocationResolver, datastoreFactory, periodicJobService)
 
+    blobStore = new GoogleCloudBlobStore(storageFactory, blobIdLocationResolver, periodicJobService, metricsStore,
+        datastoreFactory, new DryRunPrefix("TEST "), metricRegistry, quotaService, 60)
+    blobStore.init(config)
     blobStore.start()
+
+    metricsStore.start()
 
     usageChecker.test(_, _, _) >> true
   }
@@ -111,6 +116,8 @@ class GoogleCloudBlobStoreIT
   def cleanup() {
     blobStore.stop()
     blobStore.remove()
+    metricsStore.stop()
+    metricsStore.removeData()
   }
 
   def cleanupSpec() {
@@ -334,10 +341,13 @@ class GoogleCloudBlobStoreIT
       // make a second
       def bucket2 = "multi-tenancy-test-${uid}"
       def config2 = makeConfig("multi-tenant-test-${uid}", bucket2)
-      def blobStore2 = new GoogleCloudBlobStore(storageFactory, blobIdLocationResolver, datastoreFactory,
-          periodicJobService, new DryRunPrefix("TEST "), metricRegistry, quotaService, 60)
+      ShardedCounterMetricsStore metricsStore2 = new ShardedCounterMetricsStore(blobIdLocationResolver,
+          datastoreFactory, periodicJobService)
+      def blobStore2 = new GoogleCloudBlobStore(storageFactory, blobIdLocationResolver, periodicJobService, metricsStore2,
+          datastoreFactory, new DryRunPrefix("TEST "), metricRegistry, quotaService, 60)
       blobStore2.init(config2)
       blobStore2.start()
+      metricsStore2.start()
 
       // write one file to blobstore1
       byte[] data = new byte[256]
@@ -384,6 +394,8 @@ class GoogleCloudBlobStoreIT
     cleanup:
       blobStore2.stop()
       blobStore2.remove()
+      metricsStore2.stop()
+      metricsStore2.removeData()
       cleanupBucket(config2, bucket2)
   }
 
