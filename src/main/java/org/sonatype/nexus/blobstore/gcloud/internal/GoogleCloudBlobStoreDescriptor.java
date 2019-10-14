@@ -15,17 +15,19 @@ package org.sonatype.nexus.blobstore.gcloud.internal;
 import java.util.Arrays;
 import java.util.List;
 
+import javax.inject.Inject;
 import javax.inject.Named;
 
 import org.sonatype.goodies.i18n.I18N;
 import org.sonatype.goodies.i18n.MessageBundle;
-import org.sonatype.nexus.blobstore.BlobStoreDescriptor;
+import org.sonatype.nexus.blobstore.BlobStoreDescriptorSupport;
+import org.sonatype.nexus.blobstore.quota.BlobStoreQuotaService;
 import org.sonatype.nexus.formfields.FormField;
 import org.sonatype.nexus.formfields.StringTextFormField;
 
 @Named(GoogleCloudBlobStore.TYPE)
 public class GoogleCloudBlobStoreDescriptor
-    implements BlobStoreDescriptor
+    extends BlobStoreDescriptorSupport
 {
   private interface Messages
       extends MessageBundle
@@ -39,6 +41,12 @@ public class GoogleCloudBlobStoreDescriptor
     @DefaultMessage("Google Cloud Bucket Name")
     String bucketHelp();
 
+    @DefaultMessage("Region")
+    String locationName();
+
+    @DefaultMessage("Must be a valid single region; dual-region or multi-region locations are not supported")
+    String locationHelp();
+
     @DefaultMessage("Credentials")
     String credentialPath();
 
@@ -47,17 +55,27 @@ public class GoogleCloudBlobStoreDescriptor
   }
 
   private final FormField bucket;
+  private final FormField location;
   private final FormField credentialFile;
 
   private static final Messages messages = I18N.create(Messages.class);
 
-  public GoogleCloudBlobStoreDescriptor() {
+  @Inject
+  public GoogleCloudBlobStoreDescriptor(final BlobStoreQuotaService quotaService) {
+    super(quotaService);
     bucket = new StringTextFormField(
         GoogleCloudBlobStore.BUCKET_KEY,
         messages.bucketName(),
         messages.bucketHelp(),
         FormField.MANDATORY
     );
+
+    location = new StringTextFormField(
+        GoogleCloudBlobStore.LOCATION_KEY,
+        messages.locationName(),
+        messages.locationHelp(),
+        FormField.MANDATORY
+    ).withInitialValue("us-central1");
 
     credentialFile = new StringTextFormField(
         GoogleCloudBlobStore.CREDENTIAL_FILE_KEY,
@@ -74,6 +92,6 @@ public class GoogleCloudBlobStoreDescriptor
 
   @Override
   public List<FormField> getFormFields() {
-    return Arrays.asList(bucket, credentialFile);
+    return Arrays.asList(bucket, location, credentialFile);
   }
 }

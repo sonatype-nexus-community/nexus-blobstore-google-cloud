@@ -62,6 +62,7 @@ import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.Storage.BlobField;
 import com.google.cloud.storage.Storage.BlobGetOption;
 import com.google.cloud.storage.Storage.BlobListOption;
+import com.google.cloud.storage.StorageClass;
 import com.google.cloud.storage.StorageException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
@@ -97,6 +98,8 @@ public class GoogleCloudBlobStore
   public static final String BUCKET_KEY = "bucket";
 
   public static final String CREDENTIAL_FILE_KEY = "credential_file";
+
+  public static final String LOCATION_KEY = "location";
 
   public static final String BLOB_CONTENT_SUFFIX = ".bytes";
 
@@ -384,7 +387,8 @@ public class GoogleCloudBlobStore
     try {
       this.storage = storageFactory.create(blobStoreConfiguration);
 
-      this.bucket = getOrCreateStorageBucket();
+      String location = configuration.attributes(CONFIG_KEY).get(LOCATION_KEY, String.class);
+      this.bucket = getOrCreateStorageBucket(location);
 
       this.deletedBlobIndex = new DeletedBlobIndex(this.datastoreFactory, blobStoreConfiguration);
     }
@@ -393,10 +397,14 @@ public class GoogleCloudBlobStore
     }
   }
 
-  protected Bucket getOrCreateStorageBucket() {
+  protected Bucket getOrCreateStorageBucket(final String location) {
     Bucket bucket = storage.get(getConfiguredBucketName());
     if (bucket == null) {
-      bucket = storage.create(BucketInfo.of(getConfiguredBucketName()));
+      bucket = storage.create(
+          BucketInfo.newBuilder(getConfiguredBucketName())
+              .setLocation(location)
+              .setStorageClass(StorageClass.REGIONAL)
+              .build());
     }
 
     return bucket;

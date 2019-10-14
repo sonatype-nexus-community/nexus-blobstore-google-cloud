@@ -37,6 +37,7 @@ import com.google.cloud.datastore.KeyFactory
 import com.google.cloud.storage.Bucket
 import com.google.cloud.storage.Storage
 import com.google.cloud.storage.Storage.BlobListOption
+import com.google.cloud.storage.StorageClass
 import org.apache.commons.io.IOUtils
 import spock.lang.Specification
 
@@ -111,7 +112,10 @@ class GoogleCloudBlobStoreTest
   def setup() {
     storageFactory.create(_) >> storage
     config.name = 'GoogleCloudBlobStoreTest'
-    config.attributes = [ 'google cloud storage': [bucket: 'mybucket'] ]
+    config.attributes = [ 'google cloud storage': [
+        bucket: 'mybucket',
+        location: 'us-central1'
+    ] ]
 
     datastoreFactory.create(_) >> datastore
     datastore.newKeyFactory() >> keyFactory

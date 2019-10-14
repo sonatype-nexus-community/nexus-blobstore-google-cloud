@@ -404,6 +404,7 @@ class GoogleCloudBlobStoreIT
     config.attributes = [
         'google cloud storage': [
             bucket: bucket,
+            location: 'us-central1',
             credential_file: this.getClass().getResource('/gce-credentials.json').getFile()
         ],
         (BlobStoreQuotaSupport.ROOT_KEY): [
