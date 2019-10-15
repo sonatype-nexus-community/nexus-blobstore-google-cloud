@@ -14,11 +14,14 @@ package org.sonatype.nexus.blobstore.gcloud.internal;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.nio.channels.Channels;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.function.Supplier;
@@ -68,6 +71,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.LoadingCache;
 import com.google.common.hash.HashCode;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import org.apache.commons.lang.StringUtils;
 import org.joda.time.DateTime;
 
@@ -127,6 +131,8 @@ public class GoogleCloudBlobStore
 
   private LoadingCache<BlobId, GoogleCloudStorageBlob> liveBlobs;
 
+  private LoadingCache<BlobId, Optional<GoogleCloudBlobAttributes>> blobPropertiesCache;
+
   private MetricRegistry metricRegistry;
 
   private PeriodicJobService periodicJobService;
@@ -174,6 +180,13 @@ public class GoogleCloudBlobStore
       metadata.store();
     }
     liveBlobs = CacheBuilder.newBuilder().weakValues().recordStats().build(from(GoogleCloudStorageBlob::new));
+
+    blobPropertiesCache = CacheBuilder.newBuilder()
+        .weakValues()
+        .recordStats()
+        .build(
+            from(blobId -> getGoogleCloudBlobAttributesInternal(blobId))
+        );
     
     wrapWithGauge("liveBlobsCache.size", () -> liveBlobs.size());
     wrapWithGauge("liveBlobsCache.hitCount", () -> liveBlobs.stats().hitCount());
@@ -182,10 +195,39 @@ public class GoogleCloudBlobStore
     wrapWithGauge("liveBlobsCache.evictionCount", () -> liveBlobs.stats().evictionCount());
     wrapWithGauge("liveBlobsCache.requestCount", () -> liveBlobs.stats().requestCount());
 
+    wrapWithGauge("blobPropertiesCache.size", () -> blobPropertiesCache.size());
+    wrapWithGauge("blobPropertiesCache.hitCount", () -> blobPropertiesCache.stats().hitCount());
+    wrapWithGauge("blobPropertiesCache.missCount", () -> blobPropertiesCache.stats().missCount());
+    wrapWithGauge("blobPropertiesCache.totalLoadTime", () -> blobPropertiesCache.stats().totalLoadTime());
+    wrapWithGauge("blobPropertiesCache.evictionCount", () -> blobPropertiesCache.stats().evictionCount());
+    wrapWithGauge("blobPropertiesCache.requestCount", () -> blobPropertiesCache.stats().requestCount());
+
     metricsStore.setBlobStore(this);
     metricsStore.start();
     periodicJobService.startUsing();
     this.quotaCheckingJob = periodicJobService.schedule(createQuotaCheckJob(this, quotaService, log), quotaCheckInterval);
+  }
+
+  /**
+   * Internal implementation to get blob attributes.
+   * This is the only method that should call the GoogleCloudBlobAttributes constructor and load methods.
+   *
+   * The intention is that all lookups for blob attributes happen through the loading cache.
+   *
+   * @param blobId
+   * @return an Optional wrapping the matching {@link GoogleCloudBlobAttributes}, if present
+   */
+  private Optional<GoogleCloudBlobAttributes> getGoogleCloudBlobAttributesInternal(final BlobId blobId) {
+    try {
+      GoogleCloudBlobAttributes blobAttributes = new GoogleCloudBlobAttributes(bucket, attributePath(blobId));
+      if (!blobAttributes.load()) {
+        log.warn("Attempt to access non-existent blob {} ({})", blobId, blobAttributes);
+        return Optional.empty();
+      }
+      return Optional.of(blobAttributes);
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    }
   }
 
   @Override
@@ -224,16 +266,34 @@ public class GoogleCloudBlobStore
 
   @Override
   @Guarded(by = STARTED)
-  public Blob copy(final BlobId blobId, final Map<String, String> headers) {
-    GoogleCloudStorageBlob sourceBlob = (GoogleCloudStorageBlob) checkNotNull(get(blobId));
+  public Blob copy(final BlobId existing, final Map<String, String> headers) {
+    GoogleCloudStorageBlob sourceBlob = (GoogleCloudStorageBlob) checkNotNull(get(existing));
 
-    return createInternal(headers, destination -> {
-      sourceBlob.getBlob().copyTo(getConfiguredBucketName(), destination);
+    final BlobId newBlobId = getBlobId(headers, null);
+    final String blobPath = contentPath(newBlobId);
 
-      BlobMetrics metrics = sourceBlob.getMetrics();
-      return new StreamMetrics(metrics.getContentSize(), metrics.getSha1Hash());
-    }, null);
+    // this copies the .bytes
+    sourceBlob.getBlob().copyTo(getConfiguredBucketName(), blobPath);
+    final String attributePath = attributePath(newBlobId);
+    // this copies the .properties
+    com.google.cloud.storage.Blob attributeBlob = bucket.get(attributePath(existing), BlobGetOption.fields(BlobField.MEDIA_LINK));
+    attributeBlob.copyTo(getConfiguredBucketName(), attributePath);
+
+    // add content size to metrics
+    metricsStore.recordAddition(newBlobId, sourceBlob.getMetrics().getContentSize());
+
+    GoogleCloudStorageBlob result = new GoogleCloudStorageBlob(newBlobId);
+    result.refresh(headers, sourceBlob.getMetrics());
+    liveBlobs.put(newBlobId, result);
+    return result;
   }
+
+  @Override
+  protected void doUndelete(final BlobId blobId, final BlobAttributes attributes) {
+    blobPropertiesCache.put(blobId, Optional.of((GoogleCloudBlobAttributes) attributes));
+    blobPropertiesCache.invalidate(blobId);
+  }
+
 
   @Nullable
   @Override
@@ -250,18 +310,17 @@ public class GoogleCloudBlobStore
     checkNotNull(blobId);
 
     final GoogleCloudStorageBlob blob = liveBlobs.getUnchecked(blobId);
+    boolean cacheHit = true;
 
     if (blob.isStale()) {
       Lock lock = blob.lock();
       try {
         if (blob.isStale()) {
-          GoogleCloudBlobAttributes blobAttributes = new GoogleCloudBlobAttributes(bucket, attributePath(blobId));
-          boolean loaded = blobAttributes.load();
-          if (!loaded) {
-            log.warn("Attempt to access non-existent blob {} ({})", blobId, blobAttributes);
+          cacheHit = false;
+          GoogleCloudBlobAttributes blobAttributes = getBlobAttributes(blobId);
+          if (blobAttributes == null) {
             return null;
           }
-
           if (blobAttributes.isDeleted() && !includeDeleted) {
             log.warn("Attempt to access soft-deleted blob {} ({})", blobId, blobAttributes);
             return null;
@@ -269,16 +328,12 @@ public class GoogleCloudBlobStore
 
           blob.refresh(blobAttributes.getHeaders(), blobAttributes.getMetrics());
         }
-      }
-      catch (IOException e) {
-        throw new BlobStoreException(e, blobId);
-      }
-      finally {
+      } finally {
         lock.unlock();
       }
     }
 
-    log.debug("Accessing blob {}", blobId);
+    log.debug("Accessing blob {}, liveBlobsCache hit: {}", blobId, cacheHit);
     return blob;
   }
 
@@ -290,8 +345,9 @@ public class GoogleCloudBlobStore
     try {
       log.debug("Soft deleting blob {}", blobId);
 
-      GoogleCloudBlobAttributes blobAttributes = new GoogleCloudBlobAttributes(bucket, attributePath(blobId));
-
+      GoogleCloudBlobAttributes blobAttributes = getBlobAttributes(blobId);
+      // TODO this load during delete is maybe an unnecessary read
+      // can we cache this?
       boolean loaded = blobAttributes.load();
       if (!loaded) {
         log.warn("Attempt to mark-for-delete non-existent blob {}", blobId);
@@ -328,6 +384,8 @@ public class GoogleCloudBlobStore
       boolean blobDeleted = storage.delete(getConfiguredBucketName(), contentPath(blobId));
       if (blobDeleted) {
         String attributePath = attributePath(blobId);
+        // TODO try to get blob metrics without an attributes load.
+        // Can BlobAttributes be cached?
         BlobAttributes attributes = getBlobAttributes(blobId);
         metricsStore.recordDeletion(blobId, attributes.getMetrics().getContentSize());
         storage.delete(getConfiguredBucketName(), attributePath);
@@ -464,18 +522,14 @@ public class GoogleCloudBlobStore
 
   /**
    * @return the {@link BlobAttributes} for the blob, or null
-   * @throws BlobStoreException if an {@link IOException} occurs
    */
   @Override
   @Guarded(by = STARTED)
-  public BlobAttributes getBlobAttributes(final BlobId blobId) {
+  public GoogleCloudBlobAttributes getBlobAttributes(final BlobId blobId) {
     try {
-      GoogleCloudBlobAttributes blobAttributes = new GoogleCloudBlobAttributes(bucket, attributePath(blobId));
-      return blobAttributes.load() ? blobAttributes : null;
-    }
-    catch (IOException e) {
-      log.error("Unable to load GoogleCloudBlobAttributes for blob id: {}", blobId, e);
-      throw new BlobStoreException(e, blobId);
+      return blobPropertiesCache.get(blobId).orElse(null);
+    } catch (UncheckedExecutionException | ExecutionException e) {
+      throw new BlobStoreException(e.getCause(), blobId);
     }
   }
 
@@ -553,6 +607,7 @@ public class GoogleCloudBlobStore
       GoogleCloudBlobAttributes blobAttributes = new GoogleCloudBlobAttributes(bucket, attributePath, headers, metrics);
 
       blobAttributes.store();
+      blobPropertiesCache.put(blobId, Optional.of(blobAttributes));
       metricsStore.recordAddition(blobId, metrics.getContentSize());
 
       return blob;
