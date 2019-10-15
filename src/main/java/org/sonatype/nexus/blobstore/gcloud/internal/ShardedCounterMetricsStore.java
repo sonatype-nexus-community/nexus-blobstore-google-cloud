@@ -156,11 +156,12 @@ public class ShardedCounterMetricsStore
         .setNamespace(namespace)
         .setKind(METRICS_STORE)
         .newKey(1L);
+    periodicJobService.startUsing();
     this.flushJob = periodicJobService.schedule(() -> flush(), FLUSH_FREQUENCY_IN_SECONDS);
   }
 
   @Override
-  public void doStop() {
+  public void doStop() throws Exception {
     flushJob.cancel();
     // flush the pending queue
     if (rateLimiter.tryAcquire(2L, TimeUnit.SECONDS)) {
@@ -168,6 +169,7 @@ public class ShardedCounterMetricsStore
     } else if (!pending.isEmpty()){
       log.error("unable to flush pending metrics data, queue contents will not be written to datastore: {}", pending);
     }
+    periodicJobService.stopUsing();
   }
 
   void removeData() {
