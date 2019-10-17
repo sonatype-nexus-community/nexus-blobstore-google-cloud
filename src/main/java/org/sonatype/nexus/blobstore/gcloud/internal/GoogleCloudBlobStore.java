@@ -184,6 +184,7 @@ public class GoogleCloudBlobStore
 
     metricsStore.setBlobStore(this);
     metricsStore.start();
+    periodicJobService.startUsing();
     this.quotaCheckingJob = periodicJobService.schedule(createQuotaCheckJob(this, quotaService, log), quotaCheckInterval);
   }
 
@@ -192,6 +193,7 @@ public class GoogleCloudBlobStore
     liveBlobs = null;
     metricsStore.stop();
     quotaCheckingJob.cancel();
+    periodicJobService.stopUsing();
   }
 
   protected void wrapWithGauge(String nameSuffix, Supplier valueSupplier) {
