@@ -76,7 +76,7 @@ public abstract class AbstractGoogleClientFactory
     HttpConnectionParams.setStaleCheckingEnabled(params, true);
     HttpConnectionParams.setSocketBufferSize(params, 8192);
     ConnManagerParams.setMaxTotalConnections(params, 200);
-    ConnManagerParams.setMaxConnectionsPerRoute(params, new ConnPerRouteBean(20));
+    ConnManagerParams.setMaxConnectionsPerRoute(params, new ConnPerRouteBean(200));
     return params;
   }
 
