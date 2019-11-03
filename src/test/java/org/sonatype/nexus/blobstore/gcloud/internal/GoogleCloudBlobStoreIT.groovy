@@ -232,6 +232,71 @@ class GoogleCloudBlobStoreIT
       assert blob2 != null
   }
 
+  def "copy matches expectations" () {
+    given:
+      def expectedSize = 2048
+      byte[] data = new byte[expectedSize]
+      new Random().nextBytes(data)
+      Blob blob = blobStore.create(new ByteArrayInputStream(data),
+          [ (BlobStore.BLOB_NAME_HEADER): 'foo1',
+            (BlobStore.CREATED_BY_HEADER): 'someuser' ] )
+      assert blob != null
+
+      def headers = [ (BlobStore.BLOB_NAME_HEADER): 'foo2',
+                      (BlobStore.CREATED_BY_HEADER): 'someuser' ]
+    when:
+      def moved = blobStore.copy(blob.id, headers)
+
+    then:
+      // existing still present
+      Blob existing = blobStore.get(blob.id)
+      assert existing != null
+      Blob after = blobStore.get(moved.id)
+      assert after != null
+      assert after.id != existing.id
+      assert after.getInputStream().bytes == existing.getInputStream().bytes
+  }
+
+  def "deleteHard matches expectations" () {
+    given:
+      def expectedSize = 2048
+      byte[] data = new byte[expectedSize]
+      new Random().nextBytes(data)
+      Blob blob = blobStore.create(new ByteArrayInputStream(data),
+          [ (BlobStore.BLOB_NAME_HEADER): 'testing-deleteHard',
+            (BlobStore.CREATED_BY_HEADER): 'someuser' ] )
+      assert blob != null
+
+    when:
+      def deleted = blobStore.deleteHard(blob.id)
+
+    then:
+      deleted
+      blobStore.get(blob.id) == null
+      blobStore.getBlobAttributes(blob.id) == null
+  }
+
+  def "setBlobAttributes matches expectations" () {
+    given:
+      Blob blob = blobStore.create(new ByteArrayInputStream('hello'.bytes),
+          [ (BlobStore.BLOB_NAME_HEADER): 'foo1',
+            (BlobStore.CREATED_BY_HEADER): 'someuser' ] )
+      assert blob != null
+
+      def attributes = blobStore.getBlobAttributes(blob.id)
+      attributes.headers.put('somekey', 'somevalue')
+
+    when:
+      blobStore.setBlobAttributes(blob.id, attributes)
+
+    then:
+      def updated = blobStore.getBlobAttributes(blob.id)
+      updated.headers.get(BlobStore.BLOB_NAME_HEADER) == 'foo1'
+      updated.headers.get(BlobStore.CREATED_BY_HEADER) == 'someuser'
+      updated.headers.get('somekey') == 'somevalue'
+
+  }
+
   def "mimic storage facet write-temp-and-move"() {
     given:
       def expectedSize = 2048
