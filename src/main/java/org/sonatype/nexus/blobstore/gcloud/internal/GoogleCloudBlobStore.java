@@ -291,7 +291,6 @@ public class GoogleCloudBlobStore
   @Override
   protected void doUndelete(final BlobId blobId, final BlobAttributes attributes) {
     blobPropertiesCache.put(blobId, Optional.of((GoogleCloudBlobAttributes) attributes));
-    blobPropertiesCache.invalidate(blobId);
   }
 
 
@@ -378,25 +377,20 @@ public class GoogleCloudBlobStore
 
   @Override
   protected boolean doDeleteHard(final BlobId blobId) {
-    try {
-      log.debug("Hard deleting blob {}", blobId);
+    log.debug("Hard deleting blob {}", blobId);
 
-      boolean blobDeleted = storage.delete(getConfiguredBucketName(), contentPath(blobId));
-      if (blobDeleted) {
-        String attributePath = attributePath(blobId);
-        // TODO try to get blob metrics without an attributes load.
-        // Can BlobAttributes be cached?
-        BlobAttributes attributes = getBlobAttributes(blobId);
-        metricsStore.recordDeletion(blobId, attributes.getMetrics().getContentSize());
-        storage.delete(getConfiguredBucketName(), attributePath);
-        deletedBlobIndex.remove(blobId);
-      }
-
-      return blobDeleted;
-    }
-    finally {
+    boolean blobDeleted = storage.delete(getConfiguredBucketName(), contentPath(blobId));
+    if (blobDeleted) {
       liveBlobs.invalidate(blobId);
+      String attributePath = attributePath(blobId);
+      BlobAttributes attributes = getBlobAttributes(blobId);
+      metricsStore.recordDeletion(blobId, attributes.getMetrics().getContentSize());
+      storage.delete(getConfiguredBucketName(), attributePath);
+      deletedBlobIndex.remove(blobId);
+      blobPropertiesCache.invalidate(blobId);
     }
+
+    return blobDeleted;
   }
 
   @Override
