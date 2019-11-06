@@ -528,7 +528,7 @@ public class GoogleCloudBlobStore
   @Override
   @Guarded(by = STARTED)
   public void setBlobAttributes(final BlobId blobId, final BlobAttributes blobAttributes) {
-    GoogleCloudBlobAttributes existing = (GoogleCloudBlobAttributes) getBlobAttributes(blobId);
+    GoogleCloudBlobAttributes existing = getBlobAttributes(blobId);
     if (existing != null) {
       try {
         existing.updateFrom(blobAttributes);
