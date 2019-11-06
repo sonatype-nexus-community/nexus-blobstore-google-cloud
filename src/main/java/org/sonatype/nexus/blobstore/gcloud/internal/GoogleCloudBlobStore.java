@@ -345,8 +345,6 @@ public class GoogleCloudBlobStore
       log.debug("Soft deleting blob {}", blobId);
 
       GoogleCloudBlobAttributes blobAttributes = getBlobAttributes(blobId);
-      // TODO this load during delete is maybe an unnecessary read
-      // can we cache this?
       boolean loaded = blobAttributes.load();
       if (!loaded) {
         log.warn("Attempt to mark-for-delete non-existent blob {}", blobId);
