@@ -12,6 +12,8 @@
  */
 package org.sonatype.nexus.blobstore.gcloud.internal;
 
+import java.util.regex.Pattern;
+
 import static java.util.UUID.nameUUIDFromBytes;
 
 /**
@@ -19,10 +21,17 @@ import static java.util.UUID.nameUUIDFromBytes;
  */
 public class Namespace
 {
+
+  private static final Pattern GCP_NAMESPACE = Pattern.compile("^[0-9A-Za-z._\\-]{0,100}$");
+
   private Namespace() {
   }
 
-  public static String uuidNamespace(final String prefix, final String key) {
-    return nameUUIDFromBytes((prefix + key).getBytes()).toString();
+  public static String namespaceSafe(final String prefix, final String key) {
+    String composite = prefix + key;
+    if (GCP_NAMESPACE.matcher(composite).matches()) {
+      return composite;
+    }
+    return nameUUIDFromBytes(composite.getBytes()).toString();
   }
 }
