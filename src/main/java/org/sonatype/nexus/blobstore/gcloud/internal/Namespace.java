@@ -27,11 +27,10 @@ public class Namespace
   private Namespace() {
   }
 
-  public static String namespaceSafe(final String prefix, final String key) {
-    String composite = prefix + key;
-    if (GCP_NAMESPACE.matcher(composite).matches()) {
-      return composite;
+  public static String safe(final String key) {
+    if (GCP_NAMESPACE.matcher(key).matches()) {
+      return key;
     }
-    return nameUUIDFromBytes(composite.getBytes()).toString();
+    return nameUUIDFromBytes(key.getBytes()).toString();
   }
 }

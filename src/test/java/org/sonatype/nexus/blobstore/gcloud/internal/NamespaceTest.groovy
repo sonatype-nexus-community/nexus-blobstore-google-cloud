@@ -18,7 +18,7 @@ package org.sonatype.nexus.blobstore.gcloud.internal
 import spock.lang.Specification
 import spock.lang.Unroll
 
-import static org.sonatype.nexus.blobstore.gcloud.internal.Namespace.namespaceSafe
+import static org.sonatype.nexus.blobstore.gcloud.internal.Namespace.safe
 
 class NamespaceTest
     extends Specification
@@ -27,15 +27,14 @@ class NamespaceTest
   @Unroll
   def "it will convert namespaces when containing illegal characters"() {
     expect:
-      namespaceSafe(prefix, key) == expected
+      safe(key) == expected
     where:
-      prefix      | key      | expected
-      ''          | ''       | ''
-      'foo'       | 'bar'    | 'foobar'
-      'abc123ABC' | '._-'    | 'abc123ABC._-'
-      'fo oo'     | 'bar'    | 'c859195b-5a43-3ed8-a454-d3451a2a3daf'
-      'fo oo'     | 'ba ar'  | 'bb0dbdb5-3865-377e-ab2d-bec2622cac0f'
-      'foo$'      | 'bar$'   | '1502c3f6-1364-3d02-af8e-b7f5b6605e23'
-      'x' * 51    | 'y' * 50 | '5751745e-646f-37c8-8caa-8f0b54d64db5'
+      key            | expected
+      ''             | ''
+      'bar'          | 'bar'
+      'abc123ABC._-' | 'abc123ABC._-'
+      'ba ar'        | '3ad6c2a6-5ccf-341c-ac0b-c670504de4dc'
+      'bar$'         | '08c15d2b-4a9f-3907-9763-4a0685b370ca'
+      'y' * 101      | '905b9d97-c7bb-3192-b6dc-f7fed334f708'
   }
 }
