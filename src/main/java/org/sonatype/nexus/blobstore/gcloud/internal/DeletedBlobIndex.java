@@ -33,6 +33,7 @@ import com.google.common.collect.Lists;
 
 import static org.sonatype.nexus.blobstore.gcloud.internal.DatastoreKeyHierarchy.NAMESPACE_PREFIX;
 import static org.sonatype.nexus.blobstore.gcloud.internal.DatastoreKeyHierarchy.NXRM_ROOT;
+import static org.sonatype.nexus.blobstore.gcloud.internal.Namespace.safe;
 
 /**
  * Index of soft-deleted {@link BlobId}s, stored in Google Datastore.
@@ -62,7 +63,7 @@ class DeletedBlobIndex
   DeletedBlobIndex(final GoogleCloudDatastoreFactory factory, final BlobStoreConfiguration blobStoreConfiguration)
       throws Exception {
     this.gcsDatastore = factory.create(blobStoreConfiguration);
-    this.namespace = NAMESPACE_PREFIX + blobStoreConfiguration.getName();
+    this.namespace = NAMESPACE_PREFIX + safe(blobStoreConfiguration.getName());
     // this key factory will be used to add/remove blobIds from within the DELETED_BLOBS kind
     this.deletedBlobsKeyFactory = gcsDatastore.newKeyFactory()
         .addAncestors(NXRM_ROOT)

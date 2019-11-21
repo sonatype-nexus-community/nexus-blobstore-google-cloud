@@ -61,6 +61,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static org.sonatype.nexus.blobstore.gcloud.internal.DatastoreKeyHierarchy.NAMESPACE_PREFIX;
 import static org.sonatype.nexus.blobstore.gcloud.internal.DatastoreKeyHierarchy.NXRM_ROOT;
+import static org.sonatype.nexus.blobstore.gcloud.internal.Namespace.safe;
 import static org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport.State.STARTED;
 
 /**
@@ -150,7 +151,7 @@ public class ShardedCounterMetricsStore
   public void doStart() throws Exception {
     BlobStoreConfiguration configuration = this.blobStore.getBlobStoreConfiguration();
     this.datastore = datastoreFactory.create(configuration);
-    this.namespace = NAMESPACE_PREFIX + configuration.getName();
+    this.namespace = NAMESPACE_PREFIX + safe(configuration.getName());
     this.shardRoot = datastore.newKeyFactory()
         .addAncestors(NXRM_ROOT)
         .setNamespace(namespace)
