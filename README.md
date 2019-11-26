@@ -29,7 +29,7 @@ For the best experience, you should upgrade your Nexus Repository Manager and Go
 
 | Nexus Repository Manager 3 Version | Google Cloud Storage Blobstore Version |
 | ---------------------------------- |--------------------------------------- |
-| 3.19                               | 0.9.1                                  |
+| 3.19                               | 0.9.2                                  |
 | 3.18                               | 0.8.0                                  |
 | 3.17                               | 0.7.1                                  |
 | 3.16                               | 0.6.1                                  |
@@ -57,8 +57,11 @@ Google Cloud Services and IAM Roles
 
 This plugin uses the following Google Cloud Platform services:
 
-* https://cloud.google.com/storage/ - for storing the content blobs
-* https://cloud.google.com/datastore/ - for storing some blobstore metadata
+* [Google Cloud Storage](https://cloud.google.com/storage/) - for storing the content blobs
+* [Google Cloud Firestore](https://cloud.google.com/firestore/) - for storing blobstore metadata
+
+Firestore usage is exclusively in Datastore mode; you must configure the project for your Repository Manager deployment
+to use ["Firestore in Datastore mode"](https://cloud.google.com/firestore/docs/firestore-or-datastore).
 
 To use this plugin (or execute the integration tests), you will need an account with the following roles:
 
