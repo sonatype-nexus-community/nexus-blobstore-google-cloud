@@ -62,6 +62,7 @@ import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.Storage.BlobField;
 import com.google.cloud.storage.Storage.BlobGetOption;
 import com.google.cloud.storage.Storage.BlobListOption;
+import com.google.cloud.storage.StorageClass;
 import com.google.cloud.storage.StorageException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
@@ -98,6 +99,8 @@ public class GoogleCloudBlobStore
 
   public static final String CREDENTIAL_FILE_KEY = "credential_file";
 
+  public static final String LOCATION_KEY = "location";
+
   public static final String BLOB_CONTENT_SUFFIX = ".bytes";
 
   static final String CONTENT_PREFIX = "content";
@@ -126,29 +129,38 @@ public class GoogleCloudBlobStore
 
   private MetricRegistry metricRegistry;
 
+  private PeriodicJobService periodicJobService;
+
+  private BlobStoreQuotaService quotaService;
+
   private final MultipartUploader multipartUploader;
 
   private PeriodicJob quotaCheckingJob;
 
+  private final int quotaCheckInterval;
+
   @Inject
   public GoogleCloudBlobStore(final GoogleCloudStorageFactory storageFactory,
                               final BlobIdLocationResolver blobIdLocationResolver,
-                              final GoogleCloudDatastoreFactory datastoreFactory,
                               final PeriodicJobService periodicJobService,
+                              final ShardedCounterMetricsStore metricsStore,
+                              final GoogleCloudDatastoreFactory datastoreFactory,
                               final DryRunPrefix dryRunPrefix,
                               final MultipartUploader multipartUploader,
                               final MetricRegistry metricRegistry,
                               final BlobStoreQuotaService quotaService,
                               @Named("${nexus.blobstore.quota.warnIntervalSeconds:-60}")
-                                final int quotaCheckInterval) {
+                              final int quotaCheckInterval)
+  {
     super(blobIdLocationResolver, dryRunPrefix);
+    this.periodicJobService = periodicJobService;
     this.storageFactory = checkNotNull(storageFactory);
-    this.metricsStore = new ShardedCounterMetricsStore(blobIdLocationResolver, datastoreFactory, periodicJobService);
+    this.metricsStore = metricsStore;
     this.datastoreFactory = datastoreFactory;
     this.multipartUploader = multipartUploader;
     this.metricRegistry = metricRegistry;
-    this.quotaCheckingJob = periodicJobService.schedule(createQuotaCheckJob(this, quotaService, log), quotaCheckInterval);
-
+    this.quotaService = quotaService;
+    this.quotaCheckInterval = quotaCheckInterval;
   }
 
   @Override
@@ -174,7 +186,10 @@ public class GoogleCloudBlobStore
     wrapWithGauge("liveBlobsCache.evictionCount", () -> liveBlobs.stats().evictionCount());
     wrapWithGauge("liveBlobsCache.requestCount", () -> liveBlobs.stats().requestCount());
 
-    metricsStore.init(getBlobStoreConfiguration());
+    metricsStore.setBlobStore(this);
+    metricsStore.start();
+    periodicJobService.startUsing();
+    this.quotaCheckingJob = periodicJobService.schedule(createQuotaCheckJob(this, quotaService, log), quotaCheckInterval);
   }
 
   @Override
@@ -182,6 +197,7 @@ public class GoogleCloudBlobStore
     liveBlobs = null;
     metricsStore.stop();
     quotaCheckingJob.cancel();
+    periodicJobService.stopUsing();
   }
 
   protected void wrapWithGauge(String nameSuffix, Supplier valueSupplier) {
@@ -378,7 +394,8 @@ public class GoogleCloudBlobStore
     try {
       this.storage = storageFactory.create(blobStoreConfiguration);
 
-      this.bucket = getOrCreateStorageBucket();
+      String location = configuration.attributes(CONFIG_KEY).get(LOCATION_KEY, String.class);
+      this.bucket = getOrCreateStorageBucket(location);
 
       this.deletedBlobIndex = new DeletedBlobIndex(this.datastoreFactory, blobStoreConfiguration);
     }
@@ -387,10 +404,14 @@ public class GoogleCloudBlobStore
     }
   }
 
-  protected Bucket getOrCreateStorageBucket() {
+  protected Bucket getOrCreateStorageBucket(final String location) {
     Bucket bucket = storage.get(getConfiguredBucketName());
     if (bucket == null) {
-      bucket = storage.create(BucketInfo.of(getConfiguredBucketName()));
+      bucket = storage.create(
+          BucketInfo.newBuilder(getConfiguredBucketName())
+              .setLocation(location)
+              .setStorageClass(StorageClass.REGIONAL)
+              .build());
     }
 
     return bucket;

@@ -11,3 +11,4 @@ target/
 *.log
 *~
 src/test/resources/gce-credentials.json
+src/test/resources/large_file

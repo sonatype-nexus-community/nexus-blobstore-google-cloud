@@ -37,6 +37,7 @@ import com.google.cloud.datastore.KeyFactory
 import com.google.cloud.storage.Bucket
 import com.google.cloud.storage.Storage
 import com.google.cloud.storage.Storage.BlobListOption
+import com.google.cloud.storage.StorageClass
 import org.apache.commons.io.IOUtils
 import spock.lang.Specification
 
@@ -64,6 +65,8 @@ class GoogleCloudBlobStoreTest
 
   BlobStoreQuotaService quotaService = Mock()
 
+  ShardedCounterMetricsStore metricsStore = Mock()
+
   KeyFactory keyFactory = new KeyFactory("testing")
 
   def blobHeaders = [
@@ -71,7 +74,7 @@ class GoogleCloudBlobStoreTest
       (BlobStore.CREATED_BY_HEADER): 'admin'
   ]
   GoogleCloudBlobStore blobStore = new GoogleCloudBlobStore(
-      storageFactory, blobIdLocationResolver, metricsStore, datastoreFactory, new DryRunPrefix("TEST "),
+      storageFactory, blobIdLocationResolver, periodicJobService, metricsStore, datastoreFactory, new DryRunPrefix("TEST "),
       uploader, metricRegistry, quotaService, 60)
 
   def config = new BlobStoreConfiguration()
@@ -111,7 +114,10 @@ class GoogleCloudBlobStoreTest
   def setup() {
     storageFactory.create(_) >> storage
     config.name = 'GoogleCloudBlobStoreTest'
-    config.attributes = [ 'google cloud storage': [bucket: 'mybucket'] ]
+    config.attributes = [ 'google cloud storage': [
+        bucket: 'mybucket',
+        location: 'us-central1'
+    ] ]
 
     datastoreFactory.create(_) >> datastore
     datastore.newKeyFactory() >> keyFactory
