@@ -218,8 +218,7 @@ public class GoogleCloudBlobStore
 
     return createInternal(headers, destination -> {
       sourceBlob.getBlob().copyTo(getConfiguredBucketName(), destination);
-
-      BlobMetrics metrics = sourceBlob.getMetrics();
+      BlobMetrics metrics = get(blobId).getMetrics();
       return new StreamMetrics(metrics.getContentSize(), metrics.getSha1Hash());
     }, null);
   }
@@ -268,6 +267,7 @@ public class GoogleCloudBlobStore
     }
 
     log.debug("Accessing blob {}", blobId);
+
     return blob;
   }
 
@@ -506,8 +506,7 @@ public class GoogleCloudBlobStore
       List<Boolean> results = storage.testIamPermissions(getConfiguredBucketName(),
           Arrays.asList("storage.objects.create", "storage.objects.delete"));
       return !results.contains(false);
-    }
-    catch (StorageException e) {
+    } catch (StorageException e) {
       throw new BlobStoreException("failed to retrive User ACL for " + getConfiguredBucketName(), e, null);
     }
   }
@@ -574,8 +573,7 @@ public class GoogleCloudBlobStore
   private void deleteNonExplosively(final String contentPath) {
     try {
       storage.delete(getConfiguredBucketName(), contentPath);
-    }
-    catch (Exception e) {
+    } catch (Exception e) {
       log.warn("caught exception attempting to delete during cleanup", e);
     }
   }
