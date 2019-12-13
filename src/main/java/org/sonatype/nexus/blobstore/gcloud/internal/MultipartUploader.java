@@ -12,7 +12,6 @@
  */
 package org.sonatype.nexus.blobstore.gcloud.internal;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -33,6 +32,7 @@ import org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
+import com.google.cloud.storage.Storage.BlobTargetOption;
 import com.google.cloud.storage.Storage.ComposeRequest;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -74,8 +74,6 @@ public class MultipartUploader
   private final AtomicLong composeLimitHit = new AtomicLong(0);
 
   private static final byte[] EMPTY = new byte[0];
-
-  private static final InputStream EMPTY_STREAM = new ByteArrayInputStream(EMPTY);
 
   private final ListeningExecutorService executorService = MoreExecutors.listeningDecorator(
       Executors.newCachedThreadPool(
@@ -146,6 +144,8 @@ public class MultipartUploader
             BlobInfo blobInfo = BlobInfo.newBuilder(
                 bucket, finalChunkName).build();
             // read the rest of the current stream
+            // downside here is that since we don't know the stream size, we can't chunk it.
+            // the deprecated create method here does not allow us to disable GZIP compression on these PUTs
             return storage.create(blobInfo, current);
           }));
         }
@@ -160,7 +160,7 @@ public class MultipartUploader
         if (partNumber == 1) {
           // upload the first part on the current thread
           BlobInfo blobInfo = BlobInfo.newBuilder(bucket, chunkName).build();
-          Blob blob = storage.create(blobInfo, chunk);
+          Blob blob = storage.create(blobInfo, chunk, BlobTargetOption.disableGzipContent());
           singleChunk = Optional.of(blob);
         } else {
           singleChunk = Optional.empty();
@@ -170,7 +170,7 @@ public class MultipartUploader
             log.debug("Uploading chunk {} for {} of {} bytes", chunkIndex, destination, chunk.length);
             BlobInfo blobInfo = BlobInfo.newBuilder(
                 bucket, chunkName).build();
-            return storage.create(blobInfo, chunk);
+            return storage.create(blobInfo, chunk, BlobTargetOption.disableGzipContent());
           }));
         }
       }

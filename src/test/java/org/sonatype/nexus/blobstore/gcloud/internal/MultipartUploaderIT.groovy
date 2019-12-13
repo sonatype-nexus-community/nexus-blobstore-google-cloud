@@ -193,9 +193,9 @@ class MultipartUploaderIT
    * This represents a situation where the customer may need to adjust their chunk size upward. The larger final chunk
    * may also elicit runtime pressure on memory.
    */
-  def "upload 300 MB"() {
+  def "upload 200 MB"() {
     given:
-      long expectedSize = 1024 * 1024 * 300
+      long expectedSize = 1024 * 1024 * 200
       BoundedInputStream inputStream = new BoundedInputStream(new InputStream() {
         private Random random = new Random()
         @Override
@@ -203,15 +203,15 @@ class MultipartUploaderIT
           return random.nextInt()
         }
       }, expectedSize)
-      // with value of 5 MB per chunk, we'll upload 31 5 MB chunks and 1 145 MB chunk
+      // with value of 5 MB per chunk, we'll upload 31 5 MB chunks and 1 45 MB chunk
       MultipartUploader uploader = new MultipartUploader(1024 * 1024 * 5)
 
     when:
       Blob blob = uploader.upload(storage, bucketName,
-          'vol-01/chap-02/large/three_hundred_MB', inputStream)
+          'vol-01/chap-02/large/two_hundred_MB', inputStream)
     then:
       blob.size == expectedSize
       uploader.getNumberOfTimesComposeLimitHit() == 1L
-      storage.get(bucketName, 'vol-01/chap-02/large/three_hundred_MB').size == expectedSize
+      storage.get(bucketName, 'vol-01/chap-02/large/two_hundred_MB').size == expectedSize
   }
 }
