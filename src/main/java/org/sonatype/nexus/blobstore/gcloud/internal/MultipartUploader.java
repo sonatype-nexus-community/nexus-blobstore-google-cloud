@@ -131,7 +131,7 @@ public class MultipartUploader
           chunk = readChunk(current);
         }
         else {
-          log.debug("Upload for {} has hit Google Cloud Storage multipart-compose limits; " +
+          log.info("Upload for {} has hit Google Cloud Storage multipart-compose limits; " +
               "consider increasing '{}' beyond current value of {}", destination, CHUNK_SIZE_PROPERTY, getChunkSize());
           // we've hit compose request limit read the rest of the stream
           composeLimitHit.incrementAndGet();

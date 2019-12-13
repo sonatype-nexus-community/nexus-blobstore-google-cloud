@@ -51,7 +51,6 @@ class MultipartUploaderIT
   }
 
   def cleanupSpec() {
-    //Storage storage = new GoogleCloudStorageFactory().create(config)
     log.debug("Tests complete, deleting files from ${bucketName}")
     // must delete all the files within the bucket before we can delete the bucket
     Iterator<com.google.cloud.storage.Blob> list = storage.list(bucketName,
@@ -190,8 +189,7 @@ class MultipartUploaderIT
    * a) result in incrementing {@link MultipartUploader#getNumberOfTimesComposeLimitHit()} and
    * b) the last chunk will be significantly larger than the preceding 31.
    *
-   * This represents a situation where the customer may need to adjust their chunk size upward. The larger final chunk
-   * may also elicit runtime pressure on memory.
+   * This represents a situation where the customer may need to adjust their chunk size upward.
    */
   def "upload 200 MB"() {
     given:
