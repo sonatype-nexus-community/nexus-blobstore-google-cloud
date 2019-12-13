@@ -43,9 +43,10 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 /**
  * Component that provides parallel multipart upload support for blob binary data (.bytes files).
  */
-@Named
+//@Named
 public class MultipartUploader
     extends StateGuardLifecycleSupport
+    implements Uploader
 {
 
   /**

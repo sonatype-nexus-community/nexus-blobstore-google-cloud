@@ -133,7 +133,7 @@ public class GoogleCloudBlobStore
 
   private BlobStoreQuotaService quotaService;
 
-  private final MultipartUploader multipartUploader;
+  private final Uploader multipartUploader;
 
   private PeriodicJob quotaCheckingJob;
 
@@ -146,7 +146,7 @@ public class GoogleCloudBlobStore
                               final ShardedCounterMetricsStore metricsStore,
                               final GoogleCloudDatastoreFactory datastoreFactory,
                               final DryRunPrefix dryRunPrefix,
-                              final MultipartUploader multipartUploader,
+                              final Uploader multipartUploader,
                               final MetricRegistry metricRegistry,
                               final BlobStoreQuotaService quotaService,
                               @Named("${nexus.blobstore.quota.warnIntervalSeconds:-60}")

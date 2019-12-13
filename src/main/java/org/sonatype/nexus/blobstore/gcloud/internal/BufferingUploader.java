@@ -41,17 +41,16 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 /**
- * Component that provides parallel multipart upload support for blob binary data (.bytes files).
+ * Component that provides buffered, chunked upload support for blob binary data (.bytes files).
  */
 @Named
 public class BufferingUploader
     extends StateGuardLifecycleSupport
+    implements Uploader
 {
 
   /**
    * Use this property in 'nexus.properties' to control how large each multipart part is. Default is 5 MB.
-   * Smaller numbers increase the number of parallel workers used to upload a file. Match to your workload:
-   * if you are heavy in docker with large images, increase; if you are heavy in smaller components, decrease.
    */
   public static final String CHUNK_SIZE_PROPERTY = "nexus.gcs.multipartupload.chunksize";
 
@@ -72,8 +71,6 @@ public class BufferingUploader
    * Consider exposing this as a bean that can provide tuning feedback to deployers.
    */
   private final AtomicLong composeLimitHit = new AtomicLong(0);
-
-  private static final byte[] EMPTY = new byte[0];
 
   private final ListeningExecutorService executorService = MoreExecutors.listeningDecorator(
       Executors.newSingleThreadExecutor(
@@ -108,6 +105,7 @@ public class BufferingUploader
    * @return the successfully stored {@link Blob}
    * @throws BlobStoreException if any part of the upload failed
    */
+  @Override
   public Blob upload(final Storage storage, final String bucket, final String destination, final InputStream contents) {
     log.debug("Starting multipart upload for destination {} in bucket {}", destination, bucket);
     // this must represent the bucket-relative paths to the chunks, in order of composition
@@ -115,7 +113,6 @@ public class BufferingUploader
 
     Optional<Blob> singleChunk = Optional.empty();
     try (InputStream current = contents) {
-
       // MUST respect hard limit of 32 chunks per compose request
       for (int partNumber = 1; partNumber <= COMPOSE_REQUEST_LIMIT; partNumber++) {
         final byte[] buffer = new byte[chunkSize];
