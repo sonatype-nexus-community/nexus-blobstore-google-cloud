@@ -23,7 +23,6 @@ import com.google.cloud.storage.BucketInfo
 import com.google.cloud.storage.Storage
 import groovy.util.logging.Slf4j
 import org.apache.commons.io.input.BoundedInputStream
-import spock.lang.Ignore
 import spock.lang.Specification
 
 @Slf4j
