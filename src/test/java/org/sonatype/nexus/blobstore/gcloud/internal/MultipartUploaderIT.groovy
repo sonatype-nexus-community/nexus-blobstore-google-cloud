@@ -16,12 +16,14 @@ import java.util.stream.StreamSupport
 
 import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration
 
+import com.codahale.metrics.MetricRegistry
 import com.google.cloud.storage.Blob
 import com.google.cloud.storage.Blob.BlobSourceOption
 import com.google.cloud.storage.BucketInfo
 import com.google.cloud.storage.Storage
 import groovy.util.logging.Slf4j
 import org.apache.commons.io.input.BoundedInputStream
+import spock.lang.Ignore
 import spock.lang.Specification
 
 @Slf4j
@@ -36,6 +38,8 @@ class MultipartUploaderIT
   static String bucketName = "integration-test-${UUID.randomUUID().toString()}"
 
   static Storage storage
+
+  MetricRegistry metricRegistry = new MetricRegistry()
 
   def setupSpec() {
     config.attributes = [
@@ -67,7 +71,7 @@ class MultipartUploaderIT
   def "simple multipart"() {
     given:
       long expectedSize = (1048576 * 3) + 2
-      MultipartUploader uploader = new MultipartUploader(1048576)
+      MultipartUploader uploader = new MultipartUploader(metricRegistry, 1048576)
       byte[] data = new byte[expectedSize]
       new Random().nextBytes(data)
 
@@ -84,7 +88,7 @@ class MultipartUploaderIT
       // 5 each of abcdefg
       final String content =  "aaaaabbbbbcccccdddddeeeeefffffggggg"
       byte[] data = content.bytes
-      MultipartUploader uploader = new MultipartUploader(5)
+      MultipartUploader uploader = new MultipartUploader(metricRegistry, 5)
 
     when:
       Blob blob = uploader.upload(storage, bucketName, 'vol-01/chap-01/control/in_order', new ByteArrayInputStream(data))
@@ -98,7 +102,7 @@ class MultipartUploaderIT
   def "single part"() {
     given:
       long expectedSize = 1048575
-      MultipartUploader uploader = new MultipartUploader(1048576)
+      MultipartUploader uploader = new MultipartUploader(metricRegistry, 1048576)
       byte[] data = new byte[expectedSize]
       new Random().nextBytes(data)
 
@@ -113,7 +117,7 @@ class MultipartUploaderIT
   def "zero byte file"() {
     given:
       long expectedSize = 0
-      MultipartUploader uploader = new MultipartUploader(1024)
+      MultipartUploader uploader = new MultipartUploader(metricRegistry, 1024)
       byte[] data = new byte[expectedSize]
       new Random().nextBytes(data)
 
@@ -128,7 +132,7 @@ class MultipartUploaderIT
   def "hit compose limit slightly and still successful"() {
     given:
       long expectedSize = (1024 * MultipartUploader.COMPOSE_REQUEST_LIMIT) + 10
-      MultipartUploader uploader = new MultipartUploader(1024)
+      MultipartUploader uploader = new MultipartUploader(metricRegistry, 1024)
       byte[] data = new byte[expectedSize]
       new Random().nextBytes(data)
 
@@ -145,7 +149,7 @@ class MultipartUploaderIT
   def "hit compose limit poorly tuned, still successful" () {
     given:
       long expectedSize = 1048576
-      MultipartUploader uploader = new MultipartUploader(1024)
+      MultipartUploader uploader = new MultipartUploader(metricRegistry, 1024)
       byte[] data = new byte[expectedSize]
       new Random().nextBytes(data)
 
@@ -173,7 +177,7 @@ class MultipartUploaderIT
         }
       }, expectedSize)
       // default value of 5 MB per chunk
-      MultipartUploader uploader = new MultipartUploader(1024 * 1024 * 5)
+      MultipartUploader uploader = new MultipartUploader(metricRegistry, 1024 * 1024 * 5)
 
     when:
       Blob blob = uploader.upload(storage, bucketName,
@@ -202,7 +206,7 @@ class MultipartUploaderIT
         }
       }, expectedSize)
       // with value of 5 MB per chunk, we'll upload 31 5 MB chunks and 1 45 MB chunk
-      MultipartUploader uploader = new MultipartUploader(1024 * 1024 * 5)
+      MultipartUploader uploader = new MultipartUploader(metricRegistry, 1024 * 1024 * 5)
 
     when:
       Blob blob = uploader.upload(storage, bucketName,

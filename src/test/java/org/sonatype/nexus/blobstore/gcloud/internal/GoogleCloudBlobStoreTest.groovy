@@ -55,13 +55,13 @@ class GoogleCloudBlobStoreTest
 
   Bucket bucket = Mock()
 
-  MetricRegistry metricRegistry = Mock()
+  MetricRegistry metricRegistry = new MetricRegistry()
 
   GoogleCloudDatastoreFactory datastoreFactory = Mock()
 
   Datastore datastore = Mock()
 
-  MultipartUploader uploader = new MultipartUploader(1024)
+  MultipartUploader uploader = new MultipartUploader(metricRegistry, 1024)
 
   BlobStoreQuotaService quotaService = Mock()
 

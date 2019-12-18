@@ -96,7 +96,7 @@ class GoogleCloudBlobStoreIT
   // chunkSize = 5 MB
   // the net effect of this is all tests except for "create large file" will be single thread
   // create large file will end up using max chunks
-  MultipartUploader uploader = new MultipartUploader(5242880)
+  MultipartUploader uploader = new MultipartUploader(metricRegistry, 5242880)
 
   def setup() {
     quotaService = new BlobStoreQuotaServiceImpl([

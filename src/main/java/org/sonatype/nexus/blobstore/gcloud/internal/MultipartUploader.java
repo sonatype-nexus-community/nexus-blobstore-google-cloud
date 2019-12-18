@@ -20,7 +20,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 import javax.inject.Inject;
@@ -28,7 +27,10 @@ import javax.inject.Named;
 
 import org.sonatype.nexus.blobstore.api.BlobStoreException;
 import org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport;
+import org.sonatype.nexus.thread.NexusThreadFactory;
 
+import com.codahale.metrics.InstrumentedExecutorService;
+import com.codahale.metrics.MetricRegistry;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
@@ -38,7 +40,8 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
+
+import static java.lang.String.format;
 
 /**
  * Component that provides parallel multipart upload support for blob binary data (.bytes files).
@@ -75,23 +78,24 @@ public class MultipartUploader
 
   private static final byte[] EMPTY = new byte[0];
 
-  private final ListeningExecutorService executorService = MoreExecutors.listeningDecorator(
-      Executors.newCachedThreadPool(
-          new ThreadFactoryBuilder().setNameFormat("nexus-google-cloud-storage-multipart-upload-%d")
-              .build()));
+  private final ListeningExecutorService executorService;
 
   private final int chunkSize;
 
   @Inject
-  public MultipartUploader(@Named("${"+CHUNK_SIZE_PROPERTY +":-5242880}") final int chunkSize) {
+  public MultipartUploader(final MetricRegistry metricRegistry,
+                           @Named("${"+CHUNK_SIZE_PROPERTY +":-5242880}") final int chunkSize) {
     this.chunkSize = chunkSize;
+    this.executorService = MoreExecutors.listeningDecorator(
+        new InstrumentedExecutorService(
+          Executors.newCachedThreadPool(
+            new NexusThreadFactory("multipart-upload", "nexus-blobstore-google-cloud")),
+          metricRegistry, format("%s.%s", MultipartUploader.class.getName(), "executor-service")));
   }
 
   @Override
   protected void doStop() throws Exception {
-    executorService.shutdown();
-    log.info("sent signal to shutdown multipart upload queue, waiting up to 3 minutes for termination...");
-    executorService.awaitTermination(3L, TimeUnit.MINUTES);
+    executorService.shutdownNow();
   }
 
   /**
@@ -131,18 +135,18 @@ public class MultipartUploader
           chunk = readChunk(current);
         }
         else {
-          log.info("Upload for {} has hit Google Cloud Storage multipart-compose limits; " +
-              "consider increasing '{}' beyond current value of {}", destination, CHUNK_SIZE_PROPERTY, getChunkSize());
           // we've hit compose request limit read the rest of the stream
           composeLimitHit.incrementAndGet();
           chunk = EMPTY;
+          log.info("Upload for {} has hit Google Cloud Storage multipart-compose limit ({} total times limit hit); " +
+              "consider increasing '{}' beyond current value of {}", destination, composeLimitHit.get(),
+              CHUNK_SIZE_PROPERTY, getChunkSize());
 
           final String finalChunkName = toChunkName(destination, COMPOSE_REQUEST_LIMIT);
           chunkNames.add(finalChunkName);
           chunkFutures.add(executorService.submit(() -> {
             log.debug("Uploading final chunk {} for {} of unknown remaining bytes", COMPOSE_REQUEST_LIMIT, destination);
-            BlobInfo blobInfo = BlobInfo.newBuilder(
-                bucket, finalChunkName).build();
+            BlobInfo blobInfo = BlobInfo.newBuilder(bucket, finalChunkName).build();
             // read the rest of the current stream
             // downside here is that since we don't know the stream size, we can't chunk it.
             // the deprecated create method here does not allow us to disable GZIP compression on these PUTs
@@ -162,7 +166,8 @@ public class MultipartUploader
           BlobInfo blobInfo = BlobInfo.newBuilder(bucket, chunkName).build();
           Blob blob = storage.create(blobInfo, chunk, BlobTargetOption.disableGzipContent());
           singleChunk = Optional.of(blob);
-        } else {
+        }
+        else {
           singleChunk = Optional.empty();
           // 2nd through N chunks will happen off current thread in parallel
           final int chunkIndex = partNumber;
@@ -198,7 +203,8 @@ public class MultipartUploader
     }
     catch(Exception e) {
       throw new BlobStoreException("Error uploading blob", e, null);
-    } finally {
+    }
+    finally {
       // remove any .chunkN files off-thread
       // make sure not to delete the first chunk (which has the desired destination name with no suffix)
       deferredCleanup(storage, bucket, chunkNames);
