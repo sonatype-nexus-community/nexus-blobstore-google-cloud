@@ -19,6 +19,7 @@ import java.util.stream.StreamSupport
 
 import org.sonatype.nexus.blobstore.BlobIdLocationResolver
 import org.sonatype.nexus.blobstore.DefaultBlobIdLocationResolver
+import org.sonatype.nexus.blobstore.MockBlobStoreConfiguration
 import org.sonatype.nexus.blobstore.api.Blob
 import org.sonatype.nexus.blobstore.api.BlobAttributes
 import org.sonatype.nexus.blobstore.api.BlobId
@@ -58,7 +59,7 @@ class GoogleCloudBlobStoreIT
 
   static final Logger log = LoggerFactory.getLogger(GoogleCloudBlobStoreIT.class)
 
-  static BlobStoreConfiguration config = new BlobStoreConfiguration()
+  static BlobStoreConfiguration config = new MockBlobStoreConfiguration()
 
   static final long quotaLimit = 512000L
 

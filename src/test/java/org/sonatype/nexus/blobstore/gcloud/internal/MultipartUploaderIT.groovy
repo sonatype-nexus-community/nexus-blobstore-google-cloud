@@ -14,6 +14,7 @@ package org.sonatype.nexus.blobstore.gcloud.internal
 
 import java.util.stream.StreamSupport
 
+import org.sonatype.nexus.blobstore.MockBlobStoreConfiguration
 import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration
 
 import com.codahale.metrics.MetricRegistry
@@ -30,7 +31,7 @@ class MultipartUploaderIT
     extends Specification
 {
 
-  static final BlobStoreConfiguration config = new BlobStoreConfiguration()
+  static final BlobStoreConfiguration config = new MockBlobStoreConfiguration()
 
   static final GoogleCloudStorageFactory storageFactory = new GoogleCloudStorageFactory()
 

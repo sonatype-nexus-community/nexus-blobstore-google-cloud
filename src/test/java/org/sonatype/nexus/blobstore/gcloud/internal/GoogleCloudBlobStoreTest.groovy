@@ -18,6 +18,7 @@ import java.util.stream.Stream
 
 import org.sonatype.nexus.blobstore.BlobIdLocationResolver
 import org.sonatype.nexus.blobstore.DefaultBlobIdLocationResolver
+import org.sonatype.nexus.blobstore.MockBlobStoreConfiguration
 import org.sonatype.nexus.blobstore.api.Blob
 import org.sonatype.nexus.blobstore.api.BlobId
 import org.sonatype.nexus.blobstore.api.BlobStore
@@ -77,7 +78,7 @@ class GoogleCloudBlobStoreTest
       storageFactory, blobIdLocationResolver, periodicJobService, metricsStore, datastoreFactory, new DryRunPrefix("TEST "),
       uploader, metricRegistry, quotaService, 60)
 
-  def config = new BlobStoreConfiguration()
+  def config = new MockBlobStoreConfiguration()
 
   static File tempFileBytes
   static File tempFileAttributes

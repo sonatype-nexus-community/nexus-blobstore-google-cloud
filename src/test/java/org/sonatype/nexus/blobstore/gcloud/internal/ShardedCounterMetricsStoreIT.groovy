@@ -17,6 +17,7 @@ import java.util.stream.IntStream
 
 import org.sonatype.nexus.blobstore.BlobIdLocationResolver
 import org.sonatype.nexus.blobstore.DefaultBlobIdLocationResolver
+import org.sonatype.nexus.blobstore.MockBlobStoreConfiguration
 import org.sonatype.nexus.blobstore.api.BlobId
 import org.sonatype.nexus.blobstore.api.BlobStore
 import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration
@@ -35,7 +36,7 @@ class ShardedCounterMetricsStoreIT
 {
 
   static final Logger log = LoggerFactory.getLogger(ShardedCounterMetricsStoreIT.class)
-  static final BlobStoreConfiguration config = new BlobStoreConfiguration()
+  static final BlobStoreConfiguration config = new MockBlobStoreConfiguration()
 
   BlobIdLocationResolver blobIdLocationResolver =  new DefaultBlobIdLocationResolver()
 
