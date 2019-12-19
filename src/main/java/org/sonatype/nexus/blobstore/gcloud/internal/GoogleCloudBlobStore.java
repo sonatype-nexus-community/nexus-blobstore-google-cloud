@@ -133,10 +133,12 @@ public class GoogleCloudBlobStore
 
   private BlobStoreQuotaService quotaService;
 
+  private final MultipartUploader multipartUploader;
+
   private PeriodicJob quotaCheckingJob;
 
   private final int quotaCheckInterval;
-  
+
   @Inject
   public GoogleCloudBlobStore(final GoogleCloudStorageFactory storageFactory,
                               final BlobIdLocationResolver blobIdLocationResolver,
@@ -144,6 +146,7 @@ public class GoogleCloudBlobStore
                               final ShardedCounterMetricsStore metricsStore,
                               final GoogleCloudDatastoreFactory datastoreFactory,
                               final DryRunPrefix dryRunPrefix,
+                              final MultipartUploader multipartUploader,
                               final MetricRegistry metricRegistry,
                               final BlobStoreQuotaService quotaService,
                               @Named("${nexus.blobstore.quota.warnIntervalSeconds:-60}")
@@ -154,6 +157,7 @@ public class GoogleCloudBlobStore
     this.storageFactory = checkNotNull(storageFactory);
     this.metricsStore = metricsStore;
     this.datastoreFactory = datastoreFactory;
+    this.multipartUploader = multipartUploader;
     this.metricRegistry = metricRegistry;
     this.quotaService = quotaService;
     this.quotaCheckInterval = quotaCheckInterval;
@@ -174,7 +178,7 @@ public class GoogleCloudBlobStore
       metadata.store();
     }
     liveBlobs = CacheBuilder.newBuilder().weakValues().recordStats().build(from(GoogleCloudStorageBlob::new));
-    
+
     wrapWithGauge("liveBlobsCache.size", () -> liveBlobs.size());
     wrapWithGauge("liveBlobsCache.hitCount", () -> liveBlobs.stats().hitCount());
     wrapWithGauge("liveBlobsCache.missCount", () -> liveBlobs.stats().missCount());
@@ -210,7 +214,8 @@ public class GoogleCloudBlobStore
     return createInternal(headers, destination -> {
       try (InputStream data = blobData) {
         MetricsInputStream input = new MetricsInputStream(data);
-        bucket.create(destination, input);
+
+        multipartUploader.upload(storage, getConfiguredBucketName(), destination, input);
         return input.getMetrics();
       }
     }, blobId);
@@ -229,7 +234,6 @@ public class GoogleCloudBlobStore
 
     return createInternal(headers, destination -> {
       sourceBlob.getBlob().copyTo(getConfiguredBucketName(), destination);
-
       BlobMetrics metrics = sourceBlob.getMetrics();
       return new StreamMetrics(metrics.getContentSize(), metrics.getSha1Hash());
     }, null);

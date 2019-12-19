@@ -93,6 +93,11 @@ class GoogleCloudBlobStoreIT
 
   ShardedCounterMetricsStore metricsStore
 
+  // chunkSize = 5 MB
+  // the net effect of this is all tests except for "create large file" will be single thread
+  // create large file will end up using max chunks
+  MultipartUploader uploader = new MultipartUploader(metricRegistry, 5242880)
+
   def setup() {
     quotaService = new BlobStoreQuotaServiceImpl([
         (SpaceUsedQuota.ID): new SpaceUsedQuota()
@@ -105,7 +110,7 @@ class GoogleCloudBlobStoreIT
     metricsStore = new ShardedCounterMetricsStore(blobIdLocationResolver, datastoreFactory, periodicJobService)
 
     blobStore = new GoogleCloudBlobStore(storageFactory, blobIdLocationResolver, periodicJobService, metricsStore,
-        datastoreFactory, new DryRunPrefix("TEST "), metricRegistry, quotaService, 60)
+        datastoreFactory, new DryRunPrefix("TEST "), uploader, metricRegistry, quotaService, 60)
     blobStore.init(config)
     blobStore.start()
 
@@ -224,7 +229,7 @@ class GoogleCloudBlobStoreIT
             (BlobStore.CREATED_BY_HEADER): 'someuser' ] )
       assert blob != null
       // sit for at least the time on our keep alives, so that any held connections close
-      log.info("waiting for ${(KEEP_ALIVE_DURATION + 1000L) / 1000L} seconds any stale connections to close")
+      log.info("waiting for ${(KEEP_ALIVE_DURATION + 1000L) / 1000L} seconds so any stale connections close")
       sleep(KEEP_ALIVE_DURATION + 1000L)
 
       Blob blob2 = blobStore.create(new ByteArrayInputStream('hello'.getBytes()),
@@ -443,7 +448,7 @@ class GoogleCloudBlobStoreIT
       ShardedCounterMetricsStore metricsStore2 = new ShardedCounterMetricsStore(blobIdLocationResolver,
           datastoreFactory, periodicJobService)
       def blobStore2 = new GoogleCloudBlobStore(storageFactory, blobIdLocationResolver, periodicJobService, metricsStore2,
-          datastoreFactory, new DryRunPrefix("TEST "), metricRegistry, quotaService, 60)
+          datastoreFactory, new DryRunPrefix("TEST "), uploader, metricRegistry, quotaService, 60)
       blobStore2.init(config2)
       blobStore2.start()
       metricsStore2.start()
@@ -527,5 +532,12 @@ class GoogleCloudBlobStoreIT
         .forEach({ b -> b.delete(BlobSourceOption.generationMatch()) })
     storage.delete(bucket)
     log.info("bucket ${bucket} deleted")
+  }
+
+  def createFile(Storage storage, String path, long size) {
+    byte [] content = new byte[size]
+    new Random().nextBytes(content)
+    storage.create(BlobInfo.newBuilder(bucketName, path).build(),
+      content)
   }
 }

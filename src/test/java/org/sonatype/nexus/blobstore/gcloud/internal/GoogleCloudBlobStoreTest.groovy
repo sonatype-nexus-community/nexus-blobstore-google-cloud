@@ -55,11 +55,13 @@ class GoogleCloudBlobStoreTest
 
   Bucket bucket = Mock()
 
-  MetricRegistry metricRegistry = Mock()
+  MetricRegistry metricRegistry = new MetricRegistry()
 
   GoogleCloudDatastoreFactory datastoreFactory = Mock()
 
   Datastore datastore = Mock()
+
+  MultipartUploader uploader = new MultipartUploader(metricRegistry, 1024)
 
   BlobStoreQuotaService quotaService = Mock()
 
@@ -72,8 +74,8 @@ class GoogleCloudBlobStoreTest
       (BlobStore.CREATED_BY_HEADER): 'admin'
   ]
   GoogleCloudBlobStore blobStore = new GoogleCloudBlobStore(
-      storageFactory, blobIdLocationResolver, periodicJobService, metricsStore, datastoreFactory,
-      new DryRunPrefix("TEST "), metricRegistry, quotaService, 60)
+      storageFactory, blobIdLocationResolver, periodicJobService, metricsStore, datastoreFactory, new DryRunPrefix("TEST "),
+      uploader, metricRegistry, quotaService, 60)
 
   def config = new BlobStoreConfiguration()
 
@@ -150,6 +152,7 @@ class GoogleCloudBlobStoreTest
 
       blobStore.init(config)
       blobStore.doStart()
+      storage.create(_, _, _) >> mockGoogleObject(tempFileBytes)
 
       BlobId id = new BlobId(UUID.randomUUID().toString())
       String resolved = blobIdLocationResolver.getLocation(id)
