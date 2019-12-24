@@ -28,29 +28,16 @@ For the best experience, you should upgrade your Nexus Repository Manager and Go
 
 | Nexus Repository Manager 3 Version | Google Cloud Storage Blobstore Version |
 | ---------------------------------- |--------------------------------------- |
-| 3.20                               | 0.10.0                                 |
-| 3.19                               | 0.9.2                                  |
-| 3.18                               | 0.8.0                                  |
-| 3.17                               | 0.7.1                                  |
-| 3.16                               | 0.6.1                                  |
+| 3.20                               | [Get 0.10.0](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.10.0/nexus-blobstore-google-cloud-0.10.0-bundle.kar) |
+| 3.19                               | [Get 0.9.2](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.9.2/nexus-blobstore-google-cloud-0.9.2-bundle.kar) |
+| 3.18                               | [Get 0.8.0](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.8.0/nexus-blobstore-google-cloud-0.8.0-bundle.kar) |
+| 3.17                               | [Get 0.7.1](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.7.1/nexus-blobstore-google-cloud-0.7.1-bundle.kar) |
+| 3.16                               | [Get 0.6.1](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.6.1/nexus-blobstore-google-cloud-0.6.1-bundle.kar) |
 | 3.15                               | 0.4.0                                  |
 | 3.13, 3.14                         | 0.3.0                                  |
 | 3.11, 3.12                         | 0.2.0                                  |
 
-Contribution Guidelines
------------------------
-
-Go read [our contribution guidelines](/.github/CONTRIBUTING.md) to get a bit more familiar with how
-we would like things to flow.
-
-Requirements
-------------
-
-* [Apache Maven 3.3.3+](https://maven.apache.org/install.html)
-* [Java 8+](http://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html)
-* Network access to https://repository.sonatype.org/content/groups/sonatype-public-grid
-
-Also, there is a good amount of information available at [Bundle Development Overview](https://help.sonatype.com/display/NXRM3/Bundle+Development#BundleDevelopment-BundleDevelopmentOverview)
+# Deploying the Plugin
 
 Google Cloud Services and IAM Roles
 -----------------------------------
@@ -70,24 +57,6 @@ To use this plugin (or execute the integration tests), you will need an account 
 
 The blobstore will create the storage bucket with the ['Multi-Regional' storage class](https://cloud.google.com/storage/sla).
 
-Building the Source
--------------------
-
-To build the project and generate the bundle use Maven:
-
-    mvn clean package
-    
-Optional: review the [additional documentation to configure and run integration tests](src/test/resources/README.md).
-
-Installing
-----------
-
-After you have built the project, copy the kar file to the `deploy` directory in your Nexus Repository Manager install:
-
-```bash
-cp target/*.kar /path/to/your/nxrm3/install/deploy
-```
-
 Google Cloud Storage Authentication
 -----------------------------------
 
@@ -99,7 +68,15 @@ Per the [Google Cloud documentation](https://github.com/GoogleCloudPlatform/goog
 
 ```
 export GOOGLE_APPLICATION_CREDENTIALS=/path/to/my/key.json
+```
+Installing
+----------
 
+After downloading the kar from Maven Central (links above), copy the kar file to the `deploy` directory in your Nexus 
+Repository Manager install:
+
+```bash
+cp nexus-blobstore-google-cloud-*-bundle.kar /path/to/your/nxrm3/install/deploy
 ```
 
 Configuration
@@ -139,6 +116,38 @@ has hit Google Cloud Storage multipart-compose limit (N total times limit hit); 
 **Caution:** setting this value arbitrarily high will exert heap memory pressure on your environment. Setting it lower
 may result in increased overhead for small content. It is better to be slightly low and see this message infrequently
 than to be too high and require a really large heap all the time.
+
+# Contributing to Plugin Development
+
+Contribution Guidelines
+-----------------------
+
+Go read [our contribution guidelines](/.github/CONTRIBUTING.md) to get a bit more familiar with how
+we would like things to flow.
+
+Requirements
+------------
+
+* [Apache Maven 3.3.3+](https://maven.apache.org/install.html)
+* [Java 8+](http://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html)
+* Network access to https://repository.sonatype.org/content/groups/sonatype-public-grid
+
+Also, there is a good amount of information available at [Bundle Development Overview](https://help.sonatype.com/display/NXRM3/Bundle+Development#BundleDevelopment-BundleDevelopmentOverview)
+
+Building from Source
+-------------------
+
+To build the project and generate the bundle use Maven:
+
+    mvn clean package
+    
+Optional: review the [additional documentation to configure and run integration tests](src/test/resources/README.md).
+
+To install the local development build in your NXRM install:
+
+```bash
+cp target/*-bundle.kar /path/to/your/nxrm3/install/deploy
+```
 
 The Fine Print
 --------------
