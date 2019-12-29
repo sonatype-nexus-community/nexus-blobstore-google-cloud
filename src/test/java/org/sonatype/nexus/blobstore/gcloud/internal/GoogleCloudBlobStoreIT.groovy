@@ -78,7 +78,7 @@ class GoogleCloudBlobStoreIT
     }
   })
 
-  MetricRegistry metricRegistry = Mock()
+  MetricRegistry metricRegistry = new MetricRegistry()
 
   GoogleCloudStorageFactory storageFactory = new GoogleCloudStorageFactory()
 
@@ -353,6 +353,10 @@ class GoogleCloudBlobStoreIT
       MultiHashingInputStream hashingStream = new MultiHashingInputStream(hashAlgorithms,
           new ByteArrayInputStream(data))
       Blob blob = blobStore.create(hashingStream, headers)
+      metricsStore.flush()
+      metricsStore.metrics.blobCount == 1L
+      metricsStore.metrics.totalSize == 2048
+
       TempBlob tempBlob = new TempBlob(blob, hashingStream.hashes(), true, blobStore)
 
       assert tempBlob != null
@@ -360,9 +364,15 @@ class GoogleCloudBlobStoreIT
       // put the tempBlob into the final location
       Map<String, String> filtered = Maps.filterKeys(headers, { k -> !k.equals(BlobStore.TEMPORARY_BLOB_HEADER) })
       Blob result = blobStore.copy(tempBlob.blob.id, filtered)
+      metricsStore.flush()
+      metricsStore.metrics.blobCount == 2L
+      metricsStore.metrics.totalSize == 4096
       // close the tempBlob (results in deleteHard on the tempBlob)
       tempBlob.close()
 
+      metricsStore.flush()
+      metricsStore.metrics.blobCount == 1L
+      metricsStore.metrics.totalSize == 2048
       Blob retrieve = blobStore.get(result.getId())
       assert retrieve != null
   }
