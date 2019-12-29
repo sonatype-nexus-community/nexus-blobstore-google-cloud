@@ -29,6 +29,7 @@ import org.sonatype.nexus.blobstore.api.BlobStoreException;
 import org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport;
 import org.sonatype.nexus.thread.NexusThreadFactory;
 
+import com.codahale.metrics.Histogram;
 import com.codahale.metrics.InstrumentedExecutorService;
 import com.codahale.metrics.MetricRegistry;
 import com.google.cloud.storage.Blob;
@@ -36,6 +37,7 @@ import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.Storage.BlobTargetOption;
 import com.google.cloud.storage.Storage.ComposeRequest;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -82,6 +84,8 @@ public class MultipartUploader
 
   private final int chunkSize;
 
+  private final Histogram numberOfChunks;
+
   @Inject
   public MultipartUploader(final MetricRegistry metricRegistry,
                            @Named("${"+CHUNK_SIZE_PROPERTY +":-5242880}") final int chunkSize) {
@@ -91,6 +95,7 @@ public class MultipartUploader
           Executors.newCachedThreadPool(
             new NexusThreadFactory("multipart-upload", "nexus-blobstore-google-cloud")),
           metricRegistry, format("%s.%s", MultipartUploader.class.getName(), "executor-service")));
+    this.numberOfChunks = metricRegistry.histogram(MetricRegistry.name(MultipartUploader.class, "chunks"));
   }
 
   @Override
@@ -205,10 +210,16 @@ public class MultipartUploader
       throw new BlobStoreException("Error uploading blob", e, null);
     }
     finally {
+      numberOfChunks.update(chunkNames.size());
       // remove any .chunkN files off-thread
       // make sure not to delete the first chunk (which has the desired destination name with no suffix)
       deferredCleanup(storage, bucket, chunkNames);
     }
+  }
+
+  @VisibleForTesting
+  Histogram numberOfChunksHistogram() {
+    return this.numberOfChunks;
   }
 
   private void deferredCleanup(final Storage storage, final String bucket, final List<String> chunkNames) {

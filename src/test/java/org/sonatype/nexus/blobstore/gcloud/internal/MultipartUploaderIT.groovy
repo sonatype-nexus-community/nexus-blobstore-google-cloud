@@ -81,6 +81,7 @@ class MultipartUploaderIT
     then:
       blob.size == expectedSize
       storage.get(bucketName, 'vol-01/chap-01/control/multi_part').getContent() == data
+      assertMetrics(uploader, 4)
   }
 
   def "confirm parts composed in order"() {
@@ -97,6 +98,7 @@ class MultipartUploaderIT
       blob.size == data.length
       Blob readback = storage.get(blob.blobId)
       readback.getContent() == content.bytes
+      assertMetrics(uploader, data.length / 5)
   }
 
   def "single part"() {
@@ -112,6 +114,7 @@ class MultipartUploaderIT
     then:
       blob.size == expectedSize
       storage.get(bucketName, 'vol-01/chap-01/control/single_part').getContent() == data
+      assertMetrics(uploader, 1)
   }
 
   def "zero byte file"() {
@@ -127,6 +130,7 @@ class MultipartUploaderIT
     then:
       blob.size == expectedSize
       storage.get(bucketName, 'vol-01/chap-01/control/zero_byte').getContent() == data
+      assertMetrics(uploader, 1)
   }
 
   def "hit compose limit slightly and still successful"() {
@@ -144,6 +148,7 @@ class MultipartUploaderIT
       blob.size == expectedSize
       uploader.numberOfTimesComposeLimitHit == 1L
       storage.get(bucketName, 'vol-01/chap-01/composeLimitTest/small_miss').getContent() == data
+      assertMetrics(uploader, MultipartUploader.COMPOSE_REQUEST_LIMIT)
   }
 
   def "hit compose limit poorly tuned, still successful" () {
@@ -161,6 +166,7 @@ class MultipartUploaderIT
       blob.size == expectedSize
       uploader.numberOfTimesComposeLimitHit == 1L
       storage.get(bucketName, 'vol-01/chap-01/composeLimitTest/poor_tuning').getContent() == data
+      assertMetrics(uploader, MultipartUploader.COMPOSE_REQUEST_LIMIT)
   }
 
   /**
@@ -185,6 +191,7 @@ class MultipartUploaderIT
     then:
       blob.size == expectedSize
       storage.get(bucketName, 'vol-01/chap-02/large/one_hundred_MB').size == expectedSize
+      assertMetrics(uploader, 20)
   }
 
   /**
@@ -215,5 +222,11 @@ class MultipartUploaderIT
       blob.size == expectedSize
       uploader.getNumberOfTimesComposeLimitHit() == 1L
       storage.get(bucketName, 'vol-01/chap-02/large/two_hundred_MB').size == expectedSize
+      assertMetrics(uploader, MultipartUploader.COMPOSE_REQUEST_LIMIT)
+  }
+
+  void assertMetrics(def uploader, def expected) {
+    assert uploader.numberOfChunksHistogram().getSnapshot().getMin() == expected
+    assert uploader.numberOfChunksHistogram().getSnapshot().getMax() == expected
   }
 }
