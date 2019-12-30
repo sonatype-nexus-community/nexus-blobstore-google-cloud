@@ -106,8 +106,10 @@ to `nexus.properties` for your instance:
 > nexus.gcs.multipartupload.chunksize=2097152
 
 **Caution:** setting this value arbitrarily high will exert heap memory pressure on your environment. Setting it lower
-may result in increased overhead for small content. It is better to be slightly low and see this message infrequently
-than to be too high and require a really large heap all the time.
+may result in increased overhead for small content. It is better to be slightly low than to be too high and require a 
+really large heap all the time. Monitor the 
+`.histograms["org.sonatype.nexus.blobstore.gcloud.internal.MultipartUploader.chunks"]` field on the 
+`/service/metrics/data` endpoint to keep track on the effects of this setting.
 
 # Contributing to Plugin Development
 
