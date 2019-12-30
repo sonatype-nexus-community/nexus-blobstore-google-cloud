@@ -28,7 +28,7 @@ For the best experience, you should upgrade your Nexus Repository Manager and Go
 
 | Nexus Repository Manager 3 Version | Google Cloud Storage Blobstore Version |
 | ---------------------------------- |--------------------------------------- |
-| 3.20                               | [Get 0.10.0](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.10.0/nexus-blobstore-google-cloud-0.10.0-bundle.kar) |
+| 3.20                               | [Get 0.10.1](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.10.1/nexus-blobstore-google-cloud-0.10.1-bundle.kar) |
 | 3.19                               | [Get 0.9.2](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.9.2/nexus-blobstore-google-cloud-0.9.2-bundle.kar) |
 | 3.18                               | [Get 0.8.0](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.8.0/nexus-blobstore-google-cloud-0.8.0-bundle.kar) |
 | 3.17                               | [Get 0.7.1](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.7.1/nexus-blobstore-google-cloud-0.7.1-bundle.kar) |
@@ -93,25 +93,17 @@ If you did not set the environment variable in Step 3 above, specify the absolut
 In version 0.10.0 and later, the plugin now uploads content to the Google Cloud Storage bucket using multiple concurrent
 threads. This can increase throughput from NXRM to the bucket by 50% depending on workload.
 
-The `MultipartUploader` class that implements this feature uses a default of `5 MB` as a threshold for the size of
+The `MultipartUploader` class that implements this feature uses a default of `2 MB` as a threshold for the size of
 chunk of the stream to upload in parallel. 
 
 * Content smaller than this size will just upload to the bucket on the request thread.
-* Content greater than `5 MB` but less than `155 MB` (31 chunks * 5) 
-* Content greater than `160 MB` will use the parallel chunked upload for the first `155 MB` but fall back to the original approach for the remaining content.
+* Content greater than `2 MB` but less than `62 MB` (31 chunks * 2) 
+* Content greater than `64 MB` will use the parallel chunked upload for the first `62 MB` but fall back to the original approach for the remaining content.
 
 If you wish to adjust the chunk size, you can specify the desired size (in bytes) by adding the following 
 to `nexus.properties` for your instance:
 
-> nexus.gcs.multipartupload.chunksize=5242880
-
-If you see the following `INFO` message in your log file, it is worth experimenting with incrementally higher values:
-
-```
-09:17:38.381 [main] INFO  o.s.n.b.g.internal.MultipartUploader - Upload for vol-01/chap-01/composeLimitTest/abcde123 
-has hit Google Cloud Storage multipart-compose limit (N total times limit hit); consider increasing 
-'nexus.gcs.multipartupload.chunksize' beyond current value of 5242880
-```
+> nexus.gcs.multipartupload.chunksize=2097152
 
 **Caution:** setting this value arbitrarily high will exert heap memory pressure on your environment. Setting it lower
 may result in increased overhead for small content. It is better to be slightly low and see this message infrequently
