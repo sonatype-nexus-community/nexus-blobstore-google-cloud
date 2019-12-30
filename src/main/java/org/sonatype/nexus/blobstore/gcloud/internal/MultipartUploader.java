@@ -20,7 +20,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicLong;
 
 import javax.inject.Inject;
 import javax.inject.Named;
@@ -29,6 +28,7 @@ import org.sonatype.nexus.blobstore.api.BlobStoreException;
 import org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport;
 import org.sonatype.nexus.thread.NexusThreadFactory;
 
+import com.codahale.metrics.Counter;
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.InstrumentedExecutorService;
 import com.codahale.metrics.MetricRegistry;
@@ -54,9 +54,10 @@ public class MultipartUploader
 {
 
   /**
-   * Use this property in 'nexus.properties' to control how large each multipart part is. Default is 5 MB.
-   * Smaller numbers increase the number of parallel workers used to upload a file. Match to your workload:
-   * if you are heavy in docker with large images, increase; if you are heavy in smaller components, decrease.
+   * Use this property in 'nexus.properties' to control how large each multipart part is. Default is 2 MB.
+   * Smaller numbers increase the number of parallel workers used to upload a file.
+   * Inspect the '/service/metrics/data' endpoint, specifically the
+   * <pre>.histograms["org.sonatype.nexus.blobstore.gcloud.internal.MultipartUploader.chunks"]</pre> field.
    */
   public static final String CHUNK_SIZE_PROPERTY = "nexus.gcs.multipartupload.chunksize";
 
@@ -72,12 +73,6 @@ public class MultipartUploader
    */
   private final String CHUNK_NAME_PART = ".chunk";
 
-  /**
-   * Used internally to count how many times we've hit the compose limit.
-   * Consider exposing this as a bean that can provide tuning feedback to deployers.
-   */
-  private final AtomicLong composeLimitHit = new AtomicLong(0);
-
   private static final byte[] EMPTY = new byte[0];
 
   private final ListeningExecutorService executorService;
@@ -86,9 +81,11 @@ public class MultipartUploader
 
   private final Histogram numberOfChunks;
 
+  private final Counter composeLimitHitCounter;
+
   @Inject
   public MultipartUploader(final MetricRegistry metricRegistry,
-                           @Named("${"+CHUNK_SIZE_PROPERTY +":-5242880}") final int chunkSize) {
+                           @Named("${"+CHUNK_SIZE_PROPERTY +":-2097152}") final int chunkSize) {
     this.chunkSize = chunkSize;
     this.executorService = MoreExecutors.listeningDecorator(
         new InstrumentedExecutorService(
@@ -96,6 +93,7 @@ public class MultipartUploader
             new NexusThreadFactory("multipart-upload", "nexus-blobstore-google-cloud")),
           metricRegistry, format("%s.%s", MultipartUploader.class.getName(), "executor-service")));
     this.numberOfChunks = metricRegistry.histogram(MetricRegistry.name(MultipartUploader.class, "chunks"));
+    this.composeLimitHitCounter = metricRegistry.counter(MetricRegistry.name(MultipartUploader.class, "composeLimitHits"));
   }
 
   @Override
@@ -114,7 +112,7 @@ public class MultipartUploader
    * @return the number of times {@link #upload(Storage, String, String, InputStream)} hit the multipart-compose limit
    */
   public long getNumberOfTimesComposeLimitHit() {
-    return composeLimitHit.get();
+    return composeLimitHitCounter.getCount();
   }
 
   /**
@@ -140,12 +138,11 @@ public class MultipartUploader
           chunk = readChunk(current);
         }
         else {
-          // we've hit compose request limit read the rest of the stream
-          composeLimitHit.incrementAndGet();
+          // we've hit compose request limit
+          composeLimitHitCounter.inc();
           chunk = EMPTY;
-          log.info("Upload for {} has hit Google Cloud Storage multipart-compose limit ({} total times limit hit); " +
-              "consider increasing '{}' beyond current value of {}", destination, composeLimitHit.get(),
-              CHUNK_SIZE_PROPERTY, getChunkSize());
+          log.debug("Upload for {} has hit Google Cloud Storage multipart-compose limit ({} total times limit hit)",
+              destination, getNumberOfTimesComposeLimitHit());
 
           final String finalChunkName = toChunkName(destination, COMPOSE_REQUEST_LIMIT);
           chunkNames.add(finalChunkName);

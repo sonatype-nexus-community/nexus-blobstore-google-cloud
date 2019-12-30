@@ -199,8 +199,6 @@ class MultipartUploaderIT
    *
    * a) result in incrementing {@link MultipartUploader#getNumberOfTimesComposeLimitHit()} and
    * b) the last chunk will be significantly larger than the preceding 31.
-   *
-   * This represents a situation where the customer may need to adjust their chunk size upward.
    */
   def "upload 200 MB"() {
     given:
