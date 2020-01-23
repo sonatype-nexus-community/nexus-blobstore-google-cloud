@@ -75,8 +75,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.cache.CacheLoader.from;
-import static com.google.common.collect.Streams.stream;
 import static java.lang.String.format;
+import static java.util.stream.StreamSupport.stream;
 import static org.sonatype.nexus.blobstore.DirectPathLocationStrategy.DIRECT_PATH_ROOT;
 import static org.sonatype.nexus.blobstore.quota.BlobStoreQuotaSupport.createQuotaCheckJob;
 import static org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport.State.FAILED;
@@ -447,7 +447,8 @@ public class GoogleCloudBlobStore
   }
 
   Stream<BlobInfo> blobStream(final String path) {
-    return stream(bucket.list(BlobListOption.prefix(path)).iterateAll()).map(c -> c);
+    return stream(bucket.list(BlobListOption.prefix(path))
+        .iterateAll().spliterator(), false).map(blob -> blob);
   }
 
   /**

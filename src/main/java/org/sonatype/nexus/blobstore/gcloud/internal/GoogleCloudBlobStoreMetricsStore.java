@@ -30,7 +30,7 @@ import com.google.common.collect.ImmutableMap;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Streams.stream;
+import static java.util.stream.StreamSupport.stream;
 
 /**
  * @deprecated use {@link ShardedCounterMetricsStore} instead.
@@ -89,7 +89,7 @@ public class GoogleCloudBlobStoreMetricsStore
     if (bucket == null) {
       return Stream.empty();
     } else {
-      return stream(bucket.list(BlobListOption.prefix(nodeAccess.getId())).iterateAll())
+      return stream(bucket.list(BlobListOption.prefix(nodeAccess.getId())).iterateAll().spliterator(), false)
           .filter(b -> b.getName().endsWith(METRICS_FILENAME))
           .map(blob -> new GoogleCloudPropertiesFile(bucket, blob.getName()));
     }

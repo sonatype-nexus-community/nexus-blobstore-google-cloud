@@ -17,6 +17,7 @@
     <!--
     Relax protobuf import constraints so we can use latest release of Guava
     -->
+    <!-- TODO changes are likely required here, as we have a deployment failure on 3.20.1 -->
     <bundle>wrap:${mvn:protobuf-java-util}$overwrite=merge&amp;Import-Package=com.google.common.*,*</bundle>
     <bundle>wrap:${mvn:google-api-client}$overwrite=merge&amp;Import-Package=com.google.common.*,*</bundle>
     <bundle>wrap:${mvn:google-http-client}$overwrite=merge&amp;Import-Package=com.google.common.*,*</bundle>
