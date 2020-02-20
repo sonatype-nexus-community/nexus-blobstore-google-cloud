@@ -19,7 +19,7 @@
   <parent>
     <groupId>org.sonatype.nexus.plugins</groupId>
     <artifactId>nexus-blobstore-google-cloud-parent</artifactId>
-    <version>0.11.0-SNAPSHOT</version>
+    <version>0.11.0</version>
   </parent>
 
   <artifactId>nexus-blobstore-google-cloud</artifactId>
@@ -127,7 +127,7 @@
             <configuration>
               <scripts>
                 <script>
-                  project.artifactMap.each{k,v->
+                  project.artifactMap.each{k,v-&gt;
                     // add 'mvn:artifactId' properties representing Pax-URL path for each transitive artifact
                     project.properties['mvn:'+v.artifactId]='mvn:'+v.groupId+'/'+v.artifactId+'/'+v.version
                   }
