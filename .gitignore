@@ -12,3 +12,6 @@ target/
 *~
 **/gce-credentials.json
 **/src/test/resources/large_file
+
+# ci config for local ci build
+.circleci/local-config.yml
