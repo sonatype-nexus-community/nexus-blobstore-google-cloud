@@ -12,8 +12,8 @@ mvn-deploy-command: &mvn-deploy-command
 mvn-collect-artifacts-command: &mvn-collect-artifacts-command
   mvn-collect-artifacts-command: |
     mkdir -p ~/project/artifacts/junit/
-    cp ~/project/target/surefire-reports/*.xml ~/project/artifacts/junit/
-    cp ~/project/target/nexus-blobstore-* ~/project/artifacts/
+    cp ~/project/nexus-blobstore-google-cloud/target/surefire-reports/*.xml ~/project/artifacts/junit/
+    cp ~/project/nexus-blobstore-google-cloud/target/nexus-blobstore-* ~/project/artifacts/
 
 workflows:
   workflow:

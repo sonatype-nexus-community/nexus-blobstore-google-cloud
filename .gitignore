@@ -10,5 +10,5 @@ target/
 .clover
 *.log
 *~
-src/test/resources/gce-credentials.json
-src/test/resources/large_file
+**/gce-credentials.json
+**/src/test/resources/large_file
