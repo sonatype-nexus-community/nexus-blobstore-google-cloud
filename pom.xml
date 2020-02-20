@@ -121,7 +121,7 @@
         <configuration>
           <serverId>rso</serverId>
           <nexusUrl>https://repository.sonatype.org/</nexusUrl>
-          <autoReleaseAfterClose>false</autoReleaseAfterClose>
+          <autoReleaseAfterClose>true</autoReleaseAfterClose>
         </configuration>
       </plugin>
 
