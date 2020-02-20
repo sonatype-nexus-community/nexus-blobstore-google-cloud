@@ -36,6 +36,7 @@ import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.Storage.BlobTargetOption;
+import com.google.cloud.storage.Storage.BlobWriteOption;
 import com.google.cloud.storage.Storage.ComposeRequest;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.Futures;
@@ -151,8 +152,7 @@ public class MultipartUploader
             BlobInfo blobInfo = BlobInfo.newBuilder(bucket, finalChunkName).build();
             // read the rest of the current stream
             // downside here is that since we don't know the stream size, we can't chunk it.
-            // the deprecated create method here does not allow us to disable GZIP compression on these PUTs
-            return storage.create(blobInfo, current);
+            return storage.create(blobInfo, current, BlobWriteOption.disableGzipContent());
           }));
         }
 
