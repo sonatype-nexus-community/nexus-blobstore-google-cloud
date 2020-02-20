@@ -9,7 +9,6 @@
   </parent>
 
   <artifactId>nexus-blobstore-google-cloud-it</artifactId>
-  <packaging>bundle</packaging>
 
   <name>${project.groupId}:${project.artifactId}</name>
 
