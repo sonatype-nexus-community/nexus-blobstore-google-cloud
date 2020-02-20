@@ -34,6 +34,10 @@
     <module>nexus-blobstore-google-cloud-it</module>
   </modules>
 
+  <scm>
+    <developerConnection>scm:git:git@github.com:sonatype-nexus-community/nexus-blobstore-google-cloud.git</developerConnection>
+    <tag>HEAD</tag>
+  </scm>
   <distributionManagement>
     <snapshotRepository>
       <id>ossrh</id>
