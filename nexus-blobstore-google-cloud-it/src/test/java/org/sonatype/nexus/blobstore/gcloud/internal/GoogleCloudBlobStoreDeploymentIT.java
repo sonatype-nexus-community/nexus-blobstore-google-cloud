@@ -7,6 +7,10 @@ import org.junit.Test;
 import org.ops4j.pax.exam.Configuration;
 import org.ops4j.pax.exam.Option;
 
+/**
+ * Integration test intended to deploy the plugin within Nexus Repository manager to confirm that the OSGi
+ * packaging is correct and the bundle will run.
+ */
 public class GoogleCloudBlobStoreDeploymentIT
   extends GoogleCloudBlobStoreITSupport
 {
@@ -21,6 +25,6 @@ public class GoogleCloudBlobStoreDeploymentIT
 
   @Test
   public void createGoogleCloudBlobStore() {
-    //assertNotNull(nxrm.getBlobStoreManager());
+    // no-op; this test will fail in inherited rule/before methods if the plugin is not successfully deployed
   }
 }
