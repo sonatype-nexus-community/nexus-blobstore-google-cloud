@@ -131,6 +131,7 @@
           <!-- Something in the pom hierarchy overrides the default 'pushChanges == true', so we reset that here. -->
           <pushChanges>true</pushChanges>
           <releaseProfiles>gpg-sign</releaseProfiles>
+          <arguments>-DskipTests</arguments>
         </configuration>
       </plugin>
 
@@ -163,12 +164,6 @@
                 </configuration>
               </execution>
             </executions>
-          </plugin>
-          <plugin>
-            <artifactId>maven-failsafe-plugin</artifactId>
-            <configuration>
-              <skip>true</skip>
-            </configuration>
           </plugin>
         </plugins>
       </build>
