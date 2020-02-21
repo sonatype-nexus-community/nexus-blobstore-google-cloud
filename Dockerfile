@@ -1,4 +1,8 @@
-FROM sonatype/nexus3:3.21.1
+# declaration of NEXUS_VERSION must appear before first FROM command
+# see: https://docs.docker.com/engine/reference/builder/#understand-how-arg-and-from-interact
+ARG NEXUS_VERSION=latest
+
+FROM sonatype/nexus3:$NEXUS_VERSION
 
 ARG PLUGIN_VERSION=0.11.0
 ARG BUNDLE_NAME=nexus-blobstore-google-cloud-${PLUGIN_VERSION}-bundle.kar
