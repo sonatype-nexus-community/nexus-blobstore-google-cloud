@@ -138,7 +138,22 @@ To build the project and generate the bundle use Maven:
     
 Optional: review the [additional documentation to configure and run integration tests](src/test/resources/README.md).
 
-To install the local development build in your NXRM install:
+A [docker-compose file](docker-compose.yml) is provided to ease setting up a local NXRM instance to test.
+
+1. `docker swarm init`
+2. `docker volume create nexus3-data`
+3. `docker secret create google_application_credentials /path/to/your/google/iam/key.json`
+4. `docker-compose up`
+
+You can also use the [docker-compose file](docker-compose.yml) with docker service, like so:
+
+```bash
+docker stack deploy -c docker-compose.yml sonatype
+```
+
+(Using docker stack assumes you've built the container with `docker build -t nexus3-google .` or run `docker-compose up` at least once).
+
+Last manual option: you can install the local development build in any NXRM install with:
 
 ```bash
 cp target/*-bundle.kar /path/to/your/nxrm3/install/deploy

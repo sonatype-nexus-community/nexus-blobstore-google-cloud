@@ -1,0 +1,23 @@
+version: "3.7"
+
+services:
+  nexus3:
+    build: .
+    image: nexus3-google
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/google_application_credentials
+    deploy:
+      replicas: 1
+    ports:
+      - 1235:8081
+    volumes:
+      - nexus3-data:/nexus-data
+    secrets:
+      - google_application_credentials
+secrets:
+  google_application_credentials:
+    external: true
+
+volumes:
+  nexus3-data:
+    external: true
