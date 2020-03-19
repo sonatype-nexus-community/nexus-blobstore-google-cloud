@@ -133,7 +133,7 @@ public class GoogleCloudBlobStore
 
   private BlobStoreQuotaService quotaService;
 
-  private final MultipartUploader multipartUploader;
+  private final Uploader uploader;
 
   private PeriodicJob quotaCheckingJob;
 
@@ -146,7 +146,7 @@ public class GoogleCloudBlobStore
                               final ShardedCounterMetricsStore metricsStore,
                               final GoogleCloudDatastoreFactory datastoreFactory,
                               final DryRunPrefix dryRunPrefix,
-                              final MultipartUploader multipartUploader,
+                              final Uploader uploader,
                               final MetricRegistry metricRegistry,
                               final BlobStoreQuotaService quotaService,
                               @Named("${nexus.blobstore.quota.warnIntervalSeconds:-60}")
@@ -157,7 +157,7 @@ public class GoogleCloudBlobStore
     this.storageFactory = checkNotNull(storageFactory);
     this.metricsStore = metricsStore;
     this.datastoreFactory = datastoreFactory;
-    this.multipartUploader = multipartUploader;
+    this.uploader = uploader;
     this.metricRegistry = metricRegistry;
     this.quotaService = quotaService;
     this.quotaCheckInterval = quotaCheckInterval;
@@ -215,7 +215,7 @@ public class GoogleCloudBlobStore
       try (InputStream data = blobData) {
         MetricsInputStream input = new MetricsInputStream(data);
 
-        multipartUploader.upload(storage, getConfiguredBucketName(), destination, input);
+        uploader.upload(storage, getConfiguredBucketName(), destination, input);
         return input.getMetrics();
       }
     }, blobId);

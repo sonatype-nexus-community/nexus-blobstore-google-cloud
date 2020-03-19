@@ -52,6 +52,7 @@ import static java.lang.String.format;
 @Named
 public class MultipartUploader
     extends StateGuardLifecycleSupport
+    implements Uploader
 {
 
   /**

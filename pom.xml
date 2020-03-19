@@ -47,7 +47,7 @@
 
   <properties>
     <google-cloud-datastore.version>1.84.0</google-cloud-datastore.version>
-    <google-cloud-storage.version>1.104.0</google-cloud-storage.version>
+    <google-cloud-storage.version>1.106.0</google-cloud-storage.version>
     <nxrm-version>3.21.1-01</nxrm-version>
   </properties>
 

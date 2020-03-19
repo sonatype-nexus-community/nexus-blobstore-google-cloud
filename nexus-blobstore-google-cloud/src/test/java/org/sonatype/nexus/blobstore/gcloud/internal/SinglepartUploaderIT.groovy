@@ -17,7 +17,6 @@ import java.util.stream.StreamSupport
 import org.sonatype.nexus.blobstore.MockBlobStoreConfiguration
 import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration
 
-import com.codahale.metrics.MetricRegistry
 import com.google.cloud.storage.Blob
 import com.google.cloud.storage.Blob.BlobSourceOption
 import com.google.cloud.storage.BucketInfo
@@ -26,8 +25,11 @@ import groovy.util.logging.Slf4j
 import org.apache.commons.io.input.BoundedInputStream
 import spock.lang.Specification
 
+/**
+ * Clone of {@link MultipartUploaderIT} for {@link SinglepartUploader}.
+ */
 @Slf4j
-class MultipartUploaderIT
+class SinglepartUploaderIT
     extends Specification
 {
 
@@ -38,8 +40,6 @@ class MultipartUploaderIT
   static String bucketName = "integration-test-${UUID.randomUUID().toString()}"
 
   static Storage storage
-
-  MetricRegistry metricRegistry = new MetricRegistry()
 
   def setupSpec() {
     config.attributes = [
@@ -71,7 +71,7 @@ class MultipartUploaderIT
   def "simple multipart"() {
     given:
       long expectedSize = (1048576 * 3) + 2
-      MultipartUploader uploader = new MultipartUploader(metricRegistry, 1048576)
+      Uploader uploader = new SinglepartUploader()
       byte[] data = new byte[expectedSize]
       new Random().nextBytes(data)
 
@@ -81,10 +81,6 @@ class MultipartUploaderIT
     then:
       blob.size == expectedSize
       storage.get(bucketName, 'vol-01/chap-01/control/multi_part').getContent() == data
-      assertMetrics(uploader, 4)
-
-    cleanup:
-      uploader.doStop()
   }
 
   def "confirm parts composed in order"() {
@@ -92,7 +88,7 @@ class MultipartUploaderIT
       // 5 each of abcdefg
       final String content =  "aaaaabbbbbcccccdddddeeeeefffffggggg"
       byte[] data = content.bytes
-      MultipartUploader uploader = new MultipartUploader(metricRegistry, 5)
+      Uploader uploader = new SinglepartUploader()
 
     when:
       Blob blob = uploader.upload(storage, bucketName, 'vol-01/chap-01/control/in_order', new ByteArrayInputStream(data))
@@ -101,16 +97,12 @@ class MultipartUploaderIT
       blob.size == data.length
       Blob readback = storage.get(blob.blobId)
       readback.getContent() == content.bytes
-      assertMetrics(uploader, data.length / 5)
-
-    cleanup:
-      uploader.doStop()
   }
 
   def "single part"() {
     given:
       long expectedSize = 1048575
-      MultipartUploader uploader = new MultipartUploader(metricRegistry, 1048576)
+      Uploader uploader = new SinglepartUploader()
       byte[] data = new byte[expectedSize]
       new Random().nextBytes(data)
 
@@ -120,16 +112,12 @@ class MultipartUploaderIT
     then:
       blob.size == expectedSize
       storage.get(bucketName, 'vol-01/chap-01/control/single_part').getContent() == data
-      assertMetrics(uploader, 1)
-
-    cleanup:
-      uploader.doStop()
   }
 
   def "zero byte file"() {
     given:
       long expectedSize = 0
-      MultipartUploader uploader = new MultipartUploader(metricRegistry, 1024)
+      Uploader uploader = new SinglepartUploader()
       byte[] data = new byte[expectedSize]
       new Random().nextBytes(data)
 
@@ -139,16 +127,12 @@ class MultipartUploaderIT
     then:
       blob.size == expectedSize
       storage.get(bucketName, 'vol-01/chap-01/control/zero_byte').getContent() == data
-      assertMetrics(uploader, 1)
-
-    cleanup:
-      uploader.doStop()
   }
 
   def "hit compose limit slightly and still successful"() {
     given:
       long expectedSize = (1024 * MultipartUploader.COMPOSE_REQUEST_LIMIT) + 10
-      MultipartUploader uploader = new MultipartUploader(metricRegistry, 1024)
+      Uploader uploader = new SinglepartUploader()
       byte[] data = new byte[expectedSize]
       new Random().nextBytes(data)
 
@@ -158,18 +142,13 @@ class MultipartUploaderIT
 
     then:
       blob.size == expectedSize
-      uploader.numberOfTimesComposeLimitHit == 1L
       storage.get(bucketName, 'vol-01/chap-01/composeLimitTest/small_miss').getContent() == data
-      assertMetrics(uploader, MultipartUploader.COMPOSE_REQUEST_LIMIT)
-
-    cleanup:
-      uploader.doStop()
   }
 
   def "hit compose limit poorly tuned, still successful" () {
     given:
       long expectedSize = 1048576
-      MultipartUploader uploader = new MultipartUploader(metricRegistry, 1024)
+      Uploader uploader = new SinglepartUploader()
       byte[] data = new byte[expectedSize]
       new Random().nextBytes(data)
 
@@ -179,12 +158,7 @@ class MultipartUploaderIT
 
     then:
       blob.size == expectedSize
-      uploader.numberOfTimesComposeLimitHit == 1L
       storage.get(bucketName, 'vol-01/chap-01/composeLimitTest/poor_tuning').getContent() == data
-      assertMetrics(uploader, MultipartUploader.COMPOSE_REQUEST_LIMIT)
-
-    cleanup:
-      uploader.doStop()
   }
 
   /**
@@ -200,8 +174,7 @@ class MultipartUploaderIT
           return random.nextInt()
         }
       }, expectedSize)
-      // default value of 5 MB per chunk
-      MultipartUploader uploader = new MultipartUploader(metricRegistry, 1024 * 1024 * 5)
+      Uploader uploader = new SinglepartUploader()
 
     when:
       Blob blob = uploader.upload(storage, bucketName,
@@ -209,17 +182,10 @@ class MultipartUploaderIT
     then:
       blob.size == expectedSize
       storage.get(bucketName, 'vol-01/chap-02/large/one_hundred_MB').size == expectedSize
-      assertMetrics(uploader, 20)
-
-    cleanup:
-      uploader.doStop()
   }
 
   /**
-   * The difference in this test beyond the 'upload 100 MB' test is that the upload will:
-   *
-   * a) result in incrementing {@link MultipartUploader#getNumberOfTimesComposeLimitHit()} and
-   * b) the last chunk will be significantly larger than the preceding 31.
+   * The difference in this test beyond the 'upload 100 MB' test is that the upload will take longer.
    */
   def "upload 200 MB"() {
     given:
@@ -231,24 +197,13 @@ class MultipartUploaderIT
           return random.nextInt()
         }
       }, expectedSize)
-      // with value of 5 MB per chunk, we'll upload 31 5 MB chunks and 1 45 MB chunk
-      MultipartUploader uploader = new MultipartUploader(metricRegistry, 1024 * 1024 * 5)
+      Uploader uploader = new SinglepartUploader()
 
     when:
       Blob blob = uploader.upload(storage, bucketName,
           'vol-01/chap-02/large/two_hundred_MB', inputStream)
     then:
       blob.size == expectedSize
-      uploader.getNumberOfTimesComposeLimitHit() == 1L
       storage.get(bucketName, 'vol-01/chap-02/large/two_hundred_MB').size == expectedSize
-      assertMetrics(uploader, MultipartUploader.COMPOSE_REQUEST_LIMIT)
-
-    cleanup:
-      uploader.doStop()
-  }
-
-  void assertMetrics(def uploader, def expected) {
-    assert uploader.numberOfChunksHistogram().getSnapshot().getMin() == expected
-    assert uploader.numberOfChunksHistogram().getSnapshot().getMax() == expected
   }
 }
