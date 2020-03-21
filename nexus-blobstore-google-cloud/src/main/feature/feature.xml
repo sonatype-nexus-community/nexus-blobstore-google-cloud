@@ -23,7 +23,5 @@
     <bundle>wrap:${mvn:google-oauth-client}$overwrite=merge&amp;Import-Package=com.google.common.*,*</bundle>
     <bundle>wrap:${mvn:grpc-core}$Bundle-SymbolicName=grpc-core</bundle>
     <bundle>wrap:${mvn:grpc-context}$Bundle-SymbolicName=grpc-context&amp;Fragment-Host=grpc-core</bundle>
-    <bundle>wrap:${mvn:httpclient}</bundle>
-    <bundle>wrap:${mvn:httpcore}</bundle>
   </feature>
 </features>
