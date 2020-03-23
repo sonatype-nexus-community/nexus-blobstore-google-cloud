@@ -25,7 +25,7 @@ import org.ops4j.pax.exam.Option;
  * Integration test intended to deploy the plugin within Nexus Repository manager to confirm that the OSGi
  * packaging is correct, the bundle will activate, and a Google Cloud BlobStore can be created.
  *
- * Depends on GOOGLE_APPLICATION_CREDENTIALS being present in your Environment.
+ * Depends on GOOGLE_APPLICATION_CREDENTIALS being present in your Environment (see README at root of project).
  */
 public class GoogleCloudBlobStoreDeploymentIT
   extends GoogleCloudBlobStoreITSupport
@@ -33,7 +33,6 @@ public class GoogleCloudBlobStoreDeploymentIT
 
   private static final String uid = UUID.randomUUID().toString().substring(0,7);
   private static final String bucketName = "deployment-it-" + uid;
-  private BlobStoreConfiguration configuration;
 
   @Inject
   private BlobStoreManager blobStoreManager;
@@ -46,16 +45,10 @@ public class GoogleCloudBlobStoreDeploymentIT
     );
   }
 
-  /**
-   *
-   *
-   * @throws Exception
-   */
   @Test
   public void createGoogleCloudBlobStore() throws Exception {
-    configuration = blobStoreManager.newConfiguration();
+    BlobStoreConfiguration configuration = blobStoreManager.newConfiguration();
     configuration.setName("GoogleCloudBlobStoreDeploymentIT");
-    // TODO GoogleCloudBlobStore.*_KEY is not visible since the class is in an internal package
     configuration.setType("Google Cloud Storage");
     NestedAttributesMap configMap = configuration.attributes("google cloud storage");
     configMap.set("bucket", bucketName);
