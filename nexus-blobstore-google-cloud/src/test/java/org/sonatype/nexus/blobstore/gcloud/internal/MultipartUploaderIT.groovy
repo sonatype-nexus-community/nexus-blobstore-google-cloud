@@ -87,6 +87,48 @@ class MultipartUploaderIT
       uploader.doStop()
   }
 
+  def "negative chunksize disallowed"() {
+    when:
+      new MultipartUploader(metricRegistry, -1)
+    then:
+      thrown IllegalArgumentException
+  }
+
+  def "zero chunksize disables parallel upload"() {
+    when:
+      MultipartUploader uploader = new MultipartUploader(metricRegistry, 0)
+    then:
+      !uploader.isParallel()
+  }
+
+  def "default chunksize uses parallel upload"() {
+    when:
+      MultipartUploader uploader = new MultipartUploader(metricRegistry, 2097152)
+    then:
+      uploader.isParallel()
+  }
+
+
+  def "single part non-parallel"() {
+    given:
+      long expectedSize = 1048575
+      MultipartUploader uploader = new MultipartUploader(metricRegistry, 0)
+      assert !uploader.isParallel()
+      byte[] data = new byte[expectedSize]
+      new Random().nextBytes(data)
+
+    when:
+      Blob blob = uploader.upload(storage, bucketName, 'vol-01/chap-01/control/single_part_serial', new ByteArrayInputStream(data))
+
+    then:
+      blob.size == expectedSize
+      storage.get(bucketName, 'vol-01/chap-01/control/single_part_serial').getContent() == data
+      assertMetrics(uploader, 0)
+
+    cleanup:
+      uploader.doStop()
+  }
+
   def "confirm parts composed in order"() {
     given:
       // 5 each of abcdefg
@@ -107,7 +149,7 @@ class MultipartUploaderIT
       uploader.doStop()
   }
 
-  def "single part"() {
+  def "single part parallel"() {
     given:
       long expectedSize = 1048575
       MultipartUploader uploader = new MultipartUploader(metricRegistry, 1048576)
