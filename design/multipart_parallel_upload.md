@@ -5,6 +5,8 @@ Parallel Multipart Upload:
 
 [MultipartUploader.java](../src/main/java/org/sonatype/nexus/blobstore/gcloud/internal/MultipartUploader.java)
 
+Edit April 2020: this document is superseded by [parallel_upload_disabled_default.md](parallel_upload_disabled_default.md).
+
 ## Context and Idea
 
 gsutil concept: [Parallel Composite Uploads](https://cloud.google.com/storage/docs/gsutil/commands/cp#parallel-composite-uploads)

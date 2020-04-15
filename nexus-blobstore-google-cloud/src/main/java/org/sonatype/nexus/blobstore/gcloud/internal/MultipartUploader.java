@@ -88,7 +88,7 @@ public class MultipartUploader
 
   @Inject
   public MultipartUploader(final MetricRegistry metricRegistry,
-                           @Named("${"+CHUNK_SIZE_PROPERTY +":-2097152}") final int chunkSize) {
+                           @Named("${"+CHUNK_SIZE_PROPERTY +":-0}") final int chunkSize) {
     checkArgument(chunkSize >= 0, CHUNK_SIZE_PROPERTY + " cannot be negative");
     this.chunkSize = chunkSize;
     this.executorService = MoreExecutors.listeningDecorator(
