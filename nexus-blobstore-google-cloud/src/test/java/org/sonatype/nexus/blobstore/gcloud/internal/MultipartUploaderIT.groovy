@@ -82,6 +82,51 @@ class MultipartUploaderIT
       blob.size == expectedSize
       storage.get(bucketName, 'vol-01/chap-01/control/multi_part').getContent() == data
       assertMetrics(uploader, 4)
+
+    cleanup:
+      uploader.doStop()
+  }
+
+  def "negative chunksize disallowed"() {
+    when:
+      new MultipartUploader(metricRegistry, -1)
+    then:
+      thrown IllegalArgumentException
+  }
+
+  def "zero chunksize disables parallel upload"() {
+    when:
+      MultipartUploader uploader = new MultipartUploader(metricRegistry, 0)
+    then:
+      !uploader.isParallel()
+  }
+
+  def "default chunksize uses parallel upload"() {
+    when:
+      MultipartUploader uploader = new MultipartUploader(metricRegistry, 2097152)
+    then:
+      uploader.isParallel()
+  }
+
+
+  def "single part non-parallel"() {
+    given:
+      long expectedSize = 1048575
+      MultipartUploader uploader = new MultipartUploader(metricRegistry, 0)
+      assert !uploader.isParallel()
+      byte[] data = new byte[expectedSize]
+      new Random().nextBytes(data)
+
+    when:
+      Blob blob = uploader.upload(storage, bucketName, 'vol-01/chap-01/control/single_part_serial', new ByteArrayInputStream(data))
+
+    then:
+      blob.size == expectedSize
+      storage.get(bucketName, 'vol-01/chap-01/control/single_part_serial').getContent() == data
+      assertMetrics(uploader, 0)
+
+    cleanup:
+      uploader.doStop()
   }
 
   def "confirm parts composed in order"() {
@@ -99,9 +144,12 @@ class MultipartUploaderIT
       Blob readback = storage.get(blob.blobId)
       readback.getContent() == content.bytes
       assertMetrics(uploader, data.length / 5)
+
+    cleanup:
+      uploader.doStop()
   }
 
-  def "single part"() {
+  def "single part parallel"() {
     given:
       long expectedSize = 1048575
       MultipartUploader uploader = new MultipartUploader(metricRegistry, 1048576)
@@ -115,6 +163,9 @@ class MultipartUploaderIT
       blob.size == expectedSize
       storage.get(bucketName, 'vol-01/chap-01/control/single_part').getContent() == data
       assertMetrics(uploader, 1)
+
+    cleanup:
+      uploader.doStop()
   }
 
   def "zero byte file"() {
@@ -131,6 +182,9 @@ class MultipartUploaderIT
       blob.size == expectedSize
       storage.get(bucketName, 'vol-01/chap-01/control/zero_byte').getContent() == data
       assertMetrics(uploader, 1)
+
+    cleanup:
+      uploader.doStop()
   }
 
   def "hit compose limit slightly and still successful"() {
@@ -149,6 +203,9 @@ class MultipartUploaderIT
       uploader.numberOfTimesComposeLimitHit == 1L
       storage.get(bucketName, 'vol-01/chap-01/composeLimitTest/small_miss').getContent() == data
       assertMetrics(uploader, MultipartUploader.COMPOSE_REQUEST_LIMIT)
+
+    cleanup:
+      uploader.doStop()
   }
 
   def "hit compose limit poorly tuned, still successful" () {
@@ -167,6 +224,9 @@ class MultipartUploaderIT
       uploader.numberOfTimesComposeLimitHit == 1L
       storage.get(bucketName, 'vol-01/chap-01/composeLimitTest/poor_tuning').getContent() == data
       assertMetrics(uploader, MultipartUploader.COMPOSE_REQUEST_LIMIT)
+
+    cleanup:
+      uploader.doStop()
   }
 
   /**
@@ -192,6 +252,9 @@ class MultipartUploaderIT
       blob.size == expectedSize
       storage.get(bucketName, 'vol-01/chap-02/large/one_hundred_MB').size == expectedSize
       assertMetrics(uploader, 20)
+
+    cleanup:
+      uploader.doStop()
   }
 
   /**
@@ -221,6 +284,9 @@ class MultipartUploaderIT
       uploader.getNumberOfTimesComposeLimitHit() == 1L
       storage.get(bucketName, 'vol-01/chap-02/large/two_hundred_MB').size == expectedSize
       assertMetrics(uploader, MultipartUploader.COMPOSE_REQUEST_LIMIT)
+
+    cleanup:
+      uploader.doStop()
   }
 
   void assertMetrics(def uploader, def expected) {

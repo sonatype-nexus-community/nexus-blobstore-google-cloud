@@ -44,14 +44,16 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 
 /**
- * Component that provides parallel multipart upload support for blob binary data (.bytes files).
+ * Component that provides optional parallel multipart upload support for blob binary data (.bytes files).
  */
 @Named
 public class MultipartUploader
     extends StateGuardLifecycleSupport
+    implements Uploader
 {
 
   /**
@@ -86,7 +88,8 @@ public class MultipartUploader
 
   @Inject
   public MultipartUploader(final MetricRegistry metricRegistry,
-                           @Named("${"+CHUNK_SIZE_PROPERTY +":-2097152}") final int chunkSize) {
+                           @Named("${"+CHUNK_SIZE_PROPERTY +":-0}") final int chunkSize) {
+    checkArgument(chunkSize >= 0, CHUNK_SIZE_PROPERTY + " cannot be negative");
     this.chunkSize = chunkSize;
     this.executorService = MoreExecutors.listeningDecorator(
         new InstrumentedExecutorService(
@@ -116,6 +119,10 @@ public class MultipartUploader
     return composeLimitHitCounter.getCount();
   }
 
+  public boolean isParallel() {
+    return this.chunkSize > 0;
+  }
+
   /**
    * @param storage an initialized {@link Storage} instance
    * @param bucket the name of the bucket
@@ -124,8 +131,28 @@ public class MultipartUploader
    * @return the successfully stored {@link Blob}
    * @throws BlobStoreException if any part of the upload failed
    */
+  @Override
   public Blob upload(final Storage storage, final String bucket, final String destination, final InputStream contents) {
-    log.debug("Starting multipart upload for destination {} in bucket {}", destination, bucket);
+    if(isParallel()) {
+      return parallelUpload(storage, bucket, destination, contents);
+    }
+    log.debug("Starting upload for destination {} in bucket {}", destination, bucket);
+    BlobInfo blobInfo = BlobInfo.newBuilder(bucket, destination).build();
+    Blob result = storage.create(blobInfo, contents, BlobWriteOption.disableGzipContent());
+    log.debug("Upload of {} complete", destination);
+    return result;
+  }
+
+  /**
+   * @param storage an initialized {@link Storage} instance
+   * @param bucket the name of the bucket
+   * @param destination the the destination (relative to the bucket)
+   * @param contents the stream of data to store
+   * @return the successfully stored {@link Blob}
+   * @throws BlobStoreException if any part of the upload failed
+   */
+  Blob parallelUpload(final Storage storage, final String bucket, final String destination, final InputStream contents) {
+    log.debug("Starting parallel multipart upload for destination {} in bucket {}", destination, bucket);
     // this must represent the bucket-relative paths to the chunks, in order of composition
     List<String> chunkNames = new ArrayList<>();
 
@@ -199,7 +226,7 @@ public class MultipartUploader
 
         // finalize with compose request to coalesce the chunks
         Blob finalBlob = storage.compose(ComposeRequest.of(bucket, chunkNames, destination));
-        log.debug("Multipart upload of {} complete", destination);
+        log.debug("Parallel multipart upload of {} complete", destination);
         return finalBlob;
       });
     }
