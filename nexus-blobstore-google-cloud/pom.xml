@@ -28,11 +28,6 @@
   <name>${project.groupId}:${project.artifactId}</name>
 
   <dependencies>
-    <dependency>
-      <groupId>org.sonatype.nexus</groupId>
-      <artifactId>nexus-httpclient</artifactId>
-      <scope>provided</scope>
-    </dependency>
 
     <dependency>
       <groupId>org.sonatype.nexus</groupId>
@@ -60,6 +55,21 @@
     <dependency>
       <groupId>com.google.cloud</groupId>
       <artifactId>google-cloud-datastore</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>com.google.http-client</groupId>
+      <artifactId>google-http-client-apache-v2</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.httpcomponents</groupId>
+      <artifactId>httpclient-osgi</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.httpcomponents</groupId>
+      <artifactId>httpcore-osgi</artifactId>
     </dependency>
 
     <dependency>
