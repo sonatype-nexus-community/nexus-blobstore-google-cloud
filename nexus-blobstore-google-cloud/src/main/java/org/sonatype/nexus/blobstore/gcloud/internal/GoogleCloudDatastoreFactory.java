@@ -35,7 +35,9 @@ public class GoogleCloudDatastoreFactory extends AbstractGoogleClientFactory
 
     String credentialFile = configuration.attributes(CONFIG_KEY).get(CREDENTIAL_FILE_KEY, String.class);
     if (StringUtils.hasText(credentialFile)) {
-      builder.setCredentials(ServiceAccountCredentials.fromStream(new FileInputStream(credentialFile)));
+      ServiceAccountCredentials credentials = ServiceAccountCredentials.fromStream(new FileInputStream(credentialFile));
+      logger.debug("loaded {} from {} for Google Datastore client", credentials, credentialFile);
+      builder.setCredentials(credentials);
       builder.setProjectId(getProjectId(credentialFile));
     }
 

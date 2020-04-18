@@ -22,8 +22,10 @@ import java.util.stream.StreamSupport;
 import org.sonatype.goodies.common.ComponentSupport;
 import org.sonatype.nexus.blobstore.api.BlobId;
 import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration;
+import org.sonatype.nexus.blobstore.gcloud.GoogleCloudProjectException;
 
 import com.google.cloud.datastore.Datastore;
+import com.google.cloud.datastore.DatastoreException;
 import com.google.cloud.datastore.Entity;
 import com.google.cloud.datastore.Key;
 import com.google.cloud.datastore.KeyFactory;
@@ -71,6 +73,20 @@ class DeletedBlobIndex
         .setKind(DELETED_BLOBS);
   }
 
+  void initialize() {
+    try {
+      test();
+    }
+    catch (DatastoreException e) {
+      throw new GoogleCloudProjectException("unable to write deleted blob metadata", e);
+    }
+  }
+
+  void test() {
+    BlobId sentinel = new BlobId("tmp$/sentinel");
+    add(sentinel);
+    remove(sentinel);
+  }
   /**
    * Add a {@link BlobId} to the index.
    */

@@ -37,12 +37,17 @@ import org.apache.http.impl.conn.tsccm.ThreadSafeClientConnManager;
 import org.apache.http.params.BasicHttpParams;
 import org.apache.http.params.HttpConnectionParams;
 import org.apache.http.params.HttpParams;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Abstract supertype for Factory classes that generate Google Clients (for Storage, Datastore, etc).
  */
 public abstract class AbstractGoogleClientFactory
 {
+
+  protected final Logger logger = LoggerFactory.getLogger(this.getClass());
+
   /**
    * Fixed keep-alive for HTTP connections of 1 minute.
    */

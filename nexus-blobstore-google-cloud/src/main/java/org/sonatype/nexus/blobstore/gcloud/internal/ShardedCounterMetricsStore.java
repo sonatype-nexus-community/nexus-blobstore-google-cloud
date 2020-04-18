@@ -21,23 +21,17 @@ import java.util.Queue;
 import java.util.Spliterator;
 import java.util.Spliterators;
 import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.StreamSupport;
 
-import javax.inject.Inject;
-import javax.inject.Named;
-
+import org.sonatype.goodies.common.ComponentSupport;
 import org.sonatype.nexus.blobstore.BlobIdLocationResolver;
 import org.sonatype.nexus.blobstore.api.BlobId;
-import org.sonatype.nexus.blobstore.api.BlobStore;
 import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration;
 import org.sonatype.nexus.blobstore.api.BlobStoreMetrics;
-import org.sonatype.nexus.common.stateguard.Guarded;
-import org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport;
-import org.sonatype.nexus.scheduling.PeriodicJobService;
-import org.sonatype.nexus.scheduling.PeriodicJobService.PeriodicJob;
+import org.sonatype.nexus.blobstore.gcloud.GoogleCloudProjectException;
 
 import com.google.cloud.datastore.Datastore;
+import com.google.cloud.datastore.DatastoreException;
 import com.google.cloud.datastore.Entity;
 import com.google.cloud.datastore.FullEntity;
 import com.google.cloud.datastore.Key;
@@ -56,13 +50,10 @@ import com.google.datastore.v1.TransactionOptions;
 import com.google.datastore.v1.TransactionOptions.ReadOnly;
 import org.apache.commons.lang.StringUtils;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static org.sonatype.nexus.blobstore.gcloud.internal.DatastoreKeyHierarchy.NAMESPACE_PREFIX;
 import static org.sonatype.nexus.blobstore.gcloud.internal.DatastoreKeyHierarchy.NXRM_ROOT;
 import static org.sonatype.nexus.blobstore.gcloud.internal.Namespace.safe;
-import static org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport.State.STARTED;
 
 /**
  * This duck type of NXRM blobstore MetricsStores intends to achieve cost efficient eventual consistency
@@ -93,11 +84,9 @@ import static org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport.St
  * This falls within Google Cloud's best practices for use, and results in a cheap and efficient way to store
  * blobstore metrics with high accuracy.
  */
-@Named
-public class ShardedCounterMetricsStore
-    extends StateGuardLifecycleSupport
+class ShardedCounterMetricsStore
+    extends ComponentSupport
 {
-  private static final int FLUSH_FREQUENCY_IN_SECONDS = 5;
 
   private static final String METRICS_STORE = "MetricsStore";
 
@@ -111,8 +100,6 @@ public class ShardedCounterMetricsStore
 
   private final GoogleCloudDatastoreFactory datastoreFactory;
 
-  private final PeriodicJobService periodicJobService;
-
   private Datastore datastore;
 
   private Key shardRoot;
@@ -121,56 +108,53 @@ public class ShardedCounterMetricsStore
 
   private RateLimiter rateLimiter = RateLimiter.create(1);
 
-  private PeriodicJob flushJob;
-
   private String namespace;
 
-  private BlobStore blobStore;
+  private BlobStoreConfiguration blobStoreConfiguration;
 
   /**
    * @param locationResolver
    * @param datastoreFactory
-   * @param periodicJobService
+   * @param blobStoreConfiguration
    */
-  @Inject
-  public ShardedCounterMetricsStore(final BlobIdLocationResolver locationResolver,
-                                    final GoogleCloudDatastoreFactory datastoreFactory,
-                                    final PeriodicJobService periodicJobService) {
+  ShardedCounterMetricsStore(final BlobIdLocationResolver locationResolver,
+                             final GoogleCloudDatastoreFactory datastoreFactory,
+                             final BlobStoreConfiguration blobStoreConfiguration) {
     this.locationResolver = locationResolver;
     this.datastoreFactory = datastoreFactory;
-    this.periodicJobService = periodicJobService;
+    this.blobStoreConfiguration = blobStoreConfiguration;
   }
 
-  public void setBlobStore(final BlobStore blobStore) {
-    checkState(this.blobStore == null, "Do not initialize twice");
-    checkNotNull(blobStore);
-    this.blobStore = blobStore;
-  }
-
-  @Override
-  public void doStart() throws Exception {
-    BlobStoreConfiguration configuration = this.blobStore.getBlobStoreConfiguration();
-    this.datastore = datastoreFactory.create(configuration);
-    this.namespace = NAMESPACE_PREFIX + safe(configuration.getName());
+  void initialize() throws Exception {
+    this.datastore = datastoreFactory.create(blobStoreConfiguration);
+    this.namespace = NAMESPACE_PREFIX + safe(blobStoreConfiguration.getName());
     this.shardRoot = datastore.newKeyFactory()
         .addAncestors(NXRM_ROOT)
         .setNamespace(namespace)
         .setKind(METRICS_STORE)
         .newKey(1L);
-    periodicJobService.startUsing();
-    this.flushJob = periodicJobService.schedule(() -> flush(), FLUSH_FREQUENCY_IN_SECONDS);
+
+    try {
+      getMetrics();
+    }
+    catch (DatastoreException e) {
+      throw new GoogleCloudProjectException("Check that Firestore is configured for datastore mode, not native mode ", e);
+    }
+    try {
+     test();
+    }
+    catch (DatastoreException e) {
+     throw new GoogleCloudProjectException("unable to write metrics metadata", e);
+    }
   }
 
-  @Override
-  public void doStop() throws Exception {
-    flushJob.cancel();
-    // flush the pending queue
-    if (rateLimiter.tryAcquire(2L, TimeUnit.SECONDS)) {
-      flush();
-    } else if (!pending.isEmpty()){
-      log.error("unable to flush pending metrics data, queue contents will not be written to datastore: {}", pending);
-    }
-    periodicJobService.stopUsing();
+  void test() throws DatastoreException {
+    // throw a sentinel in to confirm we can write
+    BlobId sentinel = new BlobId("tmp$/sentinel");
+    Key key = datastore.newKeyFactory().setKind(METRICS_STORE).newKey(sentinel.asUniqueString());
+    Entity entity = Entity.newBuilder(shardRoot).setKey(key).build();
+    datastore.put(entity);
+    datastore.delete(key);
   }
 
   void removeData() {
@@ -181,14 +165,12 @@ public class ShardedCounterMetricsStore
     log.warn("Blobstore metrics data removed");
   }
 
-  @Guarded(by = STARTED)
-  public void recordDeletion(final BlobId blobId, final long size) {
+  void recordDeletion(final BlobId blobId, final long size) {
     String shard = getShardLocation(blobId);
     pending.add(new Mutation(shard, -size, -1L));
   }
 
-  @Guarded(by = STARTED)
-  public void recordAddition(final BlobId blobId, final long size) {
+  void recordAddition(final BlobId blobId, final long size) {
     String shard = getShardLocation(blobId);
     pending.add(new Mutation(shard, size, 1L));
   }
@@ -196,7 +178,6 @@ public class ShardedCounterMetricsStore
   /**
    * @return a {@link BlobStoreMetrics} containing the sums of size and count across all shards
    */
-  @Guarded(by = STARTED)
   public BlobStoreMetrics getMetrics() {
     Long count = getCount(COUNT);
     Long size = getCount(SIZE);
