@@ -189,6 +189,8 @@ public class GoogleCloudBlobStore
     wrapWithGauge("liveBlobsCache.evictionCount", () -> liveBlobs.stats().evictionCount());
     wrapWithGauge("liveBlobsCache.requestCount", () -> liveBlobs.stats().requestCount());
 
+    initializeMetadataStores();
+
     periodicJobService.startUsing();
     this.quotaCheckingJob = periodicJobService.schedule(createQuotaCheckJob(this, quotaService, log), quotaCheckInterval);
     this.flushJob = periodicJobService.schedule(() -> metricsStore.flush(), FLUSH_FREQUENCY_IN_SECONDS);
@@ -404,18 +406,29 @@ public class GoogleCloudBlobStore
       throw new GoogleCloudProjectException("Unable to initialize blob store bucket: " + getConfiguredBucketName(), e);
     }
 
+    initializeMetadataStores();
+  }
+
+  /**
+   * Instantiate and initialize the deleted blob index and metrics store.
+   */
+  protected void initializeMetadataStores() {
     try {
-      this.deletedBlobIndex = new DeletedBlobIndex(this.datastoreFactory, blobStoreConfiguration);
-      this.deletedBlobIndex.initialize();
+      if (deletedBlobIndex == null) {
+        this.deletedBlobIndex = new DeletedBlobIndex(this.datastoreFactory, blobStoreConfiguration);
+        this.deletedBlobIndex.initialize();
+      }
     }
     catch (Exception e) {
       throw new GoogleCloudProjectException("Failed to create deleted blob index", e);
     }
 
     try {
-      this.metricsStore = new ShardedCounterMetricsStore(this.blobIdLocationResolver, this.datastoreFactory,
-          this.blobStoreConfiguration);
-      this.metricsStore.initialize();
+      if (metricsStore == null) {
+        this.metricsStore = new ShardedCounterMetricsStore(this.blobIdLocationResolver, this.datastoreFactory,
+            this.blobStoreConfiguration);
+        this.metricsStore.initialize();
+      }
     }
     catch (Exception e) {
       throw new GoogleCloudProjectException("Failed to create blob metrics store", e);
