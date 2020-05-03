@@ -23,15 +23,13 @@ import org.ops4j.pax.exam.Option;
 
 /**
  * Integration test intended to deploy the plugin within Nexus Repository manager to confirm that the OSGi
- * packaging is correct, the bundle will activate, and a Google Cloud BlobStore can be created.
- *
- * Depends on GOOGLE_APPLICATION_CREDENTIALS being present in your Environment (see README at root of project).
+ * packaging is correct and the bundle will run.
  */
 public class GoogleCloudBlobStoreDeploymentIT
-  extends GoogleCloudBlobStoreITSupport
+    extends GoogleCloudBlobStoreITSupport
 {
+  private static final String uid = UUID.randomUUID().toString().substring(0, 7);
 
-  private static final String uid = UUID.randomUUID().toString().substring(0,7);
   private static final String bucketName = "deployment-it-" + uid;
 
   @Inject
@@ -63,7 +61,7 @@ public class GoogleCloudBlobStoreDeploymentIT
   @After
   public void destroyBucket() {
     Storage storage = StorageOptions.newBuilder().build().getService();
-    log.debug("Deleting files from " + bucketName);
+    log.debug("Deleting files from {}", bucketName);
     // must delete all the files within the bucket before we can delete the bucket
     Iterator<Blob> list = storage.list(bucketName,
         Storage.BlobListOption.prefix("")).iterateAll()
@@ -72,6 +70,6 @@ public class GoogleCloudBlobStoreDeploymentIT
 
     storage.delete(bucketName);
 
-    log.info(bucketName + "bucket deleted");
+    log.info("{} bucket deleted", bucketName);
   }
 }
