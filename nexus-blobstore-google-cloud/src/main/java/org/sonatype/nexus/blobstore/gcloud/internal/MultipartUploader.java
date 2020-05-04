@@ -23,8 +23,11 @@ import java.util.concurrent.Executors;
 
 import javax.inject.Inject;
 import javax.inject.Named;
+import javax.inject.Singleton;
 
 import org.sonatype.nexus.blobstore.api.BlobStoreException;
+import org.sonatype.nexus.common.app.ManagedLifecycle;
+import org.sonatype.nexus.common.stateguard.Guarded;
 import org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport;
 import org.sonatype.nexus.thread.NexusThreadFactory;
 
@@ -46,6 +49,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
+import static org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport.State.STARTED;
 
 /**
  * Component that provides optional parallel multipart upload support for blob binary data (.bytes files).
@@ -101,7 +105,13 @@ public class MultipartUploader
   }
 
   @Override
-  protected void doStop() throws Exception {
+  protected void doStart() {
+    if(isParallel()) {
+      log.info("parallel upload to Google Cloud Storage enabled with buffer size {}", getChunkSize());
+    }
+  }
+  @Override
+  protected void doStop() {
     executorService.shutdownNow();
   }
 
@@ -120,7 +130,7 @@ public class MultipartUploader
   }
 
   public boolean isParallel() {
-    return this.chunkSize > 0;
+    return getChunkSize() > 0;
   }
 
   /**
@@ -132,6 +142,7 @@ public class MultipartUploader
    * @throws BlobStoreException if any part of the upload failed
    */
   @Override
+  @Guarded(by = STARTED)
   public Blob upload(final Storage storage, final String bucket, final String destination, final InputStream contents) {
     if(isParallel()) {
       return parallelUpload(storage, bucket, destination, contents);

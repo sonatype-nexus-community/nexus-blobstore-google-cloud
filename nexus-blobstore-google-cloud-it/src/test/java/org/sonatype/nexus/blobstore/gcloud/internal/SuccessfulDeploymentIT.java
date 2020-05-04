@@ -1,5 +1,6 @@
 package org.sonatype.nexus.blobstore.gcloud.internal;
 
+import java.io.File;
 import java.util.Iterator;
 import java.util.UUID;
 
@@ -17,23 +18,28 @@ import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageOptions;
 import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import org.ops4j.pax.exam.Configuration;
 import org.ops4j.pax.exam.Option;
 
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.isEmptyOrNullString;
+import static org.hamcrest.Matchers.not;
+import static org.junit.Assume.assumeThat;
+
 /**
  * Integration test intended to deploy the plugin within Nexus Repository manager to confirm that the OSGi
- * packaging is correct and the bundle will run.
+ * packaging is correct, the bundle will activate, and a Google Cloud BlobStore can be created.
+ *
+ * Depends on GOOGLE_APPLICATION_CREDENTIALS being present in your Environment (see README at root of project).
  */
-public class GoogleCloudBlobStoreDeploymentIT
-    extends GoogleCloudBlobStoreITSupport
+public class SuccessfulDeploymentIT
+  extends GoogleCloudBlobStoreITSupport
 {
   private static final String uid = UUID.randomUUID().toString().substring(0, 7);
 
   private static final String bucketName = "deployment-it-" + uid;
-
-  @Inject
-  private BlobStoreManager blobStoreManager;
 
   @Configuration
   public static Option[] configureNexus() {
@@ -43,17 +49,16 @@ public class GoogleCloudBlobStoreDeploymentIT
     );
   }
 
+  @Before
+  public void googleApplicationCredentialsPresentInEnvironment() {
+    String path = System.getenv("GOOGLE_APPLICATION_CREDENTIALS");
+    assumeThat(path, not(isEmptyOrNullString()));
+    assumeThat(new File(path).exists(), is(true));
+  }
+
   @Test
   public void createGoogleCloudBlobStore() throws Exception {
-    BlobStoreConfiguration configuration = blobStoreManager.newConfiguration();
-    configuration.setName("GoogleCloudBlobStoreDeploymentIT");
-    configuration.setType("Google Cloud Storage");
-    NestedAttributesMap configMap = configuration.attributes("google cloud storage");
-    configMap.set("bucket", bucketName);
-    configMap.set("location", "us-central1");
-    NestedAttributesMap quotaMap = configuration.attributes(BlobStoreQuotaSupport.ROOT_KEY);
-    quotaMap.set(BlobStoreQuotaSupport.TYPE_KEY, SpaceUsedQuota.ID);
-    quotaMap.set(BlobStoreQuotaSupport.LIMIT_KEY, 512000L);
+    BlobStoreConfiguration configuration = newConfiguration("SuccessfulDeploymentIT", bucketName, null);
 
     blobStoreManager.create(configuration);
   }

@@ -44,6 +44,7 @@ import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration;
 import org.sonatype.nexus.blobstore.api.BlobStoreException;
 import org.sonatype.nexus.blobstore.api.BlobStoreMetrics;
 import org.sonatype.nexus.blobstore.api.BlobStoreUsageChecker;
+import org.sonatype.nexus.blobstore.gcloud.GoogleCloudProjectException;
 import org.sonatype.nexus.blobstore.quota.BlobStoreQuotaService;
 import org.sonatype.nexus.common.log.DryRunPrefix;
 import org.sonatype.nexus.common.stateguard.Guarded;
@@ -115,7 +116,7 @@ public class GoogleCloudBlobStore
 
   private final GoogleCloudStorageFactory storageFactory;
 
-  private final ShardedCounterMetricsStore metricsStore;
+  private ShardedCounterMetricsStore metricsStore;
 
   private Storage storage;
 
@@ -139,11 +140,14 @@ public class GoogleCloudBlobStore
 
   private final int quotaCheckInterval;
 
+  private PeriodicJob flushJob;
+
+  private static final int FLUSH_FREQUENCY_IN_SECONDS = 5;
+
   @Inject
   public GoogleCloudBlobStore(final GoogleCloudStorageFactory storageFactory,
                               final BlobIdLocationResolver blobIdLocationResolver,
                               final PeriodicJobService periodicJobService,
-                              final ShardedCounterMetricsStore metricsStore,
                               final GoogleCloudDatastoreFactory datastoreFactory,
                               final DryRunPrefix dryRunPrefix,
                               final Uploader uploader,
@@ -155,7 +159,6 @@ public class GoogleCloudBlobStore
     super(blobIdLocationResolver, dryRunPrefix);
     this.periodicJobService = periodicJobService;
     this.storageFactory = checkNotNull(storageFactory);
-    this.metricsStore = metricsStore;
     this.datastoreFactory = datastoreFactory;
     this.uploader = uploader;
     this.metricRegistry = metricRegistry;
@@ -186,18 +189,21 @@ public class GoogleCloudBlobStore
     wrapWithGauge("liveBlobsCache.evictionCount", () -> liveBlobs.stats().evictionCount());
     wrapWithGauge("liveBlobsCache.requestCount", () -> liveBlobs.stats().requestCount());
 
-    metricsStore.setBlobStore(this);
-    metricsStore.start();
+    initializeMetadataStores();
+
     periodicJobService.startUsing();
     this.quotaCheckingJob = periodicJobService.schedule(createQuotaCheckJob(this, quotaService, log), quotaCheckInterval);
+    this.flushJob = periodicJobService.schedule(() -> metricsStore.flush(), FLUSH_FREQUENCY_IN_SECONDS);
   }
 
   @Override
   protected void doStop() throws Exception {
     liveBlobs = null;
-    metricsStore.stop();
     quotaCheckingJob.cancel();
+    flushJob.cancel();
     periodicJobService.stopUsing();
+    // jobs canceled, flush metrics one last time
+    metricsStore.flush();
   }
 
   protected void wrapWithGauge(String nameSuffix, Supplier valueSupplier) {
@@ -395,11 +401,37 @@ public class GoogleCloudBlobStore
 
       String location = configuration.attributes(CONFIG_KEY).get(LOCATION_KEY, String.class);
       this.bucket = getOrCreateStorageBucket(location);
-
-      this.deletedBlobIndex = new DeletedBlobIndex(this.datastoreFactory, blobStoreConfiguration);
     }
     catch (Exception e) {
-      throw new BlobStoreException("Unable to initialize blob store bucket: " + getConfiguredBucketName(), e, null);
+      throw new GoogleCloudProjectException("Unable to initialize blob store bucket: " + getConfiguredBucketName(), e);
+    }
+
+    initializeMetadataStores();
+  }
+
+  /**
+   * Instantiate and initialize the deleted blob index and metrics store.
+   */
+  protected void initializeMetadataStores() {
+    try {
+      if (deletedBlobIndex == null) {
+        this.deletedBlobIndex = new DeletedBlobIndex(this.datastoreFactory, blobStoreConfiguration);
+        this.deletedBlobIndex.initialize();
+      }
+    }
+    catch (Exception e) {
+      throw new GoogleCloudProjectException("Failed to create deleted blob index", e);
+    }
+
+    try {
+      if (metricsStore == null) {
+        this.metricsStore = new ShardedCounterMetricsStore(this.blobIdLocationResolver, this.datastoreFactory,
+            this.blobStoreConfiguration);
+        this.metricsStore.initialize();
+      }
+    }
+    catch (Exception e) {
+      throw new GoogleCloudProjectException("Failed to create blob metrics store", e);
     }
   }
 
@@ -583,6 +615,11 @@ public class GoogleCloudBlobStore
   @VisibleForTesting
   void flushMetricsStore() {
     this.metricsStore.flush();
+  }
+
+  @VisibleForTesting
+  ShardedCounterMetricsStore getMetricsStore() {
+    return this.metricsStore;
   }
 
   /**

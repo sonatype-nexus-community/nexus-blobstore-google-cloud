@@ -30,15 +30,19 @@ import org.sonatype.nexus.scheduling.PeriodicJobService
 
 import com.codahale.metrics.MetricRegistry
 import com.google.api.gax.paging.Page
+import com.google.cloud.datastore.Cursor
 import com.google.cloud.datastore.Datastore
 import com.google.cloud.datastore.Entity
 import com.google.cloud.datastore.FullEntity
 import com.google.cloud.datastore.Key
 import com.google.cloud.datastore.KeyFactory
+import com.google.cloud.datastore.QueryResults
+import com.google.cloud.datastore.Transaction
 import com.google.cloud.storage.Bucket
 import com.google.cloud.storage.Storage
 import com.google.cloud.storage.Storage.BlobListOption
 import com.google.cloud.storage.StorageClass
+import com.google.datastore.v1.QueryResultBatch.MoreResultsType
 import org.apache.commons.io.IOUtils
 import spock.lang.Specification
 
@@ -66,8 +70,6 @@ class GoogleCloudBlobStoreTest
 
   BlobStoreQuotaService quotaService = Mock()
 
-  ShardedCounterMetricsStore metricsStore = Mock()
-
   KeyFactory keyFactory = new KeyFactory("testing")
 
   def blobHeaders = [
@@ -75,7 +77,7 @@ class GoogleCloudBlobStoreTest
       (BlobStore.CREATED_BY_HEADER): 'admin'
   ]
   GoogleCloudBlobStore blobStore = new GoogleCloudBlobStore(
-      storageFactory, blobIdLocationResolver, periodicJobService, metricsStore, datastoreFactory, new DryRunPrefix("TEST "),
+      storageFactory, blobIdLocationResolver, periodicJobService, datastoreFactory, new DryRunPrefix("TEST "),
       uploader, metricRegistry, quotaService, 60)
 
   def config = new MockBlobStoreConfiguration()
@@ -122,6 +124,9 @@ class GoogleCloudBlobStoreTest
 
     datastoreFactory.create(_) >> datastore
     datastore.newKeyFactory() >> keyFactory
+    Transaction tx = Mock()
+    datastore.newTransaction(_) >> tx
+    datastore.run(_) >> emptyResults()
   }
 
   def 'initialize successfully from existing bucket'() {
@@ -305,5 +310,38 @@ class GoogleCloudBlobStoreTest
     blob.getName() >> blobId.name
     blob.getBlobId() >> blobId
     blob
+  }
+
+  private QueryResults<Object> emptyResults() {
+    return new QueryResults<Object>() {
+      boolean hasNext() {
+        return false
+      }
+
+      @Override
+      Object next() {
+        return null
+      }
+
+      @Override
+      Class<?> getResultClass() {
+        return null
+      }
+
+      @Override
+      Cursor getCursorAfter() {
+        return null
+      }
+
+      @Override
+      int getSkippedResults() {
+        return 0
+      }
+
+      @Override
+      MoreResultsType getMoreResults() {
+        return null
+      }
+    }
   }
 }

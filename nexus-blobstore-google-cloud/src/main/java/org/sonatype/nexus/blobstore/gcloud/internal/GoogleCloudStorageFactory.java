@@ -35,8 +35,10 @@ public class GoogleCloudStorageFactory extends AbstractGoogleClientFactory
 
     String credentialFile = configuration.attributes(CONFIG_KEY).get(CREDENTIAL_FILE_KEY, String.class);
     if (StringUtils.hasText(credentialFile)) {
-       builder.setCredentials(ServiceAccountCredentials.fromStream(new FileInputStream(credentialFile)));
-       builder.setProjectId(getProjectId(credentialFile));
+      ServiceAccountCredentials credentials = ServiceAccountCredentials.fromStream(new FileInputStream(credentialFile));
+      logger.debug("loaded {} from {} for Google storage client", credentials, credentialFile);
+      builder.setCredentials(credentials);
+      builder.setProjectId(getProjectId(credentialFile));
     }
 
     return builder.build().getService();
