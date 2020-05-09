@@ -4,13 +4,7 @@ import java.io.File;
 import java.util.Iterator;
 import java.util.UUID;
 
-import javax.inject.Inject;
-
 import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration;
-import org.sonatype.nexus.blobstore.api.BlobStoreManager;
-import org.sonatype.nexus.blobstore.quota.BlobStoreQuotaSupport;
-import org.sonatype.nexus.blobstore.quota.internal.SpaceUsedQuota;
-import org.sonatype.nexus.common.collect.NestedAttributesMap;
 import org.sonatype.nexus.pax.exam.NexusPaxExamSupport;
 import org.sonatype.nexus.testsuite.testsupport.NexusITSupport;
 
@@ -64,7 +58,7 @@ public class SuccessfulDeploymentIT
   }
 
   @After
-  public void destroyBucket() {
+  public void destroyBucket() throws Exception {
     Storage storage = StorageOptions.newBuilder().build().getService();
     log.debug("Deleting files from {}", bucketName);
     // must delete all the files within the bucket before we can delete the bucket
