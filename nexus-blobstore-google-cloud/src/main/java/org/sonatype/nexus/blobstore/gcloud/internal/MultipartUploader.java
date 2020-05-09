@@ -27,6 +27,7 @@ import javax.inject.Singleton;
 
 import org.sonatype.nexus.blobstore.api.BlobStoreException;
 import org.sonatype.nexus.common.app.ManagedLifecycle;
+import org.sonatype.nexus.common.app.ManagedLifecycle.Phase;
 import org.sonatype.nexus.common.stateguard.Guarded;
 import org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport;
 import org.sonatype.nexus.thread.NexusThreadFactory;
@@ -55,6 +56,8 @@ import static org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport.St
  * Component that provides optional parallel multipart upload support for blob binary data (.bytes files).
  */
 @Named
+@ManagedLifecycle(phase = Phase.STORAGE)
+@Singleton
 public class MultipartUploader
     extends StateGuardLifecycleSupport
     implements Uploader
