@@ -32,6 +32,12 @@ class GoogleCloudBlobstoreApiResourceTest
 
   def setup() {
     config = makeConfig('apitest')
+
+    BlobStore blobstore = Mock()
+    blobstore.getBlobStoreConfiguration() >> config
+    blobStoreManager.get('apitest') >> blobstore
+
+    blobStoreManager.newConfiguration() >> new MockBlobStoreConfiguration()
   }
 
   def "returns null for not found"() {
@@ -39,12 +45,7 @@ class GoogleCloudBlobstoreApiResourceTest
       api.get('undefined') == null
   }
 
-  def "returns config for existing store"() {
-    given:
-      BlobStore blobstore = Mock()
-      blobstore.getBlobStoreConfiguration() >> config
-      blobStoreManager.get('apitest') >> blobstore
-
+  def "get returns config for existing store"() {
     when:
       GoogleCloudBlobstoreApiModel model = api.get('apitest')
 
@@ -53,34 +54,17 @@ class GoogleCloudBlobstoreApiResourceTest
   }
 
   def "create prevents duplicates"() {
-    given:
-      BlobStore blobstore = Mock()
-      blobstore.getBlobStoreConfiguration() >> config
-      blobStoreManager.get('apitest') >> blobstore
-
     when:
-      api.create(new GoogleCloudBlobstoreApiModel(makeConfig('apitest')))
+      api.create(new GoogleCloudBlobstoreApiModel(config))
 
     then:
-      thrown(IllegalArgumentException)
-  }
-
-  def "create success"() {
-    given:
-      def createConf = makeConfig('createtest')
-      def model = new GoogleCloudBlobstoreApiModel(createConf)
-
-    when:
-      GoogleCloudBlobstoreApiModel result = api.create(model)
-
-    then:
-      result.name == 'createtest'
+      thrown(IllegalArgumentException.class)
   }
 
   def makeConfig(String name) {
     BlobStoreConfiguration result = new MockBlobStoreConfiguration()
-    config.name = name
-    config.attributes = [
+    result.name = name
+    result.attributes = [
         'google cloud storage': [
             bucket: 'bucketname',
             location: 'us-central1'

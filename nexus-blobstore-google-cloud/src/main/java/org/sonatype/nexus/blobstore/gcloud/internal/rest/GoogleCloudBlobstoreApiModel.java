@@ -17,6 +17,7 @@ import javax.validation.constraints.NotNull;
 
 import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration;
 import org.sonatype.nexus.blobstore.rest.BlobStoreApiSoftQuota;
+import org.sonatype.nexus.common.collect.NestedAttributesMap;
 
 import io.swagger.annotations.ApiModelProperty;
 
@@ -55,9 +56,13 @@ public class GoogleCloudBlobstoreApiModel
     this.bucketName = configuration.attributes(CONFIG_KEY).get(BUCKET_KEY, String.class);
     this.region = configuration.attributes(CONFIG_KEY).get(LOCATION_KEY, String.class);
 
-    BlobStoreApiSoftQuota softQuota = new BlobStoreApiSoftQuota();
-    softQuota.setLimit(configuration.attributes(ROOT_KEY).get(LIMIT_KEY, Long.class));
-    softQuota.setType(configuration.attributes(ROOT_KEY).get(TYPE_KEY, String.class));
+    NestedAttributesMap softQuotaAttributes = configuration.attributes(ROOT_KEY);
+    if (softQuotaAttributes != null) {
+      BlobStoreApiSoftQuota softQuota = new BlobStoreApiSoftQuota();
+      softQuota.setLimit(configuration.attributes(ROOT_KEY).get(LIMIT_KEY, Long.class));
+      softQuota.setType(configuration.attributes(ROOT_KEY).get(TYPE_KEY, String.class));
+      this.softQuota = softQuota;
+    }
   }
 
   public String getName() {
