@@ -13,7 +13,6 @@
 package org.sonatype.nexus.blobstore.gcloud.internal.rest;
 
 import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.NotNull;
 
 import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration;
 import org.sonatype.nexus.blobstore.rest.BlobStoreApiSoftQuota;
