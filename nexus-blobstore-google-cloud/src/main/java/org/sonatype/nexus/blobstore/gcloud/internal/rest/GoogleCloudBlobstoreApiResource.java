@@ -34,6 +34,7 @@ import org.sonatype.nexus.blobstore.api.BlobStoreManager;
 import org.sonatype.nexus.blobstore.gcloud.internal.GoogleCloudBlobStore;
 import org.sonatype.nexus.common.collect.NestedAttributesMap;
 import org.sonatype.nexus.rest.Resource;
+import org.sonatype.nexus.rest.WebApplicationMessageException;
 
 import org.apache.shiro.authz.annotation.RequiresAuthentication;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
@@ -79,7 +80,6 @@ public class GoogleCloudBlobstoreApiResource
   @Override
   public GoogleCloudBlobstoreApiModel get(@PathParam("name") final String name) {
     BlobStore blobStore = blobStoreManager.get(name);
-    log.error("{}", blobStore);
     if (blobStore == null) {
       return null;
     }
@@ -95,7 +95,7 @@ public class GoogleCloudBlobstoreApiResource
       throws Exception
   {
     if (blobStoreManager.get(model.getName()) != null) {
-      throw new IllegalArgumentException("A blob store with that name already exists");
+      throw new WebApplicationMessageException(Status.BAD_REQUEST, "A blob store with that name already exists");
     }
     BlobStoreConfiguration config = blobStoreManager.newConfiguration();
     config.setType(GoogleCloudBlobStore.TYPE);
@@ -141,11 +141,11 @@ public class GoogleCloudBlobstoreApiResource
   /**
    * @param config to check
    * @return the configuration if it is of {@link GoogleCloudBlobStore#TYPE}
-   * @throws IllegalArgumentException if it is any other type
+   * @throws WebApplicationMessageException if it is any other type
    */
   BlobStoreConfiguration confirmType(BlobStoreConfiguration config) {
     if (!GoogleCloudBlobStore.TYPE.equals(config.getType())) {
-      throw new IllegalArgumentException("Use this API only for blob stores with type " + GoogleCloudBlobStore.TYPE);
+      throw new WebApplicationMessageException(Status.BAD_REQUEST, "Use this API only for blob stores with type " + GoogleCloudBlobStore.TYPE);
     }
     return config;
   }

@@ -23,6 +23,7 @@ import org.sonatype.nexus.blobstore.file.FileBlobStore
 import org.sonatype.nexus.blobstore.gcloud.internal.GoogleCloudBlobStore
 import org.sonatype.nexus.blobstore.quota.BlobStoreQuotaSupport
 import org.sonatype.nexus.blobstore.quota.internal.SpaceUsedQuota
+import org.sonatype.nexus.rest.WebApplicationMessageException
 
 import spock.lang.Specification
 
@@ -33,12 +34,13 @@ class GoogleCloudBlobstoreApiResourceTest
 
   BlobStoreManager blobStoreManager = Mock()
 
+  BlobStore blobstore = Mock()
+
   GoogleCloudBlobstoreApiResource api = new GoogleCloudBlobstoreApiResource(blobStoreManager)
 
   def setup() {
     config = makeConfig('apitest')
 
-    BlobStore blobstore = Mock()
     blobstore.getBlobStoreConfiguration() >> config
     blobStoreManager.get('apitest') >> blobstore
 
@@ -70,7 +72,7 @@ class GoogleCloudBlobstoreApiResourceTest
       api.get('file')
 
     then:
-      thrown(IllegalArgumentException)
+      thrown(WebApplicationMessageException)
   }
 
   def "create prevents duplicates"() {
@@ -78,7 +80,7 @@ class GoogleCloudBlobstoreApiResourceTest
       api.create(new GoogleCloudBlobstoreApiModel(config))
 
     then:
-      thrown(IllegalArgumentException.class)
+      thrown(WebApplicationMessageException)
   }
 
   def "successful delete"() {
@@ -102,7 +104,7 @@ class GoogleCloudBlobstoreApiResourceTest
       api.delete('file')
 
     then:
-      thrown(IllegalArgumentException)
+      thrown(WebApplicationMessageException)
   }
 
   def makeConfig(String name) {
