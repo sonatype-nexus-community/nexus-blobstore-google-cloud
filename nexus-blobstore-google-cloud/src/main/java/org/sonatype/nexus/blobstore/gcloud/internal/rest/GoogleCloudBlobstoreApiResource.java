@@ -17,12 +17,15 @@ import javax.inject.Named;
 import javax.inject.Singleton;
 import javax.validation.Valid;
 import javax.ws.rs.Consumes;
+import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
+import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.Status;
 
 import org.sonatype.goodies.common.ComponentSupport;
 import org.sonatype.nexus.blobstore.api.BlobStore;
@@ -119,6 +122,20 @@ public class GoogleCloudBlobstoreApiResource
 
     BlobStore blobStore = blobStoreManager.update(config);
     return new GoogleCloudBlobstoreApiModel(blobStore.getBlobStoreConfiguration());
+  }
+
+  @DELETE
+  @RequiresAuthentication
+  @Path("/{name}")
+  @RequiresPermissions("nexus:blobstores:delete")
+  public Response delete(@PathParam("name") final String name) throws Exception {
+    BlobStore existing = blobStoreManager.get(name);
+    if (existing == null) {
+      return Response.status(Status.NOT_FOUND).build();
+    }
+    BlobStoreConfiguration config = confirmType(existing.getBlobStoreConfiguration());
+    blobStoreManager.delete(config.getName());
+    return Response.noContent().build();
   }
 
   /**

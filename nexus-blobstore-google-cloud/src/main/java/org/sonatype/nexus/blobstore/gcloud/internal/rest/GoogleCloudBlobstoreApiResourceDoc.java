@@ -13,6 +13,7 @@
 package org.sonatype.nexus.blobstore.gcloud.internal.rest;
 
 import javax.validation.Valid;
+import javax.ws.rs.core.Response;
 
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
@@ -36,7 +37,7 @@ public interface GoogleCloudBlobstoreApiResourceDoc
           @ApiResponse(code = 404, message = REPOSITORY_NOT_FOUND),
       }
   )
-  GoogleCloudBlobstoreApiModel get(@ApiParam("the name of the blobstore") String name);
+  GoogleCloudBlobstoreApiModel get(@ApiParam("the name of the blob store") String name);
 
   @ApiOperation("Create a Google Cloud blob store")
   @ApiResponses(value = {
@@ -56,4 +57,13 @@ public interface GoogleCloudBlobstoreApiResourceDoc
   GoogleCloudBlobstoreApiModel update(@ApiParam("the name of the blobstore") String name,
                                       @Valid GoogleCloudBlobstoreApiModel blobstoreApiModel)
       throws Exception;
+
+  @ApiOperation("Delete a Google Cloud blob store")
+  @ApiResponses(value = {
+      @ApiResponse(code = 204, message = "Google Cloud blob store deleted"),
+      @ApiResponse(code = 401, message = AUTHENTICATION_REQUIRED),
+      @ApiResponse(code = 403, message = INSUFFICIENT_PERMISSIONS),
+      @ApiResponse(code = 404, message = REPOSITORY_NOT_FOUND)
+  })
+  Response delete(@ApiParam("the name of the blob store") String name) throws Exception;
 }
