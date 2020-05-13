@@ -74,26 +74,29 @@ public class GoogleCloudBlobstoreApiResource
   @Path("/{name}")
   @RequiresPermissions("nexus:blobstores:read")
   @Override
-  public GoogleCloudBlobstoreApiModel get(final String blobStoreName) {
-    BlobStore blobStore = blobStoreManager.get(blobStoreName);
+  public GoogleCloudBlobstoreApiModel get(@PathParam("name") final String name) {
+    BlobStore blobStore = blobStoreManager.get(name);
+    log.error("{}", blobStore);
     if (blobStore == null) {
       return null;
     }
-    return new GoogleCloudBlobstoreApiModel(blobStore.getBlobStoreConfiguration());
+    BlobStoreConfiguration config = confirmType(blobStore.getBlobStoreConfiguration());
+    return new GoogleCloudBlobstoreApiModel(config);
   }
 
   @POST
   @RequiresAuthentication
   @RequiresPermissions("nexus:blobstores:create")
   @Override
-  public GoogleCloudBlobstoreApiModel create(@Valid final GoogleCloudBlobstoreApiModel blobstoreApiModel)
+  public GoogleCloudBlobstoreApiModel create(@Valid final GoogleCloudBlobstoreApiModel model)
       throws Exception
   {
-    if (blobStoreManager.get(blobstoreApiModel.getName()) != null) {
+    if (blobStoreManager.get(model.getName()) != null) {
       throw new IllegalArgumentException("A blob store with that name already exists");
     }
     BlobStoreConfiguration config = blobStoreManager.newConfiguration();
-    merge(config, blobstoreApiModel);
+    config.setType(GoogleCloudBlobStore.TYPE);
+    merge(config, model);
     BlobStore blobStore = blobStoreManager.create(config);
     return new GoogleCloudBlobstoreApiModel(blobStore.getBlobStoreConfiguration());
   }
@@ -103,22 +106,31 @@ public class GoogleCloudBlobstoreApiResource
   @Path("/{name}")
   @RequiresPermissions("nexus:blobstores:update")
   @Override
-  public GoogleCloudBlobstoreApiModel update(@PathParam("name") final String blobStoreName,
-                                             @Valid final GoogleCloudBlobstoreApiModel blobstoreApiModel)
+  public GoogleCloudBlobstoreApiModel update(@PathParam("name") final String name,
+                                             @Valid final GoogleCloudBlobstoreApiModel model)
       throws Exception
   {
-    BlobStore existing = blobStoreManager.get(blobStoreName);
+    BlobStore existing = blobStoreManager.get(name);
     if (existing == null) {
       return null;
     }
-    BlobStoreConfiguration config = existing.getBlobStoreConfiguration();
-    if (config.getType() != GoogleCloudBlobStore.TYPE) {
-      throw new IllegalArgumentException("Use this API only for blob stores with type " + GoogleCloudBlobStore.TYPE);
-    }
-    merge(config, blobstoreApiModel);
+    BlobStoreConfiguration config = confirmType(existing.getBlobStoreConfiguration());
+    merge(config, model);
 
     BlobStore blobStore = blobStoreManager.update(config);
     return new GoogleCloudBlobstoreApiModel(blobStore.getBlobStoreConfiguration());
+  }
+
+  /**
+   * @param config to check
+   * @return the configuration if it is of {@link GoogleCloudBlobStore#TYPE}
+   * @throws IllegalArgumentException if it is any other type
+   */
+  BlobStoreConfiguration confirmType(BlobStoreConfiguration config) {
+    if (!GoogleCloudBlobStore.TYPE.equals(config.getType())) {
+      throw new IllegalArgumentException("Use this API only for blob stores with type " + GoogleCloudBlobStore.TYPE);
+    }
+    return config;
   }
 
   /**

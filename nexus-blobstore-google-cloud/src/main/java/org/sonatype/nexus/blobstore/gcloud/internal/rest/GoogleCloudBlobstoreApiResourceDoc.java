@@ -12,6 +12,8 @@
  */
 package org.sonatype.nexus.blobstore.gcloud.internal.rest;
 
+import javax.validation.Valid;
+
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
@@ -34,7 +36,7 @@ public interface GoogleCloudBlobstoreApiResourceDoc
           @ApiResponse(code = 404, message = REPOSITORY_NOT_FOUND),
       }
   )
-  GoogleCloudBlobstoreApiModel get(@ApiParam(value = "Name of the blob store") String blobStoreName);
+  GoogleCloudBlobstoreApiModel get(@ApiParam("the name of the blobstore") String name);
 
   @ApiOperation("Create a Google Cloud blob store")
   @ApiResponses(value = {
@@ -42,7 +44,7 @@ public interface GoogleCloudBlobstoreApiResourceDoc
       @ApiResponse(code = 401, message = AUTHENTICATION_REQUIRED),
       @ApiResponse(code = 403, message = INSUFFICIENT_PERMISSIONS)
   })
-  GoogleCloudBlobstoreApiModel create(GoogleCloudBlobstoreApiModel blobstoreApiModel) throws Exception;
+  GoogleCloudBlobstoreApiModel create(@Valid GoogleCloudBlobstoreApiModel blobstoreApiModel) throws Exception;
 
   @ApiOperation("Update a Google Cloud blob store")
   @ApiResponses(value = {
@@ -51,6 +53,7 @@ public interface GoogleCloudBlobstoreApiResourceDoc
       @ApiResponse(code = 403, message = INSUFFICIENT_PERMISSIONS),
       @ApiResponse(code = 404, message = REPOSITORY_NOT_FOUND)
   })
-  GoogleCloudBlobstoreApiModel update(String blobStoreName, GoogleCloudBlobstoreApiModel blobstoreApiModel)
+  GoogleCloudBlobstoreApiModel update(@ApiParam("the name of the blobstore") String name,
+                                      @Valid GoogleCloudBlobstoreApiModel blobstoreApiModel)
       throws Exception;
 }

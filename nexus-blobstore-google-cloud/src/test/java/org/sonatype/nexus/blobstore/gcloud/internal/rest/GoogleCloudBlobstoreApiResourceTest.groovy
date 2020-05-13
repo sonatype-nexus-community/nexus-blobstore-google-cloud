@@ -16,6 +16,8 @@ import org.sonatype.nexus.blobstore.MockBlobStoreConfiguration
 import org.sonatype.nexus.blobstore.api.BlobStore
 import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration
 import org.sonatype.nexus.blobstore.api.BlobStoreManager
+import org.sonatype.nexus.blobstore.file.FileBlobStore
+import org.sonatype.nexus.blobstore.gcloud.internal.GoogleCloudBlobStore
 import org.sonatype.nexus.blobstore.quota.BlobStoreQuotaSupport
 import org.sonatype.nexus.blobstore.quota.internal.SpaceUsedQuota
 
@@ -53,6 +55,21 @@ class GoogleCloudBlobstoreApiResourceTest
       model.name == 'apitest'
   }
 
+  def "get throws exception for non-google type"() {
+    given:
+      def fileconfig = makeConfig('file')
+      fileconfig.type = FileBlobStore.TYPE
+      BlobStore fileblobstore = Mock()
+      fileblobstore.getBlobStoreConfiguration() >> fileconfig
+      blobStoreManager.get('file') >> fileblobstore
+
+    when:
+      GoogleCloudBlobstoreApiModel model = api.get('file')
+
+    then:
+      thrown(IllegalArgumentException)
+  }
+
   def "create prevents duplicates"() {
     when:
       api.create(new GoogleCloudBlobstoreApiModel(config))
@@ -64,6 +81,7 @@ class GoogleCloudBlobstoreApiResourceTest
   def makeConfig(String name) {
     BlobStoreConfiguration result = new MockBlobStoreConfiguration()
     result.name = name
+    result.type = GoogleCloudBlobStore.TYPE
     result.attributes = [
         'google cloud storage': [
             bucket: 'bucketname',
