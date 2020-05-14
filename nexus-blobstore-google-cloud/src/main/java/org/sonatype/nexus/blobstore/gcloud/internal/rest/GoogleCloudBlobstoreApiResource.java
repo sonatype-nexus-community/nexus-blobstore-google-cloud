@@ -48,7 +48,7 @@ import static org.sonatype.nexus.blobstore.gcloud.internal.rest.GoogleCloudBlobs
 import static org.sonatype.nexus.blobstore.quota.BlobStoreQuotaSupport.LIMIT_KEY;
 import static org.sonatype.nexus.blobstore.quota.BlobStoreQuotaSupport.ROOT_KEY;
 import static org.sonatype.nexus.blobstore.quota.BlobStoreQuotaSupport.TYPE_KEY;
-import static org.sonatype.nexus.rest.APIConstants.BETA_API_PREFIX;
+import static org.sonatype.nexus.rest.APIConstants.V1_API_PREFIX;
 
 /**
  * REST API for managing Google Cloud blob stores.
@@ -62,7 +62,7 @@ public class GoogleCloudBlobstoreApiResource
     extends ComponentSupport
     implements Resource, GoogleCloudBlobstoreApiResourceDoc
 {
-  static final String RESOURCE_URI = BETA_API_PREFIX + "/blobstores/google";
+  static final String RESOURCE_URI = V1_API_PREFIX + "/blobstores/google";
 
   static final int ONE_MILLION = 1_000_000;
 
