@@ -12,9 +12,6 @@
  */
 package org.sonatype.nexus.blobstore.gcloud.internal.rest
 
-import javax.ws.rs.core.Response
-import javax.ws.rs.core.Response.Status
-
 import org.sonatype.nexus.blobstore.MockBlobStoreConfiguration
 import org.sonatype.nexus.blobstore.api.BlobStore
 import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration
@@ -78,30 +75,6 @@ class GoogleCloudBlobstoreApiResourceTest
   def "create prevents duplicates"() {
     when:
       api.create(new GoogleCloudBlobstoreApiModel(config))
-
-    then:
-      thrown(WebApplicationMessageException)
-  }
-
-  def "successful delete"() {
-    when:
-      Response response = api.delete('apitest')
-
-    then:
-      1 * blobStoreManager.delete('apitest')
-      response.status == Status.NO_CONTENT.statusCode
-  }
-
-  def "delete throws exception for non-google type"() {
-    given:
-      def fileconfig = makeConfig('file')
-      fileconfig.type = FileBlobStore.TYPE
-      BlobStore fileblobstore = Mock()
-      fileblobstore.getBlobStoreConfiguration() >> fileconfig
-      blobStoreManager.get('file') >> fileblobstore
-
-    when:
-      api.delete('file')
 
     then:
       thrown(WebApplicationMessageException)
