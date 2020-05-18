@@ -52,10 +52,17 @@ This plugin uses the following Google Cloud Platform services:
 Firestore usage is exclusively in Datastore mode; you must configure the project for your Repository Manager deployment
 to use ["Firestore in Datastore mode"](https://cloud.google.com/firestore/docs/firestore-or-datastore).
 
-To use this plugin (or execute the integration tests), you will need an account with the following roles:
+To use this plugin (or execute the integration tests), you will need a service account with the following 
+[scopes](https://developers.google.com/identity/protocols/oauth2/scopes):
 
-* [Storage Admin](https://cloud.google.com/storage/docs/access-control/iam-roles)
-* [Cloud Datastore Owner](https://cloud.google.com/datastore/docs/access/iam)
+* https://www.googleapis.com/auth/cloud-platform
+* https://www.googleapis.com/auth/compute.readonly
+* https://www.googleapis.com/auth/devstorage.read_write
+* https://www.googleapis.com/auth/datastore
+
+Optionally, add the following for Cloud Logging:
+
+* https://www.googleapis.com/auth/logging.write
 
 The blobstore will create the storage bucket with the ['Multi-Regional' storage class](https://cloud.google.com/storage/sla).
 
