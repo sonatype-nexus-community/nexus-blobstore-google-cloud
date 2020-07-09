@@ -43,6 +43,7 @@
     <dependency>
       <groupId>org.sonatype.nexus</groupId>
       <artifactId>nexus-rest-client</artifactId>
+      <scope>test</scope>
     </dependency>
     <!--
     Pax-Exam test driver - end

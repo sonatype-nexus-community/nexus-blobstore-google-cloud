@@ -46,7 +46,7 @@
   </distributionManagement>
 
   <properties>
-    <google-cloud-datastore.version>1.84.0</google-cloud-datastore.version>
+    <google-cloud-datastore.version>1.99.0</google-cloud-datastore.version>
     <google-cloud-storage.version>1.111.1</google-cloud-storage.version>
     <nxrm-version>3.24.0-02</nxrm-version>
     <clm.skip>true</clm.skip>
