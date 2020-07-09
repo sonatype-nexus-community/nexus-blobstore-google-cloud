@@ -27,6 +27,10 @@
 
   <name>${project.groupId}:${project.artifactId}</name>
 
+  <properties>
+    <clm.skip>false</clm.skip>
+  </properties>
+
   <dependencies>
     <dependency>
       <groupId>org.sonatype.nexus</groupId>
