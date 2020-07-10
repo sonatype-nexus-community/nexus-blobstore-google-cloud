@@ -6,11 +6,11 @@ mavenSnapshotPipeline(
     useEventSpy: false,
     mavenOptions: '-PskipIT',
     testResults: ['**/target/*-reports/*.xml'],
+    runFeatureBranchPolicyEvaluations: true,
     iqPolicyEvaluation: { stage ->
       nexusPolicyEvaluation iqStage: stage, iqApplication: 'nexus-blobstore-google-cloud',
           iqScanPatterns: [[scanPattern: 'scan_nothing']],
           iqModuleExcludes: [[moduleExclude: 'nexus-blobstore-google-cloud-it/**']],
-          runFeatureBranchPolicyEvaluations: true,
           failBuildOnNetworkError: true
     }
 )
