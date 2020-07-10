@@ -9,7 +9,8 @@ mavenSnapshotPipeline(
     iqPolicyEvaluation: { stage ->
       nexusPolicyEvaluation iqStage: stage, iqApplication: 'nexus-blobstore-google-cloud',
           iqScanPatterns: [[scanPattern: 'scan_nothing']],
-          iqModuleExcludes: [[moduleExclude: 'nexus-blobstore-google-cloud-it/**']]
+          iqModuleExcludes: [[moduleExclude: 'nexus-blobstore-google-cloud-it/**']],
+          runFeatureBranchPolicyEvaluations: true,
           failBuildOnNetworkError: true
     }
 )
