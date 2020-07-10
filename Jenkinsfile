@@ -5,5 +5,10 @@ mavenSnapshotPipeline(
     mavenVersion: 'M3',
     useEventSpy: false,
     mavenOptions: '-PskipIT',
-    testResults: ['**/target/*-reports/*.xml']
+    testResults: ['**/target/*-reports/*.xml'],
+    iqPolicyEvaluation: { stage ->
+      nexusPolicyEvaluation iqStage: stage, iqApplication: 'nexus-blobstore-google-cloud',
+          iqScanPatterns: [[scanPattern: 'scan_nothing']],
+          failBuildOnNetworkError: true
+    }
 )
