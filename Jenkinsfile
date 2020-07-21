@@ -4,6 +4,7 @@ mavenSnapshotPipeline(
     javaVersion: 'OpenJDK 8',
     mavenVersion: 'M3',
     useEventSpy: false,
+    deployBranch: '_none',
     mavenOptions: '-PskipIT',
     testResults: ['**/target/*-reports/*.xml'],
     runFeatureBranchPolicyEvaluations: true,
