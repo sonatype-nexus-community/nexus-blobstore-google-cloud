@@ -82,6 +82,15 @@
       <version>${nxrm-version}</version>
       <type>zip</type>
       <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <!--
+          temporarily exclude helm as it has a broken reference to non-public dependencies
+          -->
+          <groupId>org.sonatype.nexus.plugins</groupId>
+          <artifactId>nexus-repository-helm</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>org.sonatype.nexus.plugins</groupId>
