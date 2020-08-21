@@ -82,6 +82,19 @@
       <version>${nxrm-version}</version>
       <type>zip</type>
       <scope>test</scope>
+      <exclusions>
+        <!--
+          temporarily exclude community plugins as they have non-public dependencies
+        -->
+        <exclusion>
+          <groupId>org.sonatype.nexus.assemblies</groupId>
+          <artifactId>nexus-community-feature</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.sonatype.nexus.assemblies</groupId>
+          <artifactId>nexus-cma-community</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>org.sonatype.nexus.plugins</groupId>
