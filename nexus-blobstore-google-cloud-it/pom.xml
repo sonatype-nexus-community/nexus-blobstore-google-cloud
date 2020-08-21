@@ -83,12 +83,16 @@
       <type>zip</type>
       <scope>test</scope>
       <exclusions>
+        <!--
+          temporarily exclude helm and conan as they have non-public dependencies
+        -->
         <exclusion>
-          <!--
-          temporarily exclude helm as it has a broken reference to non-public dependencies
-          -->
           <groupId>org.sonatype.nexus.plugins</groupId>
           <artifactId>nexus-repository-helm</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.sonatype.nexus.plugins</groupId>
+          <artifactId>nexus-repository-conan</artifactId>
         </exclusion>
       </exclusions>
     </dependency>
