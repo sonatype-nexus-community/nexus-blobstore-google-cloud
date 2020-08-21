@@ -98,6 +98,10 @@
           <groupId>org.sonatype.nexus.plugins</groupId>
           <artifactId>nexus-repository-p2</artifactId>
         </exclusion>
+        <exclusion>
+          <groupId>org.sonatype.nexus.assemblies</groupId>
+          <artifactId>nexus-cma-community</artifactId>
+        </exclusion>
       </exclusions>
     </dependency>
     <dependency>
