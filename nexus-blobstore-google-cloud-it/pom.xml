@@ -84,21 +84,7 @@
       <scope>test</scope>
       <exclusions>
         <!--
-          temporarily exclude helm and conan as they have non-public dependencies
-        -->
-        <!--
-        <exclusion>
-          <groupId>org.sonatype.nexus.plugins</groupId>
-          <artifactId>nexus-repository-helm</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>org.sonatype.nexus.plugins</groupId>
-          <artifactId>nexus-repository-conan</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>org.sonatype.nexus.plugins</groupId>
-          <artifactId>nexus-repository-p2</artifactId>
-        </exclusion>
+          temporarily exclude community plugins as they have non-public dependencies
         -->
         <exclusion>
           <groupId>org.sonatype.nexus.assemblies</groupId>
