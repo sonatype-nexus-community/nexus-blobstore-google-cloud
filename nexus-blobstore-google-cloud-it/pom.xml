@@ -86,6 +86,7 @@
         <!--
           temporarily exclude helm and conan as they have non-public dependencies
         -->
+        <!--
         <exclusion>
           <groupId>org.sonatype.nexus.plugins</groupId>
           <artifactId>nexus-repository-helm</artifactId>
@@ -97,6 +98,11 @@
         <exclusion>
           <groupId>org.sonatype.nexus.plugins</groupId>
           <artifactId>nexus-repository-p2</artifactId>
+        </exclusion>
+        -->
+        <exclusion>
+          <groupId>org.sonatype.nexus.assemblies</groupId>
+          <artifactId>nexus-community-feature</artifactId>
         </exclusion>
         <exclusion>
           <groupId>org.sonatype.nexus.assemblies</groupId>
