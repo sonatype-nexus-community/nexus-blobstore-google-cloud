@@ -19,11 +19,11 @@
   <parent>
     <groupId>org.sonatype.nexus.plugins</groupId>
     <artifactId>nexus-plugins</artifactId>
-    <version>3.26.1-02</version>
+    <version>3.27.0-03</version>
   </parent>
 
   <artifactId>nexus-blobstore-google-cloud-parent</artifactId>
-  <version>0.16.1-SNAPSHOT</version>
+  <version>0.17.0-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <name>${project.groupId}:${project.artifactId}</name>
@@ -48,7 +48,7 @@
   <properties>
     <google-cloud-datastore.version>1.99.0</google-cloud-datastore.version>
     <google-cloud-storage.version>1.111.1</google-cloud-storage.version>
-    <nxrm-version>3.26.1-02</nxrm-version>
+    <nxrm-version>3.27.0-03</nxrm-version>
     <clm.skip>true</clm.skip>
     <clm.applicationId>nexus-blobstore-google-cloud</clm.applicationId>
   </properties>
@@ -69,6 +69,11 @@
         <groupId>com.google.oauth-client</groupId>
         <artifactId>google-oauth-client</artifactId>
         <version>1.31.0</version>
+      </dependency>
+      <dependency>
+        <groupId>io.grpc</groupId>
+        <artifactId>grpc-core</artifactId>
+        <version>1.31.1</version>
       </dependency>
     </dependencies>
   </dependencyManagement>
