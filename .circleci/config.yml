@@ -28,7 +28,7 @@ workflows:
           type: approval
           filters:
             branches:
-              only: master
+              only: main
       - circleci-maven-release-orb/run-maven-release:
           requires:
             - approve-release
@@ -36,4 +36,4 @@ workflows:
           context: rso-base
           filters:
             branches:
-              only: master
+              only: main
