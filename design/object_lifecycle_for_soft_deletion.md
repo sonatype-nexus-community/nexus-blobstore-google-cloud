@@ -26,6 +26,12 @@ blobs, reserving more capacity for other Nexus Repository Manager operations.
 
 * Migration of existing blobstores can be a challenge. As shown in the following section, we will have to add holds
 retroactively to all objects in the bucket that correspond to live blobs.
+* Destroying the bucket in Google Cloud Storage will be blocked by the presence of event based holds. A workaround
+exists to release all of the holds in a bucket:
+
+> gsutil -m retention event release gs://[BUCKET_NAME]/**
+
+This caveat will need to be documented and even mentioned in the Delete Blobstore operation.
 
 ### Summary
 
