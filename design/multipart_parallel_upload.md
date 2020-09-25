@@ -16,7 +16,7 @@ composite uploads.
 
 In NXRM 3.19, the Amazon S3 blobstore switched to using parallel uploads, see
 
-https://github.com/sonatype/nexus-public/blob/master/plugins/nexus-blobstore-s3/src/main/java/org/sonatype/nexus/blobstore/s3/internal/ParallelUploader.java
+https://github.com/sonatype/nexus-public/blob/main/plugins/nexus-blobstore-s3/src/main/java/org/sonatype/nexus/blobstore/s3/internal/ParallelUploader.java
 
 This switch has resulted in higher overall throughput for the S3 Blobstores (see https://issues.sonatype.org/browse/NEXUS-19566).
 The goal for this feature would be to replicate that parallel upload.
