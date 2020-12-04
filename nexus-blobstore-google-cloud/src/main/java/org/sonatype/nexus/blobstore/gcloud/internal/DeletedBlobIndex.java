@@ -19,18 +19,12 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
+import com.google.cloud.datastore.*;
 import org.sonatype.goodies.common.ComponentSupport;
 import org.sonatype.nexus.blobstore.api.BlobId;
 import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration;
 import org.sonatype.nexus.blobstore.gcloud.GoogleCloudProjectException;
 
-import com.google.cloud.datastore.Datastore;
-import com.google.cloud.datastore.DatastoreException;
-import com.google.cloud.datastore.Entity;
-import com.google.cloud.datastore.Key;
-import com.google.cloud.datastore.KeyFactory;
-import com.google.cloud.datastore.Query;
-import com.google.cloud.datastore.QueryResults;
 import com.google.common.collect.Lists;
 
 import static org.sonatype.nexus.blobstore.gcloud.internal.DatastoreKeyHierarchy.NAMESPACE_PREFIX;
@@ -94,6 +88,7 @@ class DeletedBlobIndex
     Key key = deletedBlobsKeyFactory.newKey(blobId.asUniqueString());
     Entity entity = Entity.newBuilder(key)
         .build();
+    // document write
     gcsDatastore.put(entity);
   }
 
@@ -110,17 +105,19 @@ class DeletedBlobIndex
    */
   void removeData() {
     log.warn("removing all entries in the index of soft-deleted blobs...");
-    Query<Entity> query = Query.newEntityQueryBuilder()
+    Query<Key> query = Query.newKeyQueryBuilder()
         .setNamespace(namespace)
         .setKind(DELETED_BLOBS)
         .build();
-    QueryResults<Entity> results = gcsDatastore.run(query);
+    // small operation - key only
+    QueryResults<Key> results = gcsDatastore.run(query);
     List<Key> keys = StreamSupport.stream(
         Spliterators.spliteratorUnknownSize(results, Spliterator.ORDERED),
-        false).map(entity -> entity.getKey()).collect(Collectors.toList());
+        false).collect(Collectors.toList());
 
     // datastore has a hard limit of 500 keys in a single delete
     List<List<Key>> partitions = Lists.partition(keys, 500);
+    // document delete
     partitions.stream().forEach(partition -> gcsDatastore.delete(partition.toArray(new Key[partition.size()])) );
 
     log.warn("deleted {} blobIds from the soft-deleted blob index", keys.size());
@@ -129,14 +126,15 @@ class DeletedBlobIndex
    * @return a (finite) {@link Stream} of {@link BlobId}s that have been soft-deleted.
    */
   Stream<BlobId> getContents() {
-    Query<Entity> query = Query.newEntityQueryBuilder()
+    Query<Key> query = Query.newKeyQueryBuilder()
         .setKind(DELETED_BLOBS)
         .setNamespace(namespace)
         .setLimit(WARN_LIMIT)
         .build();
-    QueryResults<Entity> results = gcsDatastore.run(query);
+    // small operation - key only query
+    QueryResults<Key> results = gcsDatastore.run(query);
     return StreamSupport.stream(
         Spliterators.spliteratorUnknownSize(results, Spliterator.ORDERED),
-        false).map(entity -> new BlobId(entity.getKey().getName()));
+        false).map(key -> new BlobId(key.getName()));
   }
 }

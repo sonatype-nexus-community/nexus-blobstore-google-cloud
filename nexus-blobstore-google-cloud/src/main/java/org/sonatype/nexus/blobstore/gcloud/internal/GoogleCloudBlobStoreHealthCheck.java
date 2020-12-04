@@ -57,7 +57,7 @@ public class GoogleCloudBlobStoreHealthCheck
 
     List<String> violations = new ArrayList<>();
     for(Entry<String, Long> entry: googleBlobstores.entrySet()) {
-      if (entry.getValue() > DeletedBlobIndex.WARN_LIMIT) {
+      if (entry.getValue() >= DeletedBlobIndex.WARN_LIMIT) {
         violations.add(format("%s has %s soft-deleted blobs awaiting compaction", entry.getKey(), entry.getValue()));
       }
     }
