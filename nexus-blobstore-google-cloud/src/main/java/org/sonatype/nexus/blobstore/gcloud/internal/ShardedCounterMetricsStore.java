@@ -153,15 +153,16 @@ class ShardedCounterMetricsStore
     BlobId sentinel = new BlobId("tmp$/sentinel");
     Key key = datastore.newKeyFactory().setKind(METRICS_STORE).newKey(sentinel.asUniqueString());
     Entity entity = Entity.newBuilder(shardRoot).setKey(key).build();
+    // document write
     datastore.put(entity);
+    // document delete
     datastore.delete(key);
   }
 
   void removeData() {
     log.warn("removing all Blobstore metrics data from datastore...");
     StreamSupport.stream(Spliterators.spliteratorUnknownSize(getShards(), Spliterator.ORDERED), false)
-        .map(entity -> entity.getKey())
-        .forEach( shard -> datastore.delete(shard));
+        .forEach(shardKey -> datastore.delete(shardKey));
     log.warn("Blobstore metrics data removed");
   }
 
@@ -201,6 +202,7 @@ class ShardedCounterMetricsStore
           .setProjection(fieldName)
           .build();
 
+      // small operation - projection query
       results = datastore.run(countQuery);
       return StreamSupport.stream(Spliterators.spliteratorUnknownSize(results, Spliterator.NONNULL), false)
           .map(entity -> Long.valueOf(entity.getLong(fieldName)))
@@ -219,6 +221,7 @@ class ShardedCounterMetricsStore
     );
     Key key = keyFactory.setNamespace(namespace)
         .setKind(SHARD).newKey(location);
+    // small operation - key only query
     Entity exists = datastore.get(key);
     if (exists != null) {
       log.trace("counter for {} already present", location);
@@ -232,6 +235,7 @@ class ShardedCounterMetricsStore
         .set(COUNT, LongValue.newBuilder(0L).build())
         .build();
 
+    // document write
     return datastore.put(entity);
   }
 
@@ -244,13 +248,14 @@ class ShardedCounterMetricsStore
     return StringUtils.split(location, "/")[0];
   }
 
-  private QueryResults<Entity> getShards() {
-    Query<Entity> shardQuery = Query.newEntityQueryBuilder()
+  private QueryResults<Key> getShards() {
+    Query<Key> shardQuery = Query.newKeyQueryBuilder()
         .setFilter(PropertyFilter.hasAncestor(shardRoot))
         .setNamespace(namespace)
         .setKind(SHARD)
         .build();
 
+    // small operation - key only query
     return datastore.run(shardQuery);
   }
 
@@ -277,6 +282,7 @@ class ShardedCounterMetricsStore
                 deltaA.getSizeDelta() + deltaB.getSizeDelta(),
                 deltaA.getCountDelta() + deltaB.getCountDelta())
         ).ifPresent(merged -> {
+          // document read
           Entity shardCounter = getShardCounter(merged.getShard());
           FullEntity<Key> entity = FullEntity.newBuilder(shardCounter.getKey())
               .set(SIZE, shardCounter.getLong(SIZE) + merged.getSizeDelta())
@@ -290,6 +296,7 @@ class ShardedCounterMetricsStore
       if (!list.isEmpty()) {
         Transaction txn = datastore.newTransaction();
         try {
+          // document write
           txn.put(list.toArray(new FullEntity[list.size()]));
           txn.commit();
         } finally {
