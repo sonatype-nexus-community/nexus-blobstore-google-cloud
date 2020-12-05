@@ -187,6 +187,12 @@ class ShardedCounterMetricsStore
     return new GoogleBlobStoreMetrics(count, size);
   }
 
+  /**
+   * This implementation uses a Projection query, which is classified as a small operation (and is free).
+   *
+   * @param fieldName numeric field
+   * @return returns the {@link Long} value for the numeric field
+   */
   private Long getCount(String fieldName) {
     Transaction txn = datastore.newTransaction(
         TransactionOptions.newBuilder()
@@ -229,7 +235,6 @@ class ShardedCounterMetricsStore
     }
 
     log.debug("creating metrics store counter shard for {}", location);
-    // otherwise make it
     Entity entity = Entity.newBuilder(key)
         .set(SIZE, LongValue.newBuilder(0L).build())
         .set(COUNT, LongValue.newBuilder(0L).build())
@@ -282,7 +287,6 @@ class ShardedCounterMetricsStore
                 deltaA.getSizeDelta() + deltaB.getSizeDelta(),
                 deltaA.getCountDelta() + deltaB.getCountDelta())
         ).ifPresent(merged -> {
-          // document read
           Entity shardCounter = getShardCounter(merged.getShard());
           FullEntity<Key> entity = FullEntity.newBuilder(shardCounter.getKey())
               .set(SIZE, shardCounter.getLong(SIZE) + merged.getSizeDelta())
@@ -296,7 +300,7 @@ class ShardedCounterMetricsStore
       if (!list.isEmpty()) {
         Transaction txn = datastore.newTransaction();
         try {
-          // document write
+          // batched write of at most 44 documents
           txn.put(list.toArray(new FullEntity[list.size()]));
           txn.commit();
         } finally {

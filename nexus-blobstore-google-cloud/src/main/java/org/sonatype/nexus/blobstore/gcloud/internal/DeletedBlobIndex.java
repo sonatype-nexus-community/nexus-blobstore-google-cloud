@@ -123,6 +123,12 @@ class DeletedBlobIndex
     log.warn("deleted {} blobIds from the soft-deleted blob index", keys.size());
   }
   /**
+   * The mechanics of Google Firestore necessitates the use of key-only queries. As the index can grow unbounded,
+   * and this method is used in healthchecks, a reads of all full Entities from this Kind can quickly pass free daily
+   * limits.
+   *
+   * This implementation out of necessity uses key-only queries to fall within Small Operations, which are free.
+   *
    * @return a (finite) {@link Stream} of {@link BlobId}s that have been soft-deleted.
    */
   Stream<BlobId> getContents() {
