@@ -21,6 +21,10 @@ This project adds [Google Cloud Object Storage](https://cloud.google.com/storage
 Repository 3 and later.  It allows Nexus Repository to store the components and assets in Google Cloud instead of a
 local filesystem.
 
+This plugin also uses [Google Firestore in Datastore mode](https://cloud.google.com/datastore/docs) to store some 
+metadata about the blobstore. The plugin prioritizes using [Small Operations](https://cloud.google.com/datastore/pricing),
+which have no financial cost, but do use some limited paid operations (read, write, delete) in a cost effective manner. 
+
 Which Version do I use?
 -----------------------
 
@@ -53,7 +57,7 @@ Google Cloud Services and IAM Roles
 This plugin uses the following Google Cloud Platform services:
 
 * [Google Cloud Storage](https://cloud.google.com/storage/) - for storing the content blobs
-* [Google Cloud Firestore](https://cloud.google.com/firestore/) - for storing blobstore metadata
+* [Google Cloud Firestore in Datastore mode](https://cloud.google.com/datastore/) - for storing blobstore metadata
 
 Firestore usage is exclusively in Datastore mode; you must configure the project for your Repository Manager deployment
 to use ["Firestore in Datastore mode"](https://cloud.google.com/firestore/docs/firestore-or-datastore).

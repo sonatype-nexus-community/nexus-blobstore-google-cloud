@@ -153,15 +153,16 @@ class ShardedCounterMetricsStore
     BlobId sentinel = new BlobId("tmp$/sentinel");
     Key key = datastore.newKeyFactory().setKind(METRICS_STORE).newKey(sentinel.asUniqueString());
     Entity entity = Entity.newBuilder(shardRoot).setKey(key).build();
+    // document write
     datastore.put(entity);
+    // document delete
     datastore.delete(key);
   }
 
   void removeData() {
     log.warn("removing all Blobstore metrics data from datastore...");
     StreamSupport.stream(Spliterators.spliteratorUnknownSize(getShards(), Spliterator.ORDERED), false)
-        .map(entity -> entity.getKey())
-        .forEach( shard -> datastore.delete(shard));
+        .forEach(shardKey -> datastore.delete(shardKey));
     log.warn("Blobstore metrics data removed");
   }
 
@@ -186,6 +187,12 @@ class ShardedCounterMetricsStore
     return new GoogleBlobStoreMetrics(count, size);
   }
 
+  /**
+   * This implementation uses a Projection query, which is classified as a small operation (and is free).
+   *
+   * @param fieldName numeric field
+   * @return returns the {@link Long} value for the numeric field
+   */
   private Long getCount(String fieldName) {
     Transaction txn = datastore.newTransaction(
         TransactionOptions.newBuilder()
@@ -201,6 +208,7 @@ class ShardedCounterMetricsStore
           .setProjection(fieldName)
           .build();
 
+      // small operation - projection query
       results = datastore.run(countQuery);
       return StreamSupport.stream(Spliterators.spliteratorUnknownSize(results, Spliterator.NONNULL), false)
           .map(entity -> Long.valueOf(entity.getLong(fieldName)))
@@ -219,6 +227,7 @@ class ShardedCounterMetricsStore
     );
     Key key = keyFactory.setNamespace(namespace)
         .setKind(SHARD).newKey(location);
+    // small operation - key only query
     Entity exists = datastore.get(key);
     if (exists != null) {
       log.trace("counter for {} already present", location);
@@ -226,12 +235,12 @@ class ShardedCounterMetricsStore
     }
 
     log.debug("creating metrics store counter shard for {}", location);
-    // otherwise make it
     Entity entity = Entity.newBuilder(key)
         .set(SIZE, LongValue.newBuilder(0L).build())
         .set(COUNT, LongValue.newBuilder(0L).build())
         .build();
 
+    // document write
     return datastore.put(entity);
   }
 
@@ -244,13 +253,14 @@ class ShardedCounterMetricsStore
     return StringUtils.split(location, "/")[0];
   }
 
-  private QueryResults<Entity> getShards() {
-    Query<Entity> shardQuery = Query.newEntityQueryBuilder()
+  private QueryResults<Key> getShards() {
+    Query<Key> shardQuery = Query.newKeyQueryBuilder()
         .setFilter(PropertyFilter.hasAncestor(shardRoot))
         .setNamespace(namespace)
         .setKind(SHARD)
         .build();
 
+    // small operation - key only query
     return datastore.run(shardQuery);
   }
 
@@ -290,6 +300,7 @@ class ShardedCounterMetricsStore
       if (!list.isEmpty()) {
         Transaction txn = datastore.newTransaction();
         try {
+          // batched write of at most 44 documents
           txn.put(list.toArray(new FullEntity[list.size()]));
           txn.commit();
         } finally {
