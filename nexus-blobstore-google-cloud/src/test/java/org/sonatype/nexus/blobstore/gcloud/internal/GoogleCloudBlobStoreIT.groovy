@@ -33,7 +33,7 @@ import org.sonatype.nexus.blobstore.quota.internal.SpaceUsedQuota
 import org.sonatype.nexus.common.hash.HashAlgorithm
 import org.sonatype.nexus.common.hash.MultiHashingInputStream
 import org.sonatype.nexus.common.log.DryRunPrefix
-import org.sonatype.nexus.repository.storage.TempBlob
+import org.sonatype.nexus.repository.view.payloads.TempBlob
 import org.sonatype.nexus.scheduling.PeriodicJobService
 import org.sonatype.nexus.scheduling.PeriodicJobService.PeriodicJob
 

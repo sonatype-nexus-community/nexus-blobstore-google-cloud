@@ -22,7 +22,6 @@ import org.sonatype.nexus.blobstore.MockBlobStoreConfiguration
 import org.sonatype.nexus.blobstore.api.Blob
 import org.sonatype.nexus.blobstore.api.BlobId
 import org.sonatype.nexus.blobstore.api.BlobStore
-import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration
 import org.sonatype.nexus.blobstore.api.BlobStoreException
 import org.sonatype.nexus.blobstore.quota.BlobStoreQuotaService
 import org.sonatype.nexus.common.log.DryRunPrefix
@@ -41,7 +40,6 @@ import com.google.cloud.datastore.Transaction
 import com.google.cloud.storage.Bucket
 import com.google.cloud.storage.Storage
 import com.google.cloud.storage.Storage.BlobListOption
-import com.google.cloud.storage.StorageClass
 import com.google.datastore.v1.QueryResultBatch.MoreResultsType
 import org.apache.commons.io.IOUtils
 import spock.lang.Specification
