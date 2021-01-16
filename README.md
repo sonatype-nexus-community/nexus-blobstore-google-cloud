@@ -32,6 +32,7 @@ For the best experience, you should upgrade your Nexus Repository Manager and Go
 
 | Nexus Repository Manager 3 Version | Google Cloud Storage Blobstore Version |
 | ---------------------------------- |--------------------------------------- |
+| 3.29                               | [Get 0.19.0](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.19.0/nexus-blobstore-google-cloud-0.19.0.kar) |
 | 3.28                               | [Get 0.18.1](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.18.1/nexus-blobstore-google-cloud-0.18.1.kar) |
 | 3.27                               | [Get 0.17.0](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.17.0/nexus-blobstore-google-cloud-0.17.0.kar) |
 | 3.26                               | [Get 0.16.0](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.16.0/nexus-blobstore-google-cloud-0.16.0.kar) |
@@ -41,13 +42,6 @@ For the best experience, you should upgrade your Nexus Repository Manager and Go
 | 3.22                               | [Get 0.12.0](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.12.0/nexus-blobstore-google-cloud-0.12.0.kar) |
 | 3.21                               | [Get 0.11.0](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.11.0/nexus-blobstore-google-cloud-0.11.0.kar) |
 | 3.20                               | [Get 0.10.2](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.10.2/nexus-blobstore-google-cloud-0.10.2-bundle.kar) |
-| 3.19                               | [Get 0.9.2](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.9.2/nexus-blobstore-google-cloud-0.9.2-bundle.kar) |
-| 3.18                               | [Get 0.8.0](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.8.0/nexus-blobstore-google-cloud-0.8.0-bundle.kar) |
-| 3.17                               | [Get 0.7.1](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.7.1/nexus-blobstore-google-cloud-0.7.1-bundle.kar) |
-| 3.16                               | [Get 0.6.1](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.6.1/nexus-blobstore-google-cloud-0.6.1-bundle.kar) |
-| 3.15                               | 0.4.0                                  |
-| 3.13, 3.14                         | 0.3.0                                  |
-| 3.11, 3.12                         | 0.2.0                                  |
 
 # Deploying the Plugin
 
