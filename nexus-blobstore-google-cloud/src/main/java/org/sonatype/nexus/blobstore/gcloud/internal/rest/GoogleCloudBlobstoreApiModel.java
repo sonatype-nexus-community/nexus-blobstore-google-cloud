@@ -14,15 +14,14 @@ package org.sonatype.nexus.blobstore.gcloud.internal.rest;
 
 import javax.validation.constraints.NotBlank;
 
+import org.apache.commons.lang.StringUtils;
 import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration;
 import org.sonatype.nexus.blobstore.rest.BlobStoreApiSoftQuota;
 import org.sonatype.nexus.common.collect.NestedAttributesMap;
 
 import io.swagger.annotations.ApiModelProperty;
 
-import static org.sonatype.nexus.blobstore.gcloud.internal.GoogleCloudBlobStore.BUCKET_KEY;
-import static org.sonatype.nexus.blobstore.gcloud.internal.GoogleCloudBlobStore.CONFIG_KEY;
-import static org.sonatype.nexus.blobstore.gcloud.internal.GoogleCloudBlobStore.LOCATION_KEY;
+import static org.sonatype.nexus.blobstore.gcloud.internal.GoogleCloudBlobStore.*;
 import static org.sonatype.nexus.blobstore.quota.BlobStoreQuotaSupport.LIMIT_KEY;
 import static org.sonatype.nexus.blobstore.quota.BlobStoreQuotaSupport.ROOT_KEY;
 import static org.sonatype.nexus.blobstore.quota.BlobStoreQuotaSupport.TYPE_KEY;
@@ -47,6 +46,9 @@ public class GoogleCloudBlobstoreApiModel
   @ApiModelProperty("Settings to control the soft quota.")
   private BlobStoreApiSoftQuota softQuota;
 
+  @ApiModelProperty("Path to the Google Application Credentials file")
+  private String credentialFilePath;
+
   public GoogleCloudBlobstoreApiModel() {
   }
 
@@ -54,6 +56,9 @@ public class GoogleCloudBlobstoreApiModel
     this.name = configuration.getName();
     this.bucketName = configuration.attributes(CONFIG_KEY).get(BUCKET_KEY, String.class);
     this.region = configuration.attributes(CONFIG_KEY).get(LOCATION_KEY, String.class);
+    if (StringUtils.isNotBlank(configuration.attributes(CONFIG_KEY).get(CREDENTIAL_FILE_KEY, String.class))) {
+      this.credentialFilePath = "<path is configured>";
+    };
 
     NestedAttributesMap softQuotaAttributes = configuration.attributes(ROOT_KEY);
     if (softQuotaAttributes != null) {
@@ -94,5 +99,13 @@ public class GoogleCloudBlobstoreApiModel
 
   public void setSoftQuota(final BlobStoreApiSoftQuota softQuota) {
     this.softQuota = softQuota;
+  }
+
+  public String getCredentialFilePath() {
+    return credentialFilePath;
+  }
+
+  public void setCredentialFilePath(String credentialFilePath) {
+    this.credentialFilePath = credentialFilePath;
   }
 }

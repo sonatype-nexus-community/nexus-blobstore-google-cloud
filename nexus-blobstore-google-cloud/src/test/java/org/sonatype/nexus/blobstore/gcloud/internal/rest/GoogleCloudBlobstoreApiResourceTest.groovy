@@ -80,8 +80,27 @@ class GoogleCloudBlobstoreApiResourceTest
       thrown(WebApplicationMessageException)
   }
 
+  def "merge handles credential_file"() {
+    given:
+      GoogleCloudBlobstoreApiModel model = new GoogleCloudBlobstoreApiModel();
+      model.setBucketName('bucketname')
+      model.setName('blobstorename')
+      model.setRegion('us-central1')
+      model.setCredentialFilePath('/path/to/a/file')
+      MockBlobStoreConfiguration config = new MockBlobStoreConfiguration()
+
+    when:
+      api.merge(config, model)
+
+    then:
+      config.attributes('google cloud storage').get('bucket') == model.bucketName
+      config.attributes('google cloud storage').get('location') == model.region
+      config.attributes('google cloud storage').get('credential_file') == model.credentialFilePath
+      config.name == model.name
+  }
+
   def makeConfig(String name) {
-    BlobStoreConfiguration result = new MockBlobStoreConfiguration()
+    MockBlobStoreConfiguration result = new MockBlobStoreConfiguration()
     result.name = name
     result.type = GoogleCloudBlobStore.TYPE
     result.attributes = [

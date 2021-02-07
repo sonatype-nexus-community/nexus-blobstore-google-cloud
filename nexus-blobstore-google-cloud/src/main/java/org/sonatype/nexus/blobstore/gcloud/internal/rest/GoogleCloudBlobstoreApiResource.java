@@ -39,9 +39,7 @@ import org.apache.shiro.authz.annotation.RequiresPermissions;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
-import static org.sonatype.nexus.blobstore.gcloud.internal.GoogleCloudBlobStore.BUCKET_KEY;
-import static org.sonatype.nexus.blobstore.gcloud.internal.GoogleCloudBlobStore.CONFIG_KEY;
-import static org.sonatype.nexus.blobstore.gcloud.internal.GoogleCloudBlobStore.LOCATION_KEY;
+import static org.sonatype.nexus.blobstore.gcloud.internal.GoogleCloudBlobStore.*;
 import static org.sonatype.nexus.blobstore.gcloud.internal.rest.GoogleCloudBlobstoreApiResource.RESOURCE_URI;
 import static org.sonatype.nexus.blobstore.quota.BlobStoreQuotaSupport.LIMIT_KEY;
 import static org.sonatype.nexus.blobstore.quota.BlobStoreQuotaSupport.ROOT_KEY;
@@ -143,6 +141,7 @@ public class GoogleCloudBlobstoreApiResource
     NestedAttributesMap bucket = config.attributes(CONFIG_KEY);
     bucket.set(BUCKET_KEY, blobstoreApiModel.getBucketName());
     bucket.set(LOCATION_KEY, blobstoreApiModel.getRegion());
+    bucket.set(CREDENTIAL_FILE_KEY, blobstoreApiModel.getCredentialFilePath());
 
     if (blobstoreApiModel.getSoftQuota() != null ) {
       NestedAttributesMap softQuota = config.attributes(ROOT_KEY);
