@@ -10,11 +10,6 @@ class GoogleCloudStorageFactoryTest extends Specification
 {
     private GoogleCloudStorageFactory factory = new GoogleCloudStorageFactory()
 
-    def setupSpec() {
-        def key = "GOOGLE_APPLICATION_CREDENTIALS"
-        System.out.println(key + "" + System.getenv(key))
-    }
-
     def "create default" () {
         given:
             MockBlobStoreConfiguration config = makeConfig('default', null)
