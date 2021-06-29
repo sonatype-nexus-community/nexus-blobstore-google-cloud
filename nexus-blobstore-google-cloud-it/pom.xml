@@ -34,6 +34,12 @@
       <groupId>org.sonatype.nexus</groupId>
       <artifactId>nexus-pax-exam</artifactId>
       <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>org.ops4j.pax.url</groupId>
+          <artifactId>pax-url-aether</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>org.ops4j.pax.exam</groupId>
@@ -93,6 +99,18 @@
         <exclusion>
           <groupId>org.sonatype.nexus.assemblies</groupId>
           <artifactId>nexus-cma-community</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.ops4j.pax.logging</groupId>
+          <artifactId>pax-logging-api</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.ops4j.pax.logging</groupId>
+          <artifactId>pax-logging-log4j2</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.ops4j.pax.url</groupId>
+          <artifactId>pax-url-aether-support</artifactId>
         </exclusion>
       </exclusions>
     </dependency>
