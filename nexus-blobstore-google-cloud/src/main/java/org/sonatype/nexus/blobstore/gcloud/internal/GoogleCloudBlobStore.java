@@ -16,6 +16,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.channels.Channels;
 import java.nio.file.Path;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -35,15 +39,7 @@ import org.sonatype.nexus.blobstore.BlobSupport;
 import org.sonatype.nexus.blobstore.DefaultBlobIdLocationResolver;
 import org.sonatype.nexus.blobstore.MetricsInputStream;
 import org.sonatype.nexus.blobstore.StreamMetrics;
-import org.sonatype.nexus.blobstore.api.Blob;
-import org.sonatype.nexus.blobstore.api.BlobAttributes;
-import org.sonatype.nexus.blobstore.api.BlobId;
-import org.sonatype.nexus.blobstore.api.BlobMetrics;
-import org.sonatype.nexus.blobstore.api.BlobStore;
-import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration;
-import org.sonatype.nexus.blobstore.api.BlobStoreException;
-import org.sonatype.nexus.blobstore.api.BlobStoreMetrics;
-import org.sonatype.nexus.blobstore.api.BlobStoreUsageChecker;
+import org.sonatype.nexus.blobstore.api.*;
 import org.sonatype.nexus.blobstore.gcloud.GoogleCloudProjectException;
 import org.sonatype.nexus.blobstore.quota.BlobStoreQuotaService;
 import org.sonatype.nexus.common.log.DryRunPrefix;
@@ -103,8 +99,6 @@ public class GoogleCloudBlobStore
 
   public static final String LOCATION_KEY = "location";
 
-  public static final String BLOB_CONTENT_SUFFIX = ".bytes";
-
   static final String CONTENT_PREFIX = "content";
 
   public static final String METADATA_FILENAME = "metadata.properties";
@@ -144,6 +138,8 @@ public class GoogleCloudBlobStore
   private PeriodicJob flushJob;
 
   private static final int FLUSH_FREQUENCY_IN_SECONDS = 5;
+
+  private final RawObjectAccess rawObjectAccess = new UnimplementedRawObjectAccess();
 
   @Inject
   public GoogleCloudBlobStore(final GoogleCloudStorageFactory storageFactory,
@@ -473,7 +469,7 @@ public class GoogleCloudBlobStore
 
   private Stream<BlobId> getBlobIdStream(final String subpath) {
     return blobStream(subpath)
-        .filter(blob -> blob.getName().endsWith(BLOB_ATTRIBUTE_SUFFIX))
+        .filter(blob -> blob.getName().endsWith(BLOB_FILE_ATTRIBUTES_SUFFIX))
         .map(GoogleAttributesLocation::new)
         .map(this::getBlobIdFromAttributeFilePath)
         .map(BlobId::new);
@@ -481,6 +477,11 @@ public class GoogleCloudBlobStore
 
   Stream<BlobInfo> blobStream(final String path) {
     return stream(bucket.list(BlobListOption.prefix(path)).iterateAll()).map(c -> c);
+  }
+
+  Stream<BlobInfo> nonTempBlobPropertiesFileStream(final Stream<BlobInfo> stream) {
+    return stream.filter(o -> o.getBlobId().getName().endsWith(BLOB_FILE_ATTRIBUTES_SUFFIX))
+            .filter(o -> !o.getBlobId().getName().contains(CONTENT_TMP_PATH));
   }
 
   /**
@@ -494,7 +495,7 @@ public class GoogleCloudBlobStore
   protected String getBlobIdFromAttributeFilePath(final GoogleAttributesLocation attributesLocation) {
     if (attributesLocation.getFileName().startsWith(DefaultBlobIdLocationResolver.TEMPORARY_BLOB_ID_PREFIX)) {
       String name = attributesLocation.getFileName();
-      return StringUtils.removeEnd(name.substring(name.lastIndexOf('/') + 1), BLOB_ATTRIBUTE_SUFFIX);
+      return StringUtils.removeEnd(name.substring(name.lastIndexOf('/') + 1), BLOB_FILE_ATTRIBUTES_SUFFIX);
     }
     return super.getBlobIdFromAttributeFilePath(attributesLocation);
   }
@@ -563,6 +564,29 @@ public class GoogleCloudBlobStore
     catch (StorageException e) {
       throw new BlobStoreException("failed to retrive User ACL for " + getConfiguredBucketName(), e, null);
     }
+  }
+
+  @Override
+  public RawObjectAccess getRawObjectAccess() {
+    return rawObjectAccess;
+  }
+
+  @Override
+  public Stream<BlobId> getBlobIdUpdatedSinceStream(int sinceDays) {
+    if (sinceDays < 0) {
+      throw new IllegalArgumentException("sinceDays must >= 0");
+    }
+    OffsetDateTime offsetDateTime = Instant.now().minus(sinceDays, ChronoUnit.DAYS).atOffset(ZoneOffset.UTC);
+    return getBlobIdUpdatedSinceStream(offsetDateTime);
+  }
+
+  @VisibleForTesting
+  Stream<BlobId> getBlobIdUpdatedSinceStream(OffsetDateTime offsetDateTime) {
+    return nonTempBlobPropertiesFileStream(blobStream(CONTENT_PREFIX))
+            .filter(blobInfo -> Instant.ofEpochMilli(blobInfo.getUpdateTime()).atOffset(ZoneOffset.UTC).isAfter(offsetDateTime))
+            .map(GoogleAttributesLocation::new)
+            .map(this::getBlobIdFromAttributeFilePath)
+            .map(BlobId::new);
   }
 
   Blob createInternal(final Map<String, String> headers,
@@ -642,14 +666,14 @@ public class GoogleCloudBlobStore
    * Returns path for blob-id content file relative to root directory.
    */
   private String contentPath(final BlobId id) {
-    return getLocation(id) + BLOB_CONTENT_SUFFIX;
+    return getLocation(id) + BLOB_FILE_CONTENT_SUFFIX;
   }
 
   /**
    * Returns path for blob-id attribute file relative to root directory.
    */
   private String attributePath(final BlobId id) {
-    return getLocation(id) + BLOB_ATTRIBUTE_SUFFIX;
+    return getLocation(id) + BLOB_FILE_ATTRIBUTES_SUFFIX;
   }
 
   /**
