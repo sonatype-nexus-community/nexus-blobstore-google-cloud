@@ -12,6 +12,9 @@
  */
 package org.sonatype.nexus.blobstore.gcloud.internal
 
+import java.time.Instant
+import java.time.OffsetDateTime
+import java.time.ZoneOffset
 import java.util.function.Predicate
 import java.util.stream.Collectors
 import java.util.stream.Stream
@@ -501,6 +504,37 @@ class GoogleCloudBlobStoreIT
       cleanupBucket(config2, bucket2)
   }
 
+  def "getRawObjectAccess is unsupported"() {
+    when:
+      blobStore.rawObjectAccess.getRawObject()
+    then:
+      thrown UnsupportedOperationException
+  }
+
+  def "getBlobIdUpdatedSinceStream matches expectations"() {
+    given:
+      OffsetDateTime prior = Instant.now().atOffset(ZoneOffset.UTC)
+      Blob blob = blobStore.create(new ByteArrayInputStream('hello'.getBytes()),
+            [ (BlobStore.BLOB_NAME_HEADER): 'foo',
+              (BlobStore.CREATED_BY_HEADER): 'someuser' ] )
+      assert blob != null
+      BlobAttributes attributes = blobStore.getBlobAttributes(blob.id)
+      assert attributes != null
+
+      OffsetDateTime after = Instant.now().atOffset(ZoneOffset.UTC);
+
+    when:
+      Stream<BlobId> updatedPrior = blobStore.getBlobIdUpdatedSinceStream(prior)
+      Stream<BlobId> updatedAfter = blobStore.getBlobIdUpdatedSinceStream(after)
+
+    then:
+      updatedPrior.anyMatch({ id -> blob.id == id} )
+      !updatedAfter.anyMatch({ id -> blob.id == id} )
+
+    cleanup:
+      blobStore.deleteHard(blob.id)
+  }
+
   def makeConfig(String name, String bucket) {
     config.name = name
     config.attributes = [
@@ -530,12 +564,5 @@ class GoogleCloudBlobStoreIT
         .forEach({ b -> b.delete(BlobSourceOption.generationMatch()) })
     storage.delete(bucket)
     log.info("bucket ${bucket} deleted")
-  }
-
-  def createFile(Storage storage, String path, long size) {
-    byte [] content = new byte[size]
-    new Random().nextBytes(content)
-    storage.create(BlobInfo.newBuilder(bucketName, path).build(),
-      content)
   }
 }
