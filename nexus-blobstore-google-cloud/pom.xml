@@ -19,7 +19,7 @@
   <parent>
     <groupId>org.sonatype.nexus.plugins</groupId>
     <artifactId>nexus-blobstore-google-cloud-parent</artifactId>
-    <version>0.21.0-SNAPSHOT</version>
+    <version>0.21.0</version>
   </parent>
 
   <artifactId>nexus-blobstore-google-cloud</artifactId>
