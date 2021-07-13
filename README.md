@@ -32,6 +32,7 @@ For the best experience, you should upgrade your Nexus Repository Manager and Go
 
 | Nexus Repository Manager 3 Version | Google Cloud Storage Blobstore Version |
 | ---------------------------------- |--------------------------------------- |
+| 3.32                               | [Get 0.22.0](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.22.0/nexus-blobstore-google-cloud-0.22.0.kar) |
 | 3.31                               | [Get 0.21.0](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.21.0/nexus-blobstore-google-cloud-0.21.0.kar) |
 | 3.30                               | [Get 0.20.0](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.20.0/nexus-blobstore-google-cloud-0.20.0.kar) |
 | 3.29                               | [Get 0.19.1](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.19.1/nexus-blobstore-google-cloud-0.19.1.kar) |
