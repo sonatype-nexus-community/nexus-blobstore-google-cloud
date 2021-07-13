@@ -89,6 +89,11 @@ public class GoogleCloudBlobStoreDescriptor
   public String getName() {
     return messages.name();
   }
+  
+  // Normally we would mark this as @Override, but that will cause problems on older nxrm versions
+  public String getId() {
+    return "google";
+  }
 
   @Override
   public List<FormField> getFormFields() {
