@@ -29,6 +29,7 @@ import org.sonatype.goodies.common.ComponentSupport;
 import org.sonatype.nexus.blobstore.api.BlobStore;
 import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration;
 import org.sonatype.nexus.blobstore.api.BlobStoreManager;
+import org.sonatype.nexus.blobstore.gcloud.internal.GoogleCloudBlobAttributesHelper;
 import org.sonatype.nexus.blobstore.gcloud.internal.GoogleCloudBlobStore;
 import org.sonatype.nexus.common.collect.NestedAttributesMap;
 import org.sonatype.nexus.rest.Resource;
@@ -39,7 +40,11 @@ import org.apache.shiro.authz.annotation.RequiresPermissions;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
-import static org.sonatype.nexus.blobstore.gcloud.internal.GoogleCloudBlobStore.*;
+import static org.sonatype.nexus.blobstore.gcloud.internal.GoogleCloudBlobAttributesHelper.BUCKET_KEY;
+import static org.sonatype.nexus.blobstore.gcloud.internal.GoogleCloudBlobAttributesHelper.CREDENTIAL_FILE_KEY;
+import static org.sonatype.nexus.blobstore.gcloud.internal.GoogleCloudBlobAttributesHelper.LOCATION_KEY;
+import static org.sonatype.nexus.blobstore.gcloud.internal.GoogleCloudBlobAttributesHelper.clearOldAttributes;
+import static org.sonatype.nexus.blobstore.gcloud.internal.GoogleCloudBlobStore.CONFIG_KEY;
 import static org.sonatype.nexus.blobstore.gcloud.internal.rest.GoogleCloudBlobstoreApiResource.RESOURCE_URI;
 import static org.sonatype.nexus.blobstore.quota.BlobStoreQuotaSupport.LIMIT_KEY;
 import static org.sonatype.nexus.blobstore.quota.BlobStoreQuotaSupport.ROOT_KEY;
@@ -139,6 +144,7 @@ public class GoogleCloudBlobstoreApiResource
   void merge(BlobStoreConfiguration config, GoogleCloudBlobstoreApiModel blobstoreApiModel) {
     config.setName(blobstoreApiModel.getName());
     NestedAttributesMap bucket = config.attributes(CONFIG_KEY);
+    clearOldAttributes(config);
     bucket.set(BUCKET_KEY, blobstoreApiModel.getBucketName());
     bucket.set(LOCATION_KEY, blobstoreApiModel.getRegion());
     bucket.set(CREDENTIAL_FILE_KEY, blobstoreApiModel.getCredentialFilePath());

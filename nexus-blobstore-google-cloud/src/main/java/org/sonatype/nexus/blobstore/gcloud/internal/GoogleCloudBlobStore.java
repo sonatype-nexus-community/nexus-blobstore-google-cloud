@@ -39,7 +39,17 @@ import org.sonatype.nexus.blobstore.BlobSupport;
 import org.sonatype.nexus.blobstore.DefaultBlobIdLocationResolver;
 import org.sonatype.nexus.blobstore.MetricsInputStream;
 import org.sonatype.nexus.blobstore.StreamMetrics;
-import org.sonatype.nexus.blobstore.api.*;
+import org.sonatype.nexus.blobstore.api.Blob;
+import org.sonatype.nexus.blobstore.api.BlobAttributes;
+import org.sonatype.nexus.blobstore.api.BlobId;
+import org.sonatype.nexus.blobstore.api.BlobMetrics;
+import org.sonatype.nexus.blobstore.api.BlobStore;
+import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration;
+import org.sonatype.nexus.blobstore.api.BlobStoreException;
+import org.sonatype.nexus.blobstore.api.BlobStoreMetrics;
+import org.sonatype.nexus.blobstore.api.BlobStoreUsageChecker;
+import org.sonatype.nexus.blobstore.api.RawObjectAccess;
+import org.sonatype.nexus.blobstore.api.UnimplementedRawObjectAccess;
 import org.sonatype.nexus.blobstore.gcloud.GoogleCloudProjectException;
 import org.sonatype.nexus.blobstore.quota.BlobStoreQuotaService;
 import org.sonatype.nexus.common.log.DryRunPrefix;
@@ -75,6 +85,8 @@ import static com.google.common.cache.CacheLoader.from;
 import static com.google.common.collect.Streams.stream;
 import static java.lang.String.format;
 import static org.sonatype.nexus.blobstore.DirectPathLocationStrategy.DIRECT_PATH_ROOT;
+import static org.sonatype.nexus.blobstore.gcloud.internal.GoogleCloudBlobAttributesHelper.requireConfiguredBucketName;
+import static org.sonatype.nexus.blobstore.gcloud.internal.GoogleCloudBlobAttributesHelper.requireConfiguredRegion;
 import static org.sonatype.nexus.blobstore.quota.BlobStoreQuotaSupport.createQuotaCheckJob;
 import static org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport.State.FAILED;
 import static org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport.State.NEW;
@@ -92,12 +104,6 @@ public class GoogleCloudBlobStore
   public static final String TYPE = "Google Cloud Storage";
 
   public static final String CONFIG_KEY = TYPE.toLowerCase();
-
-  public static final String BUCKET_KEY = "bucket";
-
-  public static final String CREDENTIAL_FILE_KEY = "credential_file";
-
-  public static final String LOCATION_KEY = "location";
 
   static final String CONTENT_PREFIX = "content";
 
@@ -218,7 +224,7 @@ public class GoogleCloudBlobStore
       try (InputStream data = blobData) {
         MetricsInputStream input = new MetricsInputStream(data);
 
-        uploader.upload(storage, getConfiguredBucketName(), destination, input);
+        uploader.upload(storage, requireConfiguredBucketName(blobStoreConfiguration), destination, input);
         return input.getMetrics();
       }
     }, blobId);
@@ -236,7 +242,7 @@ public class GoogleCloudBlobStore
     GoogleCloudStorageBlob sourceBlob = (GoogleCloudStorageBlob) checkNotNull(get(blobId));
 
     return createInternal(headers, destination -> {
-      sourceBlob.getBlob().copyTo(getConfiguredBucketName(), destination);
+      sourceBlob.getBlob().copyTo(requireConfiguredBucketName(blobStoreConfiguration), destination);
       BlobMetrics metrics = sourceBlob.getMetrics();
       return new StreamMetrics(metrics.getContentSize(), metrics.getSha1Hash());
     }, null);
@@ -332,12 +338,12 @@ public class GoogleCloudBlobStore
     try {
       log.debug("Hard deleting blob {}", blobId);
 
-      boolean blobDeleted = storage.delete(getConfiguredBucketName(), contentPath(blobId));
+      boolean blobDeleted = storage.delete(requireConfiguredBucketName(blobStoreConfiguration), contentPath(blobId));
       if (blobDeleted) {
         String attributePath = attributePath(blobId);
         BlobAttributes attributes = getBlobAttributes(blobId);
         metricsStore.recordDeletion(blobId, attributes.getMetrics().getContentSize());
-        storage.delete(getConfiguredBucketName(), attributePath);
+        storage.delete(requireConfiguredBucketName(blobStoreConfiguration), attributePath);
         deletedBlobIndex.remove(blobId);
       }
 
@@ -396,11 +402,10 @@ public class GoogleCloudBlobStore
     try {
       this.storage = storageFactory.create(blobStoreConfiguration);
 
-      String location = configuration.attributes(CONFIG_KEY).get(LOCATION_KEY, String.class);
-      this.bucket = getOrCreateStorageBucket(location);
+      this.bucket = getOrCreateStorageBucket(requireConfiguredRegion(blobStoreConfiguration));
     }
     catch (Exception e) {
-      throw new GoogleCloudProjectException("Unable to initialize blob store bucket: " + getConfiguredBucketName(), e);
+      throw new GoogleCloudProjectException("Unable to initialize blob store bucket: " + requireConfiguredBucketName(blobStoreConfiguration), e);
     }
 
     initializeMetadataStores();
@@ -433,10 +438,10 @@ public class GoogleCloudBlobStore
   }
 
   protected Bucket getOrCreateStorageBucket(final String location) {
-    Bucket bucket = storage.get(getConfiguredBucketName());
+    Bucket bucket = storage.get(requireConfiguredBucketName(blobStoreConfiguration));
     if (bucket == null) {
       bucket = storage.create(
-          BucketInfo.newBuilder(getConfiguredBucketName())
+          BucketInfo.newBuilder(requireConfiguredBucketName(blobStoreConfiguration))
               .setLocation(location)
               .setStorageClass(StorageClass.REGIONAL)
               .build());
@@ -557,12 +562,12 @@ public class GoogleCloudBlobStore
   @Guarded(by = STARTED)
   public boolean isWritable() {
     try {
-      List<Boolean> results = storage.testIamPermissions(getConfiguredBucketName(),
+      List<Boolean> results = storage.testIamPermissions(requireConfiguredBucketName(blobStoreConfiguration),
           Arrays.asList("storage.objects.create", "storage.objects.delete"));
       return !results.contains(false);
     }
     catch (StorageException e) {
-      throw new BlobStoreException("failed to retrive User ACL for " + getConfiguredBucketName(), e, null);
+      throw new BlobStoreException("failed to retrive User ACL for " + requireConfiguredBucketName(blobStoreConfiguration), e, null);
     }
   }
 
@@ -655,7 +660,7 @@ public class GoogleCloudBlobStore
    */
   private void deleteNonExplosively(final String contentPath) {
     try {
-      storage.delete(getConfiguredBucketName(), contentPath);
+      storage.delete(requireConfiguredBucketName(blobStoreConfiguration), contentPath);
     }
     catch (Exception e) {
       log.warn("caught exception attempting to delete during cleanup", e);
@@ -681,10 +686,6 @@ public class GoogleCloudBlobStore
    */
   private String getLocation(final BlobId id) {
     return CONTENT_PREFIX + "/" + blobIdLocationResolver.getLocation(id);
-  }
-
-  private String getConfiguredBucketName() {
-    return blobStoreConfiguration.attributes(CONFIG_KEY).require(BUCKET_KEY).toString();
   }
 
   class GoogleCloudStorageBlob

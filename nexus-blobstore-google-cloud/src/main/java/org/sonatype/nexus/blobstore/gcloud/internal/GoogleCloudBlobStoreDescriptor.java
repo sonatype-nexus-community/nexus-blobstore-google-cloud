@@ -25,6 +25,10 @@ import org.sonatype.nexus.blobstore.quota.BlobStoreQuotaService;
 import org.sonatype.nexus.formfields.FormField;
 import org.sonatype.nexus.formfields.StringTextFormField;
 
+import static org.sonatype.nexus.blobstore.gcloud.internal.GoogleCloudBlobAttributesHelper.BUCKET_KEY;
+import static org.sonatype.nexus.blobstore.gcloud.internal.GoogleCloudBlobAttributesHelper.CREDENTIAL_FILE_KEY;
+import static org.sonatype.nexus.blobstore.gcloud.internal.GoogleCloudBlobAttributesHelper.LOCATION_KEY;
+
 @Named(GoogleCloudBlobStore.TYPE)
 public class GoogleCloudBlobStoreDescriptor
     extends BlobStoreDescriptorSupport
@@ -64,21 +68,21 @@ public class GoogleCloudBlobStoreDescriptor
   public GoogleCloudBlobStoreDescriptor(final BlobStoreQuotaService quotaService) {
     super(quotaService);
     bucket = new StringTextFormField(
-        GoogleCloudBlobStore.BUCKET_KEY,
+        BUCKET_KEY,
         messages.bucketName(),
         messages.bucketHelp(),
         FormField.MANDATORY
     );
 
     location = new StringTextFormField(
-        GoogleCloudBlobStore.LOCATION_KEY,
+        LOCATION_KEY,
         messages.locationName(),
         messages.locationHelp(),
         FormField.MANDATORY
     ).withInitialValue("us-central1");
 
     credentialFile = new StringTextFormField(
-        GoogleCloudBlobStore.CREDENTIAL_FILE_KEY,
+        CREDENTIAL_FILE_KEY,
         messages.credentialPath(),
         messages.credentialHelp(),
         FormField.OPTIONAL

@@ -21,7 +21,9 @@ import org.sonatype.nexus.common.collect.NestedAttributesMap;
 
 import io.swagger.annotations.ApiModelProperty;
 
-import static org.sonatype.nexus.blobstore.gcloud.internal.GoogleCloudBlobStore.*;
+import static org.sonatype.nexus.blobstore.gcloud.internal.GoogleCloudBlobAttributesHelper.requireConfiguredBucketName;
+import static org.sonatype.nexus.blobstore.gcloud.internal.GoogleCloudBlobAttributesHelper.getConfiguredCredentialFileLocation;
+import static org.sonatype.nexus.blobstore.gcloud.internal.GoogleCloudBlobAttributesHelper.requireConfiguredRegion;
 import static org.sonatype.nexus.blobstore.quota.BlobStoreQuotaSupport.LIMIT_KEY;
 import static org.sonatype.nexus.blobstore.quota.BlobStoreQuotaSupport.ROOT_KEY;
 import static org.sonatype.nexus.blobstore.quota.BlobStoreQuotaSupport.TYPE_KEY;
@@ -54,9 +56,9 @@ public class GoogleCloudBlobstoreApiModel
 
   GoogleCloudBlobstoreApiModel(BlobStoreConfiguration configuration) {
     this.name = configuration.getName();
-    this.bucketName = configuration.attributes(CONFIG_KEY).get(BUCKET_KEY, String.class);
-    this.region = configuration.attributes(CONFIG_KEY).get(LOCATION_KEY, String.class);
-    if (StringUtils.isNotBlank(configuration.attributes(CONFIG_KEY).get(CREDENTIAL_FILE_KEY, String.class))) {
+    this.bucketName = requireConfiguredBucketName(configuration);
+    this.region = requireConfiguredRegion(configuration);
+    if (StringUtils.isNotBlank(getConfiguredCredentialFileLocation(configuration))) {
       this.credentialFilePath = "<path is configured>";
     };
 

@@ -23,8 +23,7 @@ import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageOptions;
 import org.apache.shiro.util.StringUtils;
 
-import static org.sonatype.nexus.blobstore.gcloud.internal.GoogleCloudBlobStore.CONFIG_KEY;
-import static org.sonatype.nexus.blobstore.gcloud.internal.GoogleCloudBlobStore.CREDENTIAL_FILE_KEY;
+import static org.sonatype.nexus.blobstore.gcloud.internal.GoogleCloudBlobAttributesHelper.getConfiguredCredentialFileLocation;
 
 @Named
 public class GoogleCloudStorageFactory extends AbstractGoogleClientFactory
@@ -33,7 +32,7 @@ public class GoogleCloudStorageFactory extends AbstractGoogleClientFactory
   Storage create(final BlobStoreConfiguration configuration) throws Exception {
     StorageOptions.Builder builder = StorageOptions.newBuilder().setTransportOptions(transportOptions());
 
-    String credentialFile = configuration.attributes(CONFIG_KEY).get(CREDENTIAL_FILE_KEY, String.class);
+    String credentialFile = getConfiguredCredentialFileLocation(configuration);
     if (StringUtils.hasText(credentialFile)) {
       ServiceAccountCredentials credentials = ServiceAccountCredentials.fromStream(new FileInputStream(credentialFile));
       logger.debug("loaded {} from {} for Google storage client", credentials, credentialFile);
