@@ -33,8 +33,21 @@ public class GoogleCloudBlobAttributesHelper
 
   public static final String LOCATION_KEY = "region";
 
-  public static void clearOldAttributes(final BlobStoreConfiguration blobStoreConfiguration) {
+  public static void moveOldAttributes(final BlobStoreConfiguration blobStoreConfiguration) {
     NestedAttributesMap config = blobStoreConfiguration.attributes(CONFIG_KEY);
+
+    if (!config.contains(BUCKET_KEY)) {
+      config.set(BUCKET_KEY, config.get(OLD_BUCKET_KEY));
+    }
+
+    if (!config.contains(LOCATION_KEY)) {
+      config.set(LOCATION_KEY, OLD_LOCATION_KEY);
+    }
+
+    if (!config.contains(CREDENTIAL_FILE_KEY)) {
+      config.set(CREDENTIAL_FILE_KEY, OLD_CREDENTIAL_FILE_KEY);
+    }
+
     config.remove(OLD_BUCKET_KEY);
     config.remove(OLD_LOCATION_KEY);
     config.remove(OLD_CREDENTIAL_FILE_KEY);

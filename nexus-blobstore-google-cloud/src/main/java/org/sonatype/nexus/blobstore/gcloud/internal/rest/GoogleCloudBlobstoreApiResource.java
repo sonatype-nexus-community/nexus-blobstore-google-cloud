@@ -43,8 +43,8 @@ import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 import static org.sonatype.nexus.blobstore.gcloud.internal.GoogleCloudBlobAttributesHelper.BUCKET_KEY;
 import static org.sonatype.nexus.blobstore.gcloud.internal.GoogleCloudBlobAttributesHelper.CREDENTIAL_FILE_KEY;
 import static org.sonatype.nexus.blobstore.gcloud.internal.GoogleCloudBlobAttributesHelper.LOCATION_KEY;
-import static org.sonatype.nexus.blobstore.gcloud.internal.GoogleCloudBlobAttributesHelper.clearOldAttributes;
 import static org.sonatype.nexus.blobstore.gcloud.internal.GoogleCloudBlobStore.CONFIG_KEY;
+import static org.sonatype.nexus.blobstore.gcloud.internal.rest.GoogleCloudBlobstoreApiModel.CREDENTIAL_FILE_PATH_PLACEHOLDER;
 import static org.sonatype.nexus.blobstore.gcloud.internal.rest.GoogleCloudBlobstoreApiResource.RESOURCE_URI;
 import static org.sonatype.nexus.blobstore.quota.BlobStoreQuotaSupport.LIMIT_KEY;
 import static org.sonatype.nexus.blobstore.quota.BlobStoreQuotaSupport.ROOT_KEY;
@@ -144,10 +144,12 @@ public class GoogleCloudBlobstoreApiResource
   void merge(BlobStoreConfiguration config, GoogleCloudBlobstoreApiModel blobstoreApiModel) {
     config.setName(blobstoreApiModel.getName());
     NestedAttributesMap bucket = config.attributes(CONFIG_KEY);
-    clearOldAttributes(config);
+    GoogleCloudBlobAttributesHelper.moveOldAttributes(config);
     bucket.set(BUCKET_KEY, blobstoreApiModel.getBucketName());
     bucket.set(LOCATION_KEY, blobstoreApiModel.getRegion());
-    bucket.set(CREDENTIAL_FILE_KEY, blobstoreApiModel.getCredentialFilePath());
+    if (!CREDENTIAL_FILE_PATH_PLACEHOLDER.equals(blobstoreApiModel.getCredentialFilePath())) {
+      bucket.set(CREDENTIAL_FILE_KEY, blobstoreApiModel.getCredentialFilePath());
+    }
 
     if (blobstoreApiModel.getSoftQuota() != null ) {
       NestedAttributesMap softQuota = config.attributes(ROOT_KEY);

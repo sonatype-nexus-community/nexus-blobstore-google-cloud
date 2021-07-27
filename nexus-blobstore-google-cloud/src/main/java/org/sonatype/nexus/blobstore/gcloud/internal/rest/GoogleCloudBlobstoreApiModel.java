@@ -33,6 +33,8 @@ import static org.sonatype.nexus.blobstore.quota.BlobStoreQuotaSupport.TYPE_KEY;
  */
 public class GoogleCloudBlobstoreApiModel
 {
+  public static final String CREDENTIAL_FILE_PATH_PLACEHOLDER = "<path is configured>";
+
   @NotBlank
   @ApiModelProperty("The name of the blob store")
   private String name;
@@ -59,7 +61,7 @@ public class GoogleCloudBlobstoreApiModel
     this.bucketName = requireConfiguredBucketName(configuration);
     this.region = requireConfiguredRegion(configuration);
     if (StringUtils.isNotBlank(getConfiguredCredentialFileLocation(configuration))) {
-      this.credentialFilePath = "<path is configured>";
+      this.credentialFilePath = CREDENTIAL_FILE_PATH_PLACEHOLDER;
     };
 
     NestedAttributesMap softQuotaAttributes = configuration.attributes(ROOT_KEY);
