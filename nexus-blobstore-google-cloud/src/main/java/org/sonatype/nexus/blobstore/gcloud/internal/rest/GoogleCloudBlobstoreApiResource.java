@@ -154,8 +154,7 @@ public class GoogleCloudBlobstoreApiResource
     if (blobstoreApiModel.getSoftQuota() != null ) {
       NestedAttributesMap softQuota = config.attributes(ROOT_KEY);
       softQuota.set(TYPE_KEY, checkNotNull(blobstoreApiModel.getSoftQuota().getType()));
-      final Long softQuotaLimit = checkNotNull(blobstoreApiModel.getSoftQuota().getLimit());
-      softQuota.set(LIMIT_KEY, softQuotaLimit * ONE_MILLION);
+      softQuota.set(LIMIT_KEY, checkNotNull(blobstoreApiModel.getSoftQuota().getLimit()));
     }
   }
 }
