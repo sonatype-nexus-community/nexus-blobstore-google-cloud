@@ -151,10 +151,14 @@ public class GoogleCloudBlobstoreApiResource
       bucket.set(CREDENTIAL_FILE_KEY, blobstoreApiModel.getCredentialFilePath());
     }
 
+    NestedAttributesMap softQuota = config.attributes(ROOT_KEY);
     if (blobstoreApiModel.getSoftQuota() != null ) {
-      NestedAttributesMap softQuota = config.attributes(ROOT_KEY);
       softQuota.set(TYPE_KEY, checkNotNull(blobstoreApiModel.getSoftQuota().getType()));
       softQuota.set(LIMIT_KEY, checkNotNull(blobstoreApiModel.getSoftQuota().getLimit()));
+    }
+    else {
+      softQuota.remove(TYPE_KEY);
+      softQuota.remove(LIMIT_KEY);
     }
   }
 }
