@@ -44,6 +44,7 @@ public class GoogleCloudBlobAttributes
     return true;
   }
 
+  @Override
   public void store() throws IOException {
     writeTo(propertiesFile);
     propertiesFile.store();
