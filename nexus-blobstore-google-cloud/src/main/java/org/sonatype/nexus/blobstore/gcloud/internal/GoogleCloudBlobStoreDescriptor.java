@@ -91,6 +91,8 @@ public class GoogleCloudBlobStoreDescriptor
   }
   
   // Normally we would mark this as @Override, but that will cause problems on older nxrm versions
+  // @TODO Revert this, adding to allow us to ignore the lift bug (see comment above)
+  @Override
   public String getId() {
     return "google";
   }
