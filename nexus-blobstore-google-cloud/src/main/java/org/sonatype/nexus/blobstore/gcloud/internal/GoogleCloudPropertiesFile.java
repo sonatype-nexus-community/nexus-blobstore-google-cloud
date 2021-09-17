@@ -46,6 +46,7 @@ public class GoogleCloudPropertiesFile
     this.key = checkNotNull(key);
   }
 
+  @Override
   public void load() throws IOException {
     log.debug("Loading properties: {}", key);
 
@@ -55,6 +56,7 @@ public class GoogleCloudPropertiesFile
     }
   }
 
+  @Override
   public void store() throws IOException {
     log.debug("Storing properties: {}", key);
 
@@ -67,6 +69,7 @@ public class GoogleCloudPropertiesFile
     bucket.create(key, buffer);
   }
 
+  @Override
   public boolean exists() throws IOException {
     return bucket.get(key) != null;
   }
@@ -78,6 +81,7 @@ public class GoogleCloudPropertiesFile
     }
   }
 
+  @Override
   public String toString() {
     return getClass().getSimpleName() + "{" +
         "key=" + key +
