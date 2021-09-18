@@ -24,7 +24,7 @@ import com.google.cloud.datastore.DatastoreOptions;
 import org.apache.shiro.util.StringUtils;
 
 import static org.sonatype.nexus.blobstore.gcloud.internal.GoogleCloudBlobStore.CONFIG_KEY;
-import static org.sonatype.nexus.blobstore.gcloud.internal.GoogleCloudBlobStore.CREDENTIAL_FILE_KEY;
+import static org.sonatype.nexus.blobstore.gcloud.internal.GoogleCloudBlobStore.CREDENTIAL_FILE_PATH_KEY;
 
 @Named
 public class GoogleCloudDatastoreFactory extends AbstractGoogleClientFactory
@@ -33,7 +33,7 @@ public class GoogleCloudDatastoreFactory extends AbstractGoogleClientFactory
   Datastore create(final BlobStoreConfiguration configuration) throws Exception {
     DatastoreOptions.Builder builder = DatastoreOptions.newBuilder().setTransportOptions(transportOptions());
 
-    String credentialFile = configuration.attributes(CONFIG_KEY).get(CREDENTIAL_FILE_KEY, String.class);
+    String credentialFile = configuration.attributes(CONFIG_KEY).get(CREDENTIAL_FILE_PATH_KEY, String.class);
     if (StringUtils.hasText(credentialFile)) {
       ServiceAccountCredentials credentials = ServiceAccountCredentials.fromStream(new FileInputStream(credentialFile));
       logger.debug("loaded {} from {} for Google Datastore client", credentials, credentialFile);

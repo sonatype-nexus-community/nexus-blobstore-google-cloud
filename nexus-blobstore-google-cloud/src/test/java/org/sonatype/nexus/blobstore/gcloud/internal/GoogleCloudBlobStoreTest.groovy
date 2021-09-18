@@ -116,8 +116,8 @@ class GoogleCloudBlobStoreTest
     storageFactory.create(_) >> storage
     config.name = 'GoogleCloudBlobStoreTest'
     config.attributes = [ 'google cloud storage': [
-        bucket: 'mybucket',
-        location: 'us-central1'
+        bucketName: 'mybucket',
+        region: 'us-central1'
     ] ]
 
     datastoreFactory.create(_) >> datastore
@@ -147,6 +147,27 @@ class GoogleCloudBlobStoreTest
 
     then: 'no attempt to create'
       1 * storage.create(!null)
+  }
+
+  def 'init migrates legacy attributes'() {
+    given: 'bucket does not exist'
+      def legacyConfig = new MockBlobStoreConfiguration()
+      legacyConfig.name = 'GoogleCloudBlobStoreTest'
+      legacyConfig.attributes = [ 'google cloud storage': [
+            bucket: 'mybucket',
+            location: 'us-central1',
+            credential_file: '/path/to/some/file.json'
+      ] ]
+      storage.get('mybucket') >> null
+
+    when: 'init is called'
+      blobStore.init(legacyConfig)
+
+    then: 'attributes are updated'
+      legacyConfig.name == 'GoogleCloudBlobStoreTest'
+      legacyConfig.attributes('google cloud storage').get('bucketName') == 'mybucket'
+      legacyConfig.attributes('google cloud storage').get('region') == 'us-central1'
+      legacyConfig.attributes('google cloud storage').get('credentialFilePath') == '/path/to/some/file.json'
   }
 
   def 'store a blob successfully'() {

@@ -42,6 +42,7 @@ import org.sonatype.nexus.blobstore.StreamMetrics;
 import org.sonatype.nexus.blobstore.api.*;
 import org.sonatype.nexus.blobstore.gcloud.GoogleCloudProjectException;
 import org.sonatype.nexus.blobstore.quota.BlobStoreQuotaService;
+import org.sonatype.nexus.common.collect.NestedAttributesMap;
 import org.sonatype.nexus.common.log.DryRunPrefix;
 import org.sonatype.nexus.common.stateguard.Guarded;
 import org.sonatype.nexus.logging.task.ProgressLogIntervalHelper;
@@ -93,11 +94,11 @@ public class GoogleCloudBlobStore
 
   public static final String CONFIG_KEY = TYPE.toLowerCase();
 
-  public static final String BUCKET_KEY = "bucket";
+  public static final String BUCKET_NAME_KEY = "bucketName";
 
-  public static final String CREDENTIAL_FILE_KEY = "credential_file";
+  public static final String CREDENTIAL_FILE_PATH_KEY = "credentialFilePath";
 
-  public static final String LOCATION_KEY = "location";
+  public static final String REGION_KEY = "region";
 
   static final String CONTENT_PREFIX = "content";
 
@@ -393,10 +394,11 @@ public class GoogleCloudBlobStore
 
   @Override
   protected void doInit(final BlobStoreConfiguration configuration) {
+    migrateLegacyConfiguration(configuration);
     try {
-      this.storage = storageFactory.create(blobStoreConfiguration);
+      this.storage = storageFactory.create(configuration);
 
-      String location = configuration.attributes(CONFIG_KEY).get(LOCATION_KEY, String.class);
+      String location = configuration.attributes(CONFIG_KEY).get(REGION_KEY, String.class);
       this.bucket = getOrCreateStorageBucket(location);
     }
     catch (Exception e) {
@@ -404,6 +406,42 @@ public class GoogleCloudBlobStore
     }
 
     initializeMetadataStores();
+  }
+
+  /**
+   * Google Cloud BlobStores from 3.33 and prior use a different set of attribute keys. This method is intended only
+   * to fire during {@link #doInit(BlobStoreConfiguration)} and will replace the attributes with the current versions.
+   * The changed attributes only survive in memory, we don't have a faculty to persist them back to the database.
+   *
+   * @param configuration
+   */
+  private void migrateLegacyConfiguration(final BlobStoreConfiguration configuration) {
+    NestedAttributesMap config = configuration.attributes(CONFIG_KEY);
+
+    final String legacyBucketKey = "bucket";
+    final String legacyLocationKey = "location";
+    final String legacyCredentialKey = "credential_file";
+    if (config.contains(legacyBucketKey)) {
+      log.debug("detected legacy bucket configuration key for {}, attempting migration", configuration);
+      config.set(BUCKET_NAME_KEY, config.get(legacyBucketKey));
+      config.remove(legacyBucketKey);
+      log.debug("bucket->bucketName configuration migration complete for {}", configuration);
+    }
+
+
+    if (config.contains(legacyLocationKey)) {
+      log.debug("detected legacy location configuration key for {}, attempting migration", configuration);
+      config.set(REGION_KEY, config.get(legacyLocationKey));
+      config.remove(legacyLocationKey);
+      log.debug("location->region configuration migration complete for {}", configuration);
+    }
+
+    if (config.contains(legacyCredentialKey)) {
+      log.debug("detected legacy credential_file configuration key for {}, attempting migration", configuration);
+      config.set(CREDENTIAL_FILE_PATH_KEY, config.get(legacyCredentialKey));
+      config.remove(legacyCredentialKey);
+      log.debug("credential_file->credentialFilePath configuration migration complete for {}", configuration);
+    }
   }
 
   /**
@@ -684,7 +722,7 @@ public class GoogleCloudBlobStore
   }
 
   private String getConfiguredBucketName() {
-    return blobStoreConfiguration.attributes(CONFIG_KEY).require(BUCKET_KEY).toString();
+    return blobStoreConfiguration.attributes(CONFIG_KEY).require(BUCKET_NAME_KEY).toString();
   }
 
   class GoogleCloudStorageBlob

@@ -93,9 +93,9 @@ class GoogleCloudBlobstoreApiResourceTest
       api.merge(config, model)
 
     then:
-      config.attributes('google cloud storage').get('bucket') == model.bucketName
-      config.attributes('google cloud storage').get('location') == model.region
-      config.attributes('google cloud storage').get('credential_file') == model.credentialFilePath
+      config.attributes('google cloud storage').get('bucketName') == model.bucketName
+      config.attributes('google cloud storage').get('region') == model.region
+      config.attributes('google cloud storage').get('credentialFilePath') == model.credentialFilePath
       config.name == model.name
   }
 
@@ -105,8 +105,8 @@ class GoogleCloudBlobstoreApiResourceTest
     result.type = GoogleCloudBlobStore.TYPE
     result.attributes = [
         'google cloud storage': [
-            bucket: 'bucketname',
-            location: 'us-central1'
+            bucketName: 'bucketname',
+            region: 'us-central1'
         ],
         (BlobStoreQuotaSupport.ROOT_KEY): [
             (BlobStoreQuotaSupport.TYPE_KEY): (SpaceUsedQuota.ID),

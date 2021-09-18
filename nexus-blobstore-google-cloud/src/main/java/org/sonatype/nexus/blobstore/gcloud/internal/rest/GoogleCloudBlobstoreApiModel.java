@@ -54,9 +54,9 @@ public class GoogleCloudBlobstoreApiModel
 
   GoogleCloudBlobstoreApiModel(BlobStoreConfiguration configuration) {
     this.name = configuration.getName();
-    this.bucketName = configuration.attributes(CONFIG_KEY).get(BUCKET_KEY, String.class);
-    this.region = configuration.attributes(CONFIG_KEY).get(LOCATION_KEY, String.class);
-    if (StringUtils.isNotBlank(configuration.attributes(CONFIG_KEY).get(CREDENTIAL_FILE_KEY, String.class))) {
+    this.bucketName = configuration.attributes(CONFIG_KEY).get(BUCKET_NAME_KEY, String.class);
+    this.region = configuration.attributes(CONFIG_KEY).get(REGION_KEY, String.class);
+    if (StringUtils.isNotBlank(configuration.attributes(CONFIG_KEY).get(CREDENTIAL_FILE_PATH_KEY, String.class))) {
       this.credentialFilePath = "<path is configured>";
     };
 
