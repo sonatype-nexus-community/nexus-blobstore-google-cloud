@@ -64,21 +64,21 @@ public class GoogleCloudBlobStoreDescriptor
   public GoogleCloudBlobStoreDescriptor(final BlobStoreQuotaService quotaService) {
     super(quotaService);
     bucket = new StringTextFormField(
-        GoogleCloudBlobStore.BUCKET_KEY,
+        GoogleCloudBlobStore.BUCKET_NAME_KEY,
         messages.bucketName(),
         messages.bucketHelp(),
         FormField.MANDATORY
     );
 
     location = new StringTextFormField(
-        GoogleCloudBlobStore.LOCATION_KEY,
+        GoogleCloudBlobStore.REGION_KEY,
         messages.locationName(),
         messages.locationHelp(),
         FormField.MANDATORY
     ).withInitialValue("us-central1");
 
     credentialFile = new StringTextFormField(
-        GoogleCloudBlobStore.CREDENTIAL_FILE_KEY,
+        GoogleCloudBlobStore.CREDENTIAL_FILE_PATH_KEY,
         messages.credentialPath(),
         messages.credentialHelp(),
         FormField.OPTIONAL

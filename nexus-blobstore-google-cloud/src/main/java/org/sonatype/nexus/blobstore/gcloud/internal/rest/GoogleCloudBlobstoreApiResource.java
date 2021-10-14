@@ -139,9 +139,9 @@ public class GoogleCloudBlobstoreApiResource
   void merge(BlobStoreConfiguration config, GoogleCloudBlobstoreApiModel blobstoreApiModel) {
     config.setName(blobstoreApiModel.getName());
     NestedAttributesMap bucket = config.attributes(CONFIG_KEY);
-    bucket.set(BUCKET_KEY, blobstoreApiModel.getBucketName());
-    bucket.set(LOCATION_KEY, blobstoreApiModel.getRegion());
-    bucket.set(CREDENTIAL_FILE_KEY, blobstoreApiModel.getCredentialFilePath());
+    bucket.set(BUCKET_NAME_KEY, blobstoreApiModel.getBucketName());
+    bucket.set(REGION_KEY, blobstoreApiModel.getRegion());
+    bucket.set(CREDENTIAL_FILE_PATH_KEY, blobstoreApiModel.getCredentialFilePath());
 
     if (blobstoreApiModel.getSoftQuota() != null ) {
       NestedAttributesMap softQuota = config.attributes(ROOT_KEY);

@@ -62,9 +62,9 @@ class GoogleCloudStorageFactoryTest extends Specification
         config.name = name
         config.attributes = [
                 'google cloud storage': [
-                        bucket: 'test-bucket-name',
-                        location: 'us-central1',
-                        credential_file: credentialUrl
+                        bucketName: 'test-bucket-name',
+                        region: 'us-central1',
+                        credentialFilePath: credentialUrl
                 ],
                 (BlobStoreQuotaSupport.ROOT_KEY): [
                         (BlobStoreQuotaSupport.TYPE_KEY): (SpaceUsedQuota.ID),
