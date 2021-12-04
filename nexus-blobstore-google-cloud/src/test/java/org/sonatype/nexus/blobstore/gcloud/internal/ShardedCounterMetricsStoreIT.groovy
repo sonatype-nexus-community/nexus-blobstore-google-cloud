@@ -12,6 +12,15 @@
  */
 package org.sonatype.nexus.blobstore.gcloud.internal
 
+import com.codahale.metrics.InstrumentedExecutorService
+import com.google.common.util.concurrent.Futures
+import com.google.common.util.concurrent.ListenableFuture
+import com.google.common.util.concurrent.ListeningExecutorService
+import com.google.common.util.concurrent.MoreExecutors
+import org.sonatype.nexus.blobstore.api.BlobStoreMetrics
+
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.stream.IntStream
 
@@ -131,6 +140,37 @@ class ShardedCounterMetricsStoreIT
         metrics.totalSize == (number_of_records / 2) * size_of_record
         metrics = metricsStore.metrics
       }
-
   }
+
+    def "frequent metrics flush observations"() {
+      given:
+        ListeningExecutorService service = MoreExecutors.listeningDecorator(Executors.newCachedThreadPool())
+        def number_of_workers = 4
+        def size_of_record = 1024L
+        List<ListenableFuture> futures = new ArrayList<>()
+        for(int i = 0; i < number_of_workers; i++) {
+            ListenableFuture future = service.submit(new Runnable() {
+                @Override
+                void run() {
+                    for (int j = 0; j < 10; j++) {
+                        BlobId id = new BlobId(UUID.randomUUID().toString())
+                        metricsStore.recordAddition(id, size_of_record)
+                        metricsStore.flush()
+                    }
+                }
+            })
+            futures.add(future)
+        }
+
+        assert futures.size() == number_of_workers
+      Futures.whenAllSucceed().run(metricsStore.flush(), MoreExecutors.directExecutor())
+      when:
+
+            BlobStoreMetrics  metrics = metricsStore.getMetrics()
+
+      then:
+            metrics.getTotalSize() == number_of_workers * size_of_record * 5000
+      cleanup:
+        service.shutdown()
+    }
 }

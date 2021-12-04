@@ -389,6 +389,39 @@ class GoogleCloudBlobStoreIT
       blobStore.deleteHard(blob.id)
   }
 
+  def "soft delete experiment with compact"() {
+    given: 'we have stored and soft deleted 1001 blobs'
+      int toCreate = 501
+      List<BlobId> created = new ArrayList<>()
+      for(int i = 0; i < toCreate; i++) {
+        Blob blob = blobStore.create(new ByteArrayInputStream('hello'.getBytes()),
+                [ (BlobStore.BLOB_NAME_HEADER): "foo${i}".toString(),
+                  (BlobStore.CREATED_BY_HEADER): 'someuser' ] )
+        assert blob != null
+        created.add(blob.id)
+      }
+      // confirm metrics are written out
+      blobStore.flushMetricsStore()
+      // confirm we show expected blob count and total size
+      assert blobStore.getMetrics().getBlobCount() == toCreate
+      assert blobStore.getMetrics().getTotalSize() == toCreate * 5
+
+      // now soft-delete all of the blobs
+      created.each {blobStore.delete(it, "integration test") }
+
+    when: 'we run compaction'
+      blobStore.compact()
+      blobStore.flushMetricsStore()
+
+    then: 'the DeletedBlobIndex is empty'
+      0L == blobStore.getDeletedBlobIndex().getContents().count()
+      0 == blobStore.getMetrics().getBlobCount()
+      0 == blobStore.getMetrics().getTotalSize()
+
+    cleanup:
+      created.each {blobStore.deleteHard(it) }
+  }
+
   def "compaction after soft delete results in empty DeletedBlobIndex"() {
     given: 'we have stored a blob, and we soft deleted it'
       Blob blob = blobStore.create(new ByteArrayInputStream('hello'.getBytes()),
