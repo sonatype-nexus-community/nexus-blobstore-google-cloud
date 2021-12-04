@@ -138,6 +138,8 @@ public class GoogleCloudBlobStore
 
   private final int deletedBlobQueryLimit;
 
+  private final int metricsFlushDelaySeconds;
+
   private PeriodicJob flushJob;
 
   private static final int FLUSH_FREQUENCY_IN_SECONDS = 5;
@@ -155,7 +157,8 @@ public class GoogleCloudBlobStore
                               final int quotaCheckInterval)
   {
     this(storageFactory, blobIdLocationResolver, periodicJobService, datastoreFactory, dryRunPrefix, uploader,
-            metricRegistry, quotaService, quotaCheckInterval, DeletedBlobIndex.DEFAULT_CONTENT_QUERY_LIMIT);
+            metricRegistry, quotaService, quotaCheckInterval, DeletedBlobIndex.DEFAULT_CONTENT_QUERY_LIMIT,
+            ShardedCounterMetricsStore.DEFAULT_FLUSH_DELAY_SECONDS);
   }
 
   @Inject
@@ -170,7 +173,9 @@ public class GoogleCloudBlobStore
                               @Named("${nexus.blobstore.quota.warnIntervalSeconds:-60}")
                               final int quotaCheckInterval,
                               @Named("${nexus.gcs.deletedBlobIndex.contentQueryLimit:-100000}")
-                              final int deletedBlobQueryLimit)
+                              final int deletedBlobQueryLimit,
+                              @Named("${nexus.gcs.metricsStore.flushDelay:-1}")
+                              final int metricsFlushDelaySeconds)
   {
     super(blobIdLocationResolver, dryRunPrefix);
     this.periodicJobService = periodicJobService;
@@ -181,6 +186,7 @@ public class GoogleCloudBlobStore
     this.quotaService = quotaService;
     this.quotaCheckInterval = quotaCheckInterval;
     this.deletedBlobQueryLimit = deletedBlobQueryLimit;
+    this.metricsFlushDelaySeconds = metricsFlushDelaySeconds;
   }
 
   @Override
@@ -480,7 +486,7 @@ public class GoogleCloudBlobStore
     try {
       if (metricsStore == null) {
         this.metricsStore = new ShardedCounterMetricsStore(this.blobIdLocationResolver, this.datastoreFactory,
-            this.blobStoreConfiguration);
+            this.blobStoreConfiguration, this.metricsFlushDelaySeconds);
         this.metricsStore.initialize();
       }
     }

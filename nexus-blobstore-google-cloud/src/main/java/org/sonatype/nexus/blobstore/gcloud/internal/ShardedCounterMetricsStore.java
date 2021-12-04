@@ -106,11 +106,13 @@ class ShardedCounterMetricsStore
 
   private Queue<Mutation> pending = new ConcurrentLinkedDeque<>();
 
-  private RateLimiter rateLimiter = RateLimiter.create(1);
+  private final RateLimiter rateLimiter;
 
   private String namespace;
 
   private BlobStoreConfiguration blobStoreConfiguration;
+
+  static final int DEFAULT_FLUSH_DELAY_SECONDS = 1;
 
   /**
    * @param locationResolver
@@ -120,9 +122,23 @@ class ShardedCounterMetricsStore
   ShardedCounterMetricsStore(final BlobIdLocationResolver locationResolver,
                              final GoogleCloudDatastoreFactory datastoreFactory,
                              final BlobStoreConfiguration blobStoreConfiguration) {
+    this(locationResolver, datastoreFactory, blobStoreConfiguration, DEFAULT_FLUSH_DELAY_SECONDS);
+  }
+
+  /**
+   * @param locationResolver
+   * @param datastoreFactory
+   * @param blobStoreConfiguration
+   * @param flushDelaySeconds
+   */
+  ShardedCounterMetricsStore(final BlobIdLocationResolver locationResolver,
+                             final GoogleCloudDatastoreFactory datastoreFactory,
+                             final BlobStoreConfiguration blobStoreConfiguration,
+                             final int flushDelaySeconds) {
     this.locationResolver = locationResolver;
     this.datastoreFactory = datastoreFactory;
     this.blobStoreConfiguration = blobStoreConfiguration;
+    this.rateLimiter = RateLimiter.create(flushDelaySeconds);
   }
 
   void initialize() throws Exception {
@@ -266,9 +282,9 @@ class ShardedCounterMetricsStore
 
   void flush() {
     if (!pending.isEmpty()) {
-      log.debug("flush started, attempting to acquire permit");
+      log.debug("flush started for namespace {} attempting to acquire permit", namespace);
       double wait = rateLimiter.acquire();
-      log.debug("permit acquired after {} seconds", wait);
+      log.debug("permit acquired for namespace {} after {} seconds", namespace, wait);
       Multimap<String, Mutation> toWrite = ArrayListMultimap.create();
 
       // drain the queue into a Map<shard, list<mutations_for_the_shard>>
@@ -295,7 +311,8 @@ class ShardedCounterMetricsStore
           list.add(entity);
         });
       }
-      log.debug("sending {} mutations to datastore", list.size());
+      log.debug("sending {} mutations to datastore for namespace {}", list.size(), namespace);
+      log.trace("sending {} mutations to datastore for namespace {}", list, namespace);
       // write the batch off to datastore
       if (!list.isEmpty()) {
         Transaction txn = datastore.newTransaction();
@@ -303,12 +320,16 @@ class ShardedCounterMetricsStore
           // batched write of at most 44 documents
           txn.put(list.toArray(new FullEntity[list.size()]));
           txn.commit();
+          log.debug("drained {} mutations to datastore for namespace {}", list.size(), namespace);
         } finally {
           if (txn.isActive()) {
             txn.rollback();
+            log.debug("flush failed for namespace {}, transaction rolled back", namespace);
+            // place the deltas we attempted to write back in the queue
+            pending.addAll(toWrite.values());
           }
         }
-        log.debug("drained {} mutations to datastore", list.size());
+
       }
     }
   }

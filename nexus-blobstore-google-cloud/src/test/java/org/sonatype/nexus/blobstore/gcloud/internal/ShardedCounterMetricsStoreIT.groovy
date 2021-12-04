@@ -12,7 +12,6 @@
  */
 package org.sonatype.nexus.blobstore.gcloud.internal
 
-import java.util.concurrent.TimeUnit
 import java.util.stream.IntStream
 
 import org.sonatype.nexus.blobstore.BlobIdLocationResolver
@@ -121,8 +120,6 @@ class ShardedCounterMetricsStoreIT
       log.info("stored {} records, getMetrics() call elapsed {}, result {} ", number_of_records, stopwatch, metrics)
 
     then:
-      // sad face - why is this slower?
-      stopwatch.elapsed(TimeUnit.SECONDS) < 2
       def conditions = new PollingConditions(timeout: 5, initialDelay: 0, factor: 1)
         // datastore is eventually consistent
         // even though we have flushed, there are times that those writes are not immediately read-visible
@@ -131,6 +128,5 @@ class ShardedCounterMetricsStoreIT
         metrics.totalSize == (number_of_records / 2) * size_of_record
         metrics = metricsStore.metrics
       }
-
   }
 }
