@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Spliterator;
 import java.util.Spliterators;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -42,6 +43,9 @@ import static org.sonatype.nexus.blobstore.gcloud.internal.Namespace.safe;
  * </pre>
  *
  * This key ancestry is intended to support separation of deleted blobs for multiple google cloud blobstore instances.
+ *
+ * This index has one configurable property: nexus.gcs.deletedBlobIndex.contentQueryLimit.
+ * This property affects the behavior of {@link #getContents()}.
  */
 class DeletedBlobIndex
     extends ComponentSupport
@@ -56,7 +60,17 @@ class DeletedBlobIndex
 
   static final Integer WARN_LIMIT = 1000;
 
+  static final int DEFAULT_CONTENT_QUERY_LIMIT = 100_000;
+
+  private final int contentQueryLimit;
+
   DeletedBlobIndex(final GoogleCloudDatastoreFactory factory, final BlobStoreConfiguration blobStoreConfiguration)
+      throws Exception {
+    this(factory, blobStoreConfiguration, DEFAULT_CONTENT_QUERY_LIMIT);
+  }
+
+  DeletedBlobIndex(final GoogleCloudDatastoreFactory factory, final BlobStoreConfiguration blobStoreConfiguration,
+                   final int contentQueryLimit)
       throws Exception {
     this.gcsDatastore = factory.create(blobStoreConfiguration);
     this.namespace = NAMESPACE_PREFIX + safe(blobStoreConfiguration.getName());
@@ -65,6 +79,11 @@ class DeletedBlobIndex
         .addAncestors(NXRM_ROOT)
         .setNamespace(namespace)
         .setKind(DELETED_BLOBS);
+    this.contentQueryLimit = contentQueryLimit;
+  }
+
+  int getContentQueryLimit() {
+    return contentQueryLimit;
   }
 
   void initialize() {
@@ -117,8 +136,13 @@ class DeletedBlobIndex
 
     // datastore has a hard limit of 500 keys in a single delete
     List<List<Key>> partitions = Lists.partition(keys, 500);
+    log.warn("keys has length of {}, split into {} partitions of 500", keys.size(), partitions.size());
     // document delete
-    partitions.stream().forEach(partition -> gcsDatastore.delete(partition.toArray(new Key[partition.size()])) );
+    IntStream.range(0, partitions.size()).forEach(idx -> {
+      List<Key> partition = partitions.get(idx);
+      gcsDatastore.delete(partition.toArray(new Key[partition.size()]));
+      log.debug("deleted partition " + idx);
+    });
 
     log.warn("deleted {} blobIds from the soft-deleted blob index", keys.size());
   }
@@ -128,6 +152,8 @@ class DeletedBlobIndex
    * limits.
    *
    * This implementation out of necessity uses key-only queries to fall within Small Operations, which are free.
+   * The number of elements returned has an upper-bound of {@link #getContentQueryLimit()}. There are no guarantees
+   * on the order of elements returned.
    *
    * @return a (finite) {@link Stream} of {@link BlobId}s that have been soft-deleted.
    */
@@ -135,7 +161,7 @@ class DeletedBlobIndex
     Query<Key> query = Query.newKeyQueryBuilder()
         .setKind(DELETED_BLOBS)
         .setNamespace(namespace)
-        .setLimit(WARN_LIMIT)
+        .setLimit(contentQueryLimit)
         .build();
     // small operation - key only query
     QueryResults<Key> results = gcsDatastore.run(query);

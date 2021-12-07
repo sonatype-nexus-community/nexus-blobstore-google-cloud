@@ -136,11 +136,27 @@ public class GoogleCloudBlobStore
 
   private final int quotaCheckInterval;
 
+  private final int deletedBlobQueryLimit;
+
   private PeriodicJob flushJob;
 
   private static final int FLUSH_FREQUENCY_IN_SECONDS = 5;
 
   private final RawObjectAccess rawObjectAccess = new UnimplementedRawObjectAccess();
+
+  public GoogleCloudBlobStore(final GoogleCloudStorageFactory storageFactory,
+                              final BlobIdLocationResolver blobIdLocationResolver,
+                              final PeriodicJobService periodicJobService,
+                              final GoogleCloudDatastoreFactory datastoreFactory,
+                              final DryRunPrefix dryRunPrefix,
+                              final Uploader uploader,
+                              final MetricRegistry metricRegistry,
+                              final BlobStoreQuotaService quotaService,
+                              final int quotaCheckInterval)
+  {
+    this(storageFactory, blobIdLocationResolver, periodicJobService, datastoreFactory, dryRunPrefix, uploader,
+            metricRegistry, quotaService, quotaCheckInterval, DeletedBlobIndex.DEFAULT_CONTENT_QUERY_LIMIT);
+  }
 
   @Inject
   public GoogleCloudBlobStore(final GoogleCloudStorageFactory storageFactory,
@@ -152,7 +168,9 @@ public class GoogleCloudBlobStore
                               final MetricRegistry metricRegistry,
                               final BlobStoreQuotaService quotaService,
                               @Named("${nexus.blobstore.quota.warnIntervalSeconds:-60}")
-                              final int quotaCheckInterval)
+                              final int quotaCheckInterval,
+                              @Named("${nexus.gcs.deletedBlobIndex.contentQueryLimit:-100000}")
+                              final int deletedBlobQueryLimit)
   {
     super(blobIdLocationResolver, dryRunPrefix);
     this.periodicJobService = periodicJobService;
@@ -162,6 +180,7 @@ public class GoogleCloudBlobStore
     this.metricRegistry = metricRegistry;
     this.quotaService = quotaService;
     this.quotaCheckInterval = quotaCheckInterval;
+    this.deletedBlobQueryLimit = deletedBlobQueryLimit;
   }
 
   @Override
@@ -450,7 +469,7 @@ public class GoogleCloudBlobStore
   protected void initializeMetadataStores() {
     try {
       if (deletedBlobIndex == null) {
-        this.deletedBlobIndex = new DeletedBlobIndex(this.datastoreFactory, blobStoreConfiguration);
+        this.deletedBlobIndex = new DeletedBlobIndex(this.datastoreFactory, blobStoreConfiguration, this.deletedBlobQueryLimit);
         this.deletedBlobIndex.initialize();
       }
     }
