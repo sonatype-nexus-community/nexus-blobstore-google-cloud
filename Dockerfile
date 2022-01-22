@@ -1,6 +1,6 @@
 # declaration of NEXUS_VERSION must appear before first FROM command
 # see: https://docs.docker.com/engine/reference/builder/#understand-how-arg-and-from-interact
-ARG NEXUS_VERSION=3.37.1
+ARG NEXUS_VERSION=3.37.3
 
 FROM sonatype/nexus3:$NEXUS_VERSION
 
