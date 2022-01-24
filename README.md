@@ -43,13 +43,6 @@ For the best experience, you should upgrade your Nexus Repository Manager and Go
 | 3.29                               | [Get 0.19.1](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.19.1/nexus-blobstore-google-cloud-0.19.1.kar) |
 | 3.28                               | [Get 0.18.1](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.18.1/nexus-blobstore-google-cloud-0.18.1.kar) |
 | 3.27                               | [Get 0.17.0](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.17.0/nexus-blobstore-google-cloud-0.17.0.kar) |
-| 3.26                               | [Get 0.16.0](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.16.0/nexus-blobstore-google-cloud-0.16.0.kar) |
-| 3.25                               | [Get 0.15.0](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.15.0/nexus-blobstore-google-cloud-0.15.0.kar) |
-| 3.24                               | [Get 0.14.0](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.14.0/nexus-blobstore-google-cloud-0.14.0.kar) |
-| 3.23                               | [Get 0.13.0](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.13.0/nexus-blobstore-google-cloud-0.13.0.kar) |
-| 3.22                               | [Get 0.12.0](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.12.0/nexus-blobstore-google-cloud-0.12.0.kar) |
-| 3.21                               | [Get 0.11.0](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.11.0/nexus-blobstore-google-cloud-0.11.0.kar) |
-| 3.20                               | [Get 0.10.2](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.10.2/nexus-blobstore-google-cloud-0.10.2-bundle.kar) |
 
 # Deploying the Plugin
 
@@ -108,12 +101,6 @@ A restart of Nexus Repository Manager is required to complete the installation p
 Log in as admin and create a new blobstore, selecting 'Google Cloud Storage' as the type.
 
 If you did not set the environment variable in Step 3 above, specify the absolute path to the JSON Service Account key file.
-
-### Parallel Multipart Upload
-
-In version 0.10.0 and later, the plugin is capable of uploading content to the Google Cloud Storage bucket using 
-multiple concurrent threads. In 0.12.0, this feature is disabled by default; see 
-[the corresponding design document](./design/parallel_upload_disabled_default.md).
 
 # Contributing to Plugin Development
 
