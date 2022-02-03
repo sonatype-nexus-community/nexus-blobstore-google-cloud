@@ -46,6 +46,7 @@
   </distributionManagement>
 
   <properties>
+    <project.build.outputTimestamp>10</project.build.outputTimestamp>
     <google-cloud-datastore.version>1.99.0</google-cloud-datastore.version>
     <google-cloud-storage.version>1.118.1</google-cloud-storage.version>
     <nxrm-version>3.37.1-01</nxrm-version>
@@ -100,6 +101,22 @@
           <artifactId>clm-maven-plugin</artifactId>
           <version>2.16.0-01</version>
         </plugin>
+        <!-- upgrade plugins for Reproducible Builds -->
+        <!-- karaf-maven-plugin and depends-maven-plugin need a RB-compatible version -->
+        <!-- https://issues.apache.org/jira/browse/KARAF-7367 https://issues.apache.org/jira/browse/SM-5021 -->
+        <plugin>
+          <artifactId>maven-jar-plugin</artifactId>
+          <version>3.2.1</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-source-plugin</artifactId>
+          <version>3.2.1</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.felix</groupId>
+          <artifactId>maven-bundle-plugin</artifactId>
+          <version>5.1.4</version>
+          </plugin>
       </plugins>
     </pluginManagement>
     <plugins>
