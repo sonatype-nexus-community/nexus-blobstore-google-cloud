@@ -46,6 +46,7 @@
   </distributionManagement>
 
   <properties>
+    <project.build.outputTimestamp>10</project.build.outputTimestamp>
     <google-cloud-datastore.version>1.84.0</google-cloud-datastore.version>
     <google-cloud-storage.version>1.106.0</google-cloud-storage.version>
     <google-http-client.version>1.34.2</google-http-client.version>
@@ -134,6 +135,29 @@
           <artifactId>maven-enforcer-plugin</artifactId>
           <version>1.4.1</version>
         </plugin>
+        <!-- upgrade plugins for Reproducible Builds -->
+        <!-- karaf-maven-plugin and depends-maven-plugin need a RB-compatible version -->
+        <!-- https://issues.apache.org/jira/browse/KARAF-7367 https://issues.apache.org/jira/browse/SM-5021 -->
+        <plugin>
+          <artifactId>maven-jar-plugin</artifactId>
+          <version>3.2.1</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-source-plugin</artifactId>
+          <version>3.2.1</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.felix</groupId>
+          <artifactId>maven-bundle-plugin</artifactId>
+          <version>5.1.4</version>
+          <dependencies>
+            <dependency><!-- org.sonatype.nexus:nexus-parent:3.21.1-01 -->
+              <groupId>biz.aQute.bnd</groupId>
+              <artifactId>biz.aQute.bndlib</artifactId>
+              <version>6.1.0</version>
+            </dependency>
+          </dependencies>
+          </plugin>
       </plugins>
     </pluginManagement>
     <plugins>
