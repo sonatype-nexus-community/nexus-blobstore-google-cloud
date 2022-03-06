@@ -41,6 +41,7 @@ import org.sonatype.nexus.blobstore.MetricsInputStream;
 import org.sonatype.nexus.blobstore.StreamMetrics;
 import org.sonatype.nexus.blobstore.api.*;
 import org.sonatype.nexus.blobstore.gcloud.GoogleCloudProjectException;
+import org.sonatype.nexus.blobstore.metrics.MonitoringBlobStoreMetrics;
 import org.sonatype.nexus.blobstore.quota.BlobStoreQuotaService;
 import org.sonatype.nexus.common.collect.NestedAttributesMap;
 import org.sonatype.nexus.common.log.DryRunPrefix;
@@ -76,6 +77,8 @@ import static com.google.common.cache.CacheLoader.from;
 import static com.google.common.collect.Streams.stream;
 import static java.lang.String.format;
 import static org.sonatype.nexus.blobstore.DirectPathLocationStrategy.DIRECT_PATH_ROOT;
+import static org.sonatype.nexus.blobstore.api.OperationType.DOWNLOAD;
+import static org.sonatype.nexus.blobstore.api.OperationType.UPLOAD;
 import static org.sonatype.nexus.blobstore.quota.BlobStoreQuotaSupport.createQuotaCheckJob;
 import static org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport.State.FAILED;
 import static org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport.State.NEW;
@@ -236,6 +239,7 @@ public class GoogleCloudBlobStore
   }
 
   @Override
+  @MonitoringBlobStoreMetrics(operationType = UPLOAD)
   protected Blob doCreate(final InputStream blobData,
                           final Map<String, String> headers,
                           @Nullable final BlobId blobId)
@@ -279,6 +283,7 @@ public class GoogleCloudBlobStore
   @Override
   @Guarded(by = STARTED)
   @Timed
+  @MonitoringBlobStoreMetrics(operationType = DOWNLOAD)
   public Blob get(final BlobId blobId, final boolean includeDeleted) {
     checkNotNull(blobId);
 
@@ -641,6 +646,11 @@ public class GoogleCloudBlobStore
     }
     OffsetDateTime offsetDateTime = Instant.now().minus(sinceDays, ChronoUnit.DAYS).atOffset(ZoneOffset.UTC);
     return getBlobIdUpdatedSinceStream(offsetDateTime);
+  }
+
+  @Override
+  public Map<OperationType, OperationMetrics> getOperationMetricsByType() {
+    return this.metricsStore.getOperationMetricsByType();
   }
 
   @VisibleForTesting

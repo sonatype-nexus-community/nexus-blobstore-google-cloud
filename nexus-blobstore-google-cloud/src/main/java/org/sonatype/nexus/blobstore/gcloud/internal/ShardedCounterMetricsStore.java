@@ -15,6 +15,7 @@ package org.sonatype.nexus.blobstore.gcloud.internal;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
@@ -28,6 +29,8 @@ import org.sonatype.nexus.blobstore.BlobIdLocationResolver;
 import org.sonatype.nexus.blobstore.api.BlobId;
 import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration;
 import org.sonatype.nexus.blobstore.api.BlobStoreMetrics;
+import org.sonatype.nexus.blobstore.api.OperationMetrics;
+import org.sonatype.nexus.blobstore.api.OperationType;
 import org.sonatype.nexus.blobstore.gcloud.GoogleCloudProjectException;
 
 import com.google.cloud.datastore.Datastore;
@@ -112,6 +115,8 @@ class ShardedCounterMetricsStore
 
   private BlobStoreConfiguration blobStoreConfiguration;
 
+  private Map<OperationType, OperationMetrics> operationMetrics = new EnumMap<>(OperationType.class);
+
   static final int DEFAULT_FLUSH_DELAY_SECONDS = 1;
 
   /**
@@ -149,6 +154,10 @@ class ShardedCounterMetricsStore
         .setNamespace(namespace)
         .setKind(METRICS_STORE)
         .newKey(1L);
+
+    for (OperationType type : OperationType.values()) {
+      operationMetrics.put(type, new OperationMetrics());
+    }
 
     try {
       getMetrics();
@@ -201,6 +210,10 @@ class ShardedCounterMetricsStore
 
     // TODO consider merge with values in pending queue
     return new GoogleBlobStoreMetrics(count, size);
+  }
+
+  Map<OperationType, OperationMetrics> getOperationMetricsByType() {
+    return operationMetrics;
   }
 
   /**
@@ -329,9 +342,9 @@ class ShardedCounterMetricsStore
             pending.addAll(toWrite.values());
           }
         }
-
       }
     }
+    // TODO should we write out the OperationMetrics to DataStore? or not?
   }
 
   class GoogleBlobStoreMetrics
