@@ -41,7 +41,6 @@ import org.sonatype.nexus.blobstore.MetricsInputStream;
 import org.sonatype.nexus.blobstore.StreamMetrics;
 import org.sonatype.nexus.blobstore.api.*;
 import org.sonatype.nexus.blobstore.gcloud.GoogleCloudProjectException;
-import org.sonatype.nexus.blobstore.metrics.MonitoringBlobStoreMetrics;
 import org.sonatype.nexus.blobstore.quota.BlobStoreQuotaService;
 import org.sonatype.nexus.common.collect.NestedAttributesMap;
 import org.sonatype.nexus.common.log.DryRunPrefix;
@@ -239,7 +238,6 @@ public class GoogleCloudBlobStore
   }
 
   @Override
-  @MonitoringBlobStoreMetrics(operationType = UPLOAD)
   protected Blob doCreate(final InputStream blobData,
                           final Map<String, String> headers,
                           @Nullable final BlobId blobId)
@@ -283,7 +281,6 @@ public class GoogleCloudBlobStore
   @Override
   @Guarded(by = STARTED)
   @Timed
-  @MonitoringBlobStoreMetrics(operationType = DOWNLOAD)
   public Blob get(final BlobId blobId, final boolean includeDeleted) {
     checkNotNull(blobId);
 
