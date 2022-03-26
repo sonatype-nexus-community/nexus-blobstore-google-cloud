@@ -344,7 +344,6 @@ class ShardedCounterMetricsStore
         }
       }
     }
-    // TODO should we write out the OperationMetrics to DataStore? or not?
   }
 
   class GoogleBlobStoreMetrics
