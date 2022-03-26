@@ -1,0 +1,18 @@
+version: "3.7"
+
+services:
+  nexus3-dev:
+    build: .
+    image: nexus3-google-dev
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/google_application_credentials
+    deploy:
+      replicas: 1
+    ports:
+      - 8081:8081
+    secrets:
+      - google_application_credentials
+
+secrets:
+  google_application_credentials:
+    external: true
