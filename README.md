@@ -30,8 +30,9 @@ Which Version do I use?
 
 For the best experience, you should upgrade your Nexus Repository Manager and Google Cloud Blobstore plugin to the latest versions.
 
-| Nexus Repository Manager 3 Version | Google Cloud Storage Blobstore Version |
-| ---------------------------------- |--------------------------------------- |
+| Nexus Repository Manager 3 Version | Google Cloud Storage Blobstore Version                                                                                                              |
+|------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
+| 3.38                               | [Get 0.38.0](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.38.0/nexus-blobstore-google-cloud-0.38.0.kar) |
 | 3.37                               | [Get 0.37.0](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.37.0/nexus-blobstore-google-cloud-0.37.0.kar) |
 | 3.36                               | [Get 0.36.1](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.36.1/nexus-blobstore-google-cloud-0.36.1.kar) |
 | 3.35                               | [Get 0.35.0](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.35.0/nexus-blobstore-google-cloud-0.35.0.kar) |
