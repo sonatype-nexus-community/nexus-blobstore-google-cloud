@@ -21,6 +21,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -76,8 +77,6 @@ import static com.google.common.cache.CacheLoader.from;
 import static com.google.common.collect.Streams.stream;
 import static java.lang.String.format;
 import static org.sonatype.nexus.blobstore.DirectPathLocationStrategy.DIRECT_PATH_ROOT;
-import static org.sonatype.nexus.blobstore.api.OperationType.DOWNLOAD;
-import static org.sonatype.nexus.blobstore.api.OperationType.UPLOAD;
 import static org.sonatype.nexus.blobstore.quota.BlobStoreQuotaSupport.createQuotaCheckJob;
 import static org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport.State.FAILED;
 import static org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport.State.NEW;
@@ -648,6 +647,16 @@ public class GoogleCloudBlobStore
   @Override
   public Map<OperationType, OperationMetrics> getOperationMetricsByType() {
     return this.metricsStore.getOperationMetricsByType();
+  }
+
+  @Override
+  public Map<OperationType, OperationMetrics> getOperationMetricsDelta() {
+    return Collections.emptyMap();
+  }
+
+  @Override
+  public void clearOperationMetrics() {
+    //no-op
   }
 
   @VisibleForTesting
