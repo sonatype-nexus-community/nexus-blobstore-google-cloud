@@ -44,7 +44,7 @@ class ShardedCounterMetricsStoreIT
     config.name = "ShardedCounterMetricsStoreIT"
     config.attributes = [
         'google cloud storage': [
-            credential_file: this.getClass().getResource('/gce-credentials.json').getFile()
+            credentialFilePath: this.getClass().getResource('/gce-credentials.json').getFile()
         ]
     ]
   }
