@@ -35,7 +35,8 @@ class MultipartUploaderIT
 
   static final GoogleCloudStorageFactory storageFactory = new GoogleCloudStorageFactory()
 
-  static String bucketName = "integration-test-${UUID.randomUUID().toString()}"
+  static final String uid = UUID.randomUUID().toString().substring(0,4)
+  static String bucketName = "integration-test-${uid}"
 
   static Storage storage
 
@@ -44,8 +45,8 @@ class MultipartUploaderIT
   def setupSpec() {
     config.attributes = [
         'google cloud storage': [
-            bucket: bucketName,
-            credential_file: this.getClass().getResource('/gce-credentials.json').getFile()
+            bucketName: bucketName,
+            credentialFilePath: this.getClass().getResource('/gce-credentials.json').getFile()
         ]
     ]
 
