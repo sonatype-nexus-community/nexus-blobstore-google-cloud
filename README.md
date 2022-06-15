@@ -30,20 +30,9 @@ Which Version do I use?
 
 For the best experience, you should upgrade your Nexus Repository Manager and Google Cloud Blobstore plugin to the latest versions.
 
-| Nexus Repository Manager 3 Version | Google Cloud Storage Blobstore Version                                                                                                              |
-|------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
-| 3.38                               | [Get 0.38.0](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.38.0/nexus-blobstore-google-cloud-0.38.0.kar) |
-| 3.37                               | [Get 0.37.0](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.37.0/nexus-blobstore-google-cloud-0.37.0.kar) |
-| 3.36                               | [Get 0.36.1](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.36.1/nexus-blobstore-google-cloud-0.36.1.kar) |
-| 3.35                               | [Get 0.35.0](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.35.0/nexus-blobstore-google-cloud-0.35.0.kar) |
-| 3.34                               | [Get 0.34.0](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.34.0/nexus-blobstore-google-cloud-0.34.0.kar) |
-| 3.33                               | [Get 0.33.0](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.33.0/nexus-blobstore-google-cloud-0.33.0.kar) |
-| 3.32                               | [Get 0.22.0](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.22.0/nexus-blobstore-google-cloud-0.22.0.kar) |
-| 3.31                               | [Get 0.21.0](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.21.0/nexus-blobstore-google-cloud-0.21.0.kar) |
-| 3.30                               | [Get 0.20.0](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.20.0/nexus-blobstore-google-cloud-0.20.0.kar) |
-| 3.29                               | [Get 0.19.1](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.19.1/nexus-blobstore-google-cloud-0.19.1.kar) |
-| 3.28                               | [Get 0.18.1](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.18.1/nexus-blobstore-google-cloud-0.18.1.kar) |
-| 3.27                               | [Get 0.17.0](https://repo1.maven.org/maven2/org/sonatype/nexus/plugins/nexus-blobstore-google-cloud/0.17.0/nexus-blobstore-google-cloud-0.17.0.kar) |
+1. Navigate to https://search.maven.org/artifact/org.sonatype.nexus.plugins/nexus-blobstore-google-cloud
+2. Select the version that matches your Nexus Repository Manager version. Example: 0.39 of the plugin is intended for Repository Manager 3.39, 0.38 for 3.38, etc.
+3. Download the corresponding `kar` archive.
 
 # Deploying the Plugin
 
