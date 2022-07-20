@@ -514,8 +514,7 @@ public class GoogleCloudBlobStore
   public void remove() {
     metricsStore.removeData();
     deletedBlobIndex.removeData();
-
-    // TODO delete bucket only if it is empty
+    // do not delete the bucket
   }
 
   @Override
