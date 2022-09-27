@@ -383,12 +383,6 @@ public class GoogleCloudBlobStore
 
   @Override
   @Guarded(by = STARTED)
-  public void compact() {
-    compact(null);
-  }
-
-  @Override
-  @Guarded(by = STARTED)
   public void doCompact(@Nullable final BlobStoreUsageChecker blobStoreUsageChecker) {
     log.info("Begin deleted blobs processing");
     ProgressLogIntervalHelper progressLogger = new ProgressLogIntervalHelper(log, 60);
