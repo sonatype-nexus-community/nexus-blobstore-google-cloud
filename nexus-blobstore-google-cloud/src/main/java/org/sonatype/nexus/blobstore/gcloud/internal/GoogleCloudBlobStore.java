@@ -192,6 +192,7 @@ public class GoogleCloudBlobStore
 
   @Override
   protected void doStart() throws Exception {
+    log.info("starting " + getBlobStoreConfiguration().getName());
     GoogleCloudPropertiesFile metadata = new GoogleCloudPropertiesFile(bucket, METADATA_FILENAME);
     if (metadata.exists()) {
       metadata.load();
@@ -212,22 +213,27 @@ public class GoogleCloudBlobStore
     wrapWithGauge("liveBlobsCache.totalLoadTime", () -> liveBlobs.stats().totalLoadTime());
     wrapWithGauge("liveBlobsCache.evictionCount", () -> liveBlobs.stats().evictionCount());
     wrapWithGauge("liveBlobsCache.requestCount", () -> liveBlobs.stats().requestCount());
-
+    log.debug("liveBlobs cache initialized for " + getBlobStoreConfiguration().getName());
     initializeMetadataStores();
-
+    log.debug("deleted blobs index and metrics store initialized for " + getBlobStoreConfiguration().getName());
     periodicJobService.startUsing();
     this.quotaCheckingJob = periodicJobService.schedule(createQuotaCheckJob(this, quotaService, log), quotaCheckInterval);
     this.flushJob = periodicJobService.schedule(() -> metricsStore.flush(), FLUSH_FREQUENCY_IN_SECONDS);
+    log.debug("internal quota and metrics flush jobs started for " + getBlobStoreConfiguration().getName());
+    log.info(getBlobStoreConfiguration().getName() + " started");
   }
 
   @Override
   protected void doStop() throws Exception {
+    log.info("stopping " + getBlobStoreConfiguration().getName());
     liveBlobs = null;
     quotaCheckingJob.cancel();
     flushJob.cancel();
     periodicJobService.stopUsing();
+    log.debug("internal quota and metrics flush jobs stopped for " + getBlobStoreConfiguration().getName() + ", flushing metrics");
     // jobs canceled, flush metrics one last time
     metricsStore.flush();
+    log.info(getBlobStoreConfiguration().getName() + " stopped");
   }
 
   protected void wrapWithGauge(String nameSuffix, Supplier valueSupplier) {
