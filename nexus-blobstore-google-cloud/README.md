@@ -30,7 +30,7 @@ This instance does not use a volume because the data can be ephemeral.
 
 1. `mvn clean package`
 2. `docker build -t nexus3-google-dev .`
-3. `docker stack deploy -c docker-compose.yml nexus3-google-dev`
+3. `docker-compose up -d`
 
 To tear it back down:
 

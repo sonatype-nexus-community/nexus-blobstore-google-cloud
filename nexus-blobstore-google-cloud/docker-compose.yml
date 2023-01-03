@@ -15,4 +15,4 @@ services:
 
 secrets:
   google_application_credentials:
-    external: true
+    file: ./src/test/resources/gce-credentials.json
