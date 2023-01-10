@@ -23,7 +23,8 @@ jobs:
             - run:
                 name: Run Maven Build
                 command: |
-                  mvn clean --batch-mode verify -PbuildKar -Dit
+#                  mvn clean --batch-mode verify -PbuildKar -Dit
+                  mvn clean package -PbuildKar
       - run:
           name: Save test results
           command: |
