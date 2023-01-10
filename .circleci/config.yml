@@ -1,26 +1,46 @@
 version: 2.1
 orbs:
-  github-maven-deploy: github-maven-deploy/github-maven-deploy@1.0.5
-  circleci-maven-release-orb: sonatype-nexus-community/circleci-maven-release-orb@0.0.15
+  maven: circleci/maven@1.4.0
+  circleci-maven-release-orb: sonatype-nexus-community/circleci-maven-release-orb@0.0.18
 
-mvn-build-test-command: &mvn-build-test-command
-  mvn-build-test-command: mvn clean package -PbuildKar
+release-args: &release-args
+  mvn-release-perform-command: mvn --batch-mode release:perform -s .circleci/.maven.xml -PbuildKar
+  ssh-fingerprints: "25:1d:9f:0d:ac:7a:0e:19:e3:1c:25:53:d2:cb:13:cc"
+  context: rso-base
+  filters:
+    branches:
+      only: main
 
-mvn-collect-artifacts-command: &mvn-collect-artifacts-command
-  mvn-collect-artifacts-command: |
-    mkdir -p ~/project/artifacts/junit/
-    cp ~/project/nexus-blobstore-google-cloud/target/surefire-reports/*.xml ~/project/artifacts/junit/
-    cp ~/project/nexus-blobstore-google-cloud/target/nexus-blobstore-* ~/project/artifacts/
+jobs:
+  build_and_test:
+    docker:
+      - image: 'cimg/openjdk:8.0'
+    steps:
+      - checkout
+      - maven/with_cache:
+          verify_dependencies: false
+          steps:
+            - run:
+                name: Run Maven Build
+                command: |
+                  mvn clean --batch-mode verify -PbuildKar -Dit
+      - run:
+          name: Save test results
+          command: |
+            mkdir -p ~/project/artifacts/junit/
+            cp ~/project/nexus-blobstore-google-cloud/target/surefire-reports/*.xml ~/project/artifacts/junit/
+            cp ~/project/nexus-blobstore-google-cloud/target/nexus-blobstore-* ~/project/artifacts/
+          when: always
+      - store_test_results:
+          path: ~/project/artifacts/junit
 
 workflows:
   build-and-test:
     jobs:
-      - github-maven-deploy/build-and-test:
-          mvn-build-test-command: mvn clean package -PbuildKar
-          mvn-collect-artifacts-command: |
-            mkdir -p ~/project/artifacts/junit/
-            cp ~/project/nexus-blobstore-google-cloud/target/surefire-reports/*.xml ~/project/artifacts/junit/
-            cp ~/project/nexus-blobstore-google-cloud/target/nexus-blobstore-* ~/project/artifacts/
+      - build_and_test:
+          filters:
+            branches:
+              ignore: main
 
   run-release:
     jobs:
@@ -32,8 +52,16 @@ workflows:
       - circleci-maven-release-orb/run-maven-release:
           requires:
             - approve-release
-          ssh-fingerprints: "25:1d:9f:0d:ac:7a:0e:19:e3:1c:25:53:d2:cb:13:cc"
-          context: rso-base
-          filters:
-            branches:
-              only: main
+          <<: *release-args
+
+# uncomment to enable automatic release from any commit to 'main' branch
+#  release-from-main:
+#    jobs:
+#      - build_and_test:
+#          filters:
+#            branches:
+#              only: main
+#      - circleci-maven-release-orb/run-maven-release:
+#          requires:
+#            - build_and_test
+#          <<: *release-args
