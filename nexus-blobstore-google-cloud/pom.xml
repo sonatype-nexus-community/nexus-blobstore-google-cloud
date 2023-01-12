@@ -92,6 +92,12 @@
       <groupId>org.sonatype.nexus</groupId>
       <artifactId>nexus-repository</artifactId>
       <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>org.sonatype.nexus.bundles</groupId>
+          <artifactId>org.sonatype.nexus.bundles.elasticsearch</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
 
     <dependency>
