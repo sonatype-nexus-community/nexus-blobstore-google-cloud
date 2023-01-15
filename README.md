@@ -118,16 +118,28 @@ To build the project and generate the bundle use Maven:
     
 Optional: review the [additional documentation to configure and run integration tests](src/test/resources/README.md).
 
-A [docker-compose file](docker-compose.yml) is provided to ease setting up a local NXRM instance to test.
+Running a local development instance
+------------------------------------
 
-1. `docker swarm init`
-2. `docker volume create nexus3-data`
-3. `docker secret create google_application_credentials /path/to/your/google/iam/key.json`
-4. `docker-compose up`
+A [docker-compose file](docker-compose.yml) is provided to ease setting up a local NXRM instance to test. This compose
+file does reference an external secret. If your docker runtime does not support this capability, copy the provided file
+as _docker-compose-local.yml_, and change the external line to a file that points directly to the IAM credentials.
+
+### First run
+
+A volume is needed to store your local instance files:
+
+`docker volume create nexus3-data`
+
+### Build & start
+
+1. `docker build -t nexus3-google .`
+2. `docker-compose up -d`
 
 You can also use the [docker-compose file](docker-compose.yml) with docker service, like so:
 
 ```bash
+docker secret create google_application_credentials /path/to/your/google/iam/key.json
 docker stack deploy -c docker-compose.yml sonatype
 ```
 
