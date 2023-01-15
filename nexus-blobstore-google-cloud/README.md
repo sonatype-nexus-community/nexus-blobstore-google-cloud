@@ -33,4 +33,4 @@ This instance does not use a volume because the data can be ephemeral.
 
 To tear it back down:
 
-> docker stack rm nexus3-google-dev
+> docker-compose down
