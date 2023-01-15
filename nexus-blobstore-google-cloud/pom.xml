@@ -19,7 +19,7 @@
   <parent>
     <groupId>org.sonatype.nexus.plugins</groupId>
     <artifactId>nexus-blobstore-google-cloud-parent</artifactId>
-    <version>0.43.1-SNAPSHOT</version>
+    <version>0.44.0-SNAPSHOT</version>
   </parent>
 
   <artifactId>nexus-blobstore-google-cloud</artifactId>
@@ -92,6 +92,12 @@
       <groupId>org.sonatype.nexus</groupId>
       <artifactId>nexus-repository</artifactId>
       <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>org.sonatype.nexus.bundles</groupId>
+          <artifactId>org.sonatype.nexus.bundles.elasticsearch</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
 
     <dependency>
