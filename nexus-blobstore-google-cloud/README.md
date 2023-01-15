@@ -23,8 +23,7 @@ to run snapshot builds locally for debug/development purposes.
 Depends on the same secret being present as the docker-compose in the parent directory.
 This instance does not use a volume because the data can be ephemeral.
 
-1. `docker swarm init`
-2. `docker secret create google_application_credentials /path/to/your/google/iam/key.json`
+`docker secret create google_application_credentials /path/to/your/google/iam/key.json`
 
 ## Running
 

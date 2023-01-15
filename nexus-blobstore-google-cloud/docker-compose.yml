@@ -6,12 +6,19 @@ services:
     image: nexus3-google-dev
     environment:
       GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/google_application_credentials
+      NEXUS_SECURITY_INITIAL_PASSWORD: admin123
     deploy:
       replicas: 1
     ports:
       - 8081:8081
+    networks:
+      - nexus3-google-dev-network
     secrets:
       - google_application_credentials
+
+networks:
+  nexus3-google-dev-network:
+    name: nexus3-google-dev-network
 
 secrets:
   google_application_credentials:
