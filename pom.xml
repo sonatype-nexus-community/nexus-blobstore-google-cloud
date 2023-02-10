@@ -80,6 +80,28 @@
         <artifactId>grpc-core</artifactId>
         <version>1.31.1</version>
       </dependency>
+      <dependency>
+        <groupId>org.sonatype.nexus.testsuite</groupId>
+        <artifactId>nexus-repository-testsupport</artifactId>
+        <type>xml</type>
+        <classifier>features</classifier>
+        <version>${nxrm-version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.sonatype.nexus.testsuite</groupId>
+        <artifactId>nexus-repository-testsupport</artifactId>
+        <version>${nxrm-version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.sonatype.nexus.testsuite</groupId>
+        <artifactId>nexus-it-suite-data</artifactId>
+        <version>${nxrm-version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.sonatype.nexus.assemblies</groupId>
+        <artifactId>nexus-base-template</artifactId>
+        <version>${nxrm-version}</version>
+      </dependency>
     </dependencies>
   </dependencyManagement>
 
