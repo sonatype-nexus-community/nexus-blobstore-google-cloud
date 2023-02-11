@@ -3,6 +3,7 @@
 
 # Fail script with error if any command doesn't succeed
 set -e
+trap "{ echo '[FAIL] Reverting changes due to failure...'; git restore .; }" ERR
 
 # Bump project.version to the next minor increment
 echo "Incrementing project.version..."
@@ -42,5 +43,5 @@ sed -i '' "s/ARG NEXUS_VERSION=.*/ARG NEXUS_VERSION=${NEXUS_VERSION_TRIMMED}/g" 
 sed -i '' "s/ARG PLUGIN_VERSION=.*/ARG PLUGIN_VERSION=${PLUGIN_VERSION}/g" nexus-blobstore-google-cloud/Dockerfile
 echo "Development Dockerfile updated for new versions"
 
-git commit -am "chore: update to Nexus Repository ${NEXUS_VERSION_TRIMMED}" .
+git commit -am "chore: update to Nexus Repository ${NEXUS_VERSION_TRIMMED}"
 echo "[SUCCESS]"
