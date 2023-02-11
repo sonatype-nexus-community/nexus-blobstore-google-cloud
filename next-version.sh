@@ -28,7 +28,7 @@ echo "Running a compile and unit test to confirm compatibility..."
 mvn clean test
 
 # Extract the new plugin version from the POM
-PLUGIN_VERSION=`mvn org.apache.maven.plugins:maven-help-plugin:3.3.0:evaluate -Dexpression=project.parent.version -q -DforceStdout`
+PLUGIN_VERSION=`mvn org.apache.maven.plugins:maven-help-plugin:3.3.0:evaluate -Dexpression=project.version -q -DforceStdout`
 echo "New plugin version is ${PLUGIN_VERSION}"
 
 # Extract the new Nexus Repository version from the POM
@@ -44,4 +44,4 @@ sed -i '' "s/ARG PLUGIN_VERSION=.*/ARG PLUGIN_VERSION=${PLUGIN_VERSION}/g" nexus
 echo "Development Dockerfile updated for new versions"
 
 git commit -am "chore: update to Nexus Repository ${NEXUS_VERSION_TRIMMED}"
-echo "[SUCCESS]"
+echo "[SUCCESS] Dependency update committed."
