@@ -3,7 +3,7 @@ ARG NEXUS_VERSION=3.47.1
 
 FROM sonatype/nexus3:$NEXUS_VERSION
 
-ARG PLUGIN_VERSION=3.47.1-01
+ARG PLUGIN_VERSION=0.47.0-SNAPSHOT
 ARG BUNDLE_NAME=nexus-blobstore-google-cloud-${PLUGIN_VERSION}.kar
 COPY ./target/${BUNDLE_NAME} /opt/sonatype/nexus/deploy
 RUN mkdir -p /opt/sonatype/sonatype-work/nexus3/etc
