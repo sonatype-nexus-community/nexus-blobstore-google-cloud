@@ -28,11 +28,11 @@ echo "Running a compile and unit test to confirm compatibility..."
 mvn clean test
 
 # Extract the new plugin version from the POM
-PLUGIN_VERSION=`mvn org.apache.maven.plugins:maven-help-plugin:3.3.0:evaluate -Dexpression=project.version -q -DforceStdout`
+PLUGIN_VERSION=$(mvn org.apache.maven.plugins:maven-help-plugin:3.3.0:evaluate -Dexpression=project.version -q -DforceStdout)
 echo "New plugin version is ${PLUGIN_VERSION}"
 
 # Extract the new Nexus Repository version from the POM
-NEXUS_VERSION=`mvn org.apache.maven.plugins:maven-help-plugin:3.3.0:evaluate -Dexpression=project.parent.version -q -DforceStdout`
+NEXUS_VERSION=$(mvn org.apache.maven.plugins:maven-help-plugin:3.3.0:evaluate -Dexpression=project.parent.version -q -DforceStdout)
 # Drop the last fragment of the version (e.g. 3.47.0-01 becomes 3.47.0)
 NEXUS_VERSION_TRIMMED="${NEXUS_VERSION%???}"
 echo "New Nexus Repository version is ${NEXUS_VERSION_TRIMMED}"
