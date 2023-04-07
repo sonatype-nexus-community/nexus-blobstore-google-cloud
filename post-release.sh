@@ -13,3 +13,5 @@ PLUGIN_VERSION=${NEXUS_VERSION_TRIMMED/3\./0\.}
 echo "New Plugin version is ${PLUGIN_VERSION}"
 
 sed -i '' "s/ARG PLUGIN_VERSION=.*/ARG PLUGIN_VERSION=${PLUGIN_VERSION}/g" Dockerfile
+
+git commit -am "chore: bump to plugin release ${PLUGIN_VERSION}"
