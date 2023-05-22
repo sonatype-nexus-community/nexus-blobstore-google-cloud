@@ -12,12 +12,12 @@ mvn io.github.q3769:semver-maven-plugin:20221011.0.7:increment-minor -Dsnapshot=
 # The parent of this project (nexus-plugins:pom) is part of Nexus Repository. Update the parent to the "next" version.
 # Most of the project dependencies will be updated to match, as versions come from the parent.
 echo "Updating parent version..."
-mvn versions:update-parent -q
+mvn versions:update-parent -U -q
 
 # We have a property called "nxrm-version" used to indicate the version for Nexus Repository dependencies not inherited
 # from the parent. Bump that to the next version to match the parent.
 echo "Updating 'nxrm-version' property..."
-mvn versions:update-properties -DincludeProperties=nxrm-version -q
+mvn versions:update-properties -DincludeProperties=nxrm-version -U -q
 
 # keep the changes from the versions plugin (not a git commit)
 echo "Cleaning up after the versions plugin..."
