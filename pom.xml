@@ -23,7 +23,7 @@
   </parent>
 
   <artifactId>nexus-blobstore-google-cloud-parent</artifactId>
-  <version>0.55.0-SNAPSHOT</version>
+  <version>0.55.0</version>
   <packaging>pom</packaging>
 
   <name>${project.groupId}:${project.artifactId}</name>
@@ -36,7 +36,7 @@
 
   <scm>
     <developerConnection>scm:git:git@github.com:sonatype-nexus-community/nexus-blobstore-google-cloud.git</developerConnection>
-    <tag>HEAD</tag>
+    <tag>nexus-blobstore-google-cloud-parent-0.55.0</tag>
   </scm>
   <distributionManagement>
     <snapshotRepository>
