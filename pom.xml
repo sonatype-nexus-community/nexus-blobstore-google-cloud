@@ -19,11 +19,11 @@
   <parent>
     <groupId>org.sonatype.nexus.plugins</groupId>
     <artifactId>nexus-plugins</artifactId>
-    <version>3.56.0-01</version>
+    <version>3.57.0-01</version>
   </parent>
 
   <artifactId>nexus-blobstore-google-cloud-parent</artifactId>
-  <version>0.56.1-SNAPSHOT</version>
+  <version>0.57.0-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <name>${project.groupId}:${project.artifactId}</name>
@@ -48,9 +48,10 @@
   <properties>
     <google-cloud-datastore.version>1.99.0</google-cloud-datastore.version>
     <google-cloud-storage.version>1.118.1</google-cloud-storage.version>
-    <nxrm-version>3.56.0-01</nxrm-version>
+    <nxrm-version>3.57.0-01</nxrm-version>
     <clm.skip>true</clm.skip>
     <clm.applicationId>nexus-blobstore-google-cloud</clm.applicationId>
+    <enforcer.skip>true</enforcer.skip>
   </properties>
 
   <dependencyManagement>
@@ -132,36 +133,14 @@
           <artifactId>clm-maven-plugin</artifactId>
           <version>2.16.0-01</version>
         </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-enforcer-plugin</artifactId>
+          <version>3.0.0</version>
+        </plugin>
       </plugins>
     </pluginManagement>
     <plugins>
-      <plugin>
-        <artifactId>maven-enforcer-plugin</artifactId>
-        <executions>
-          <execution>
-            <id>enforce-java</id>
-            <goals>
-              <goal>enforce</goal>
-            </goals>
-            <configuration>
-              <rules>
-                <!--
-                Ensure use of Java 8, as required by NXRM
-                -->
-                <requireJavaVersion>
-                  <version>[1.8,1.9)</version>
-                </requireJavaVersion>
-                <!--
-                Require Maven 3.3.3+
-                -->
-                <requireMavenVersion>
-                  <version>[3.3.3,)</version>
-                </requireMavenVersion>
-              </rules>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
 
       <plugin>
         <groupId>org.sonatype.plugins</groupId>
