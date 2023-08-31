@@ -10,10 +10,10 @@ RUN adduser -G nofiles -u 200 -s /bin/false --home /opt/sonatype/nexus nexus -D
 
 RUN mkdir -p /usr/local/bin
 
-# https://download.sonatype.com/nexus/nxrm3-migrator/nexus-db-migrator-3.51.0-01.jar
-ARG NEXUS_VERSION=3.51.0-01
+# https://download.sonatype.com/nexus/nxrm3-migrator/nexus-db-migrator-3.59.0-01.jar
+ARG NEXUS_VERSION=3.59.0-01
 ARG NEXUS_DOWNLOAD_URL=https://download.sonatype.com/nexus/nxrm3-migrator/nexus-db-migrator-${NEXUS_VERSION}.jar
-ARG NEXUS_DOWNLOAD_SHA256_HASH=6cd48693f89c14e093934c08cc72c7aea337c40ea96ae48daeb7ebbd10821bef
+ARG NEXUS_DOWNLOAD_SHA256_HASH=94cd7a89cee86d6b4af82859a7e370cb98e1d8e76ea8be44d4e8ad8660d8de18
 
 WORKDIR /usr/local/bin
 
