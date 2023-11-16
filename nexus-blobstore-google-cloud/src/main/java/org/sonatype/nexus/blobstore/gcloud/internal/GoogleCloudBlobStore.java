@@ -625,7 +625,7 @@ public class GoogleCloudBlobStore
       return !results.contains(false);
     }
     catch (StorageException e) {
-      throw new BlobStoreException("failed to retrive User ACL for " + getConfiguredBucketName(), e, null);
+      throw new BlobStoreException("failed to retrieve User ACL for " + getConfiguredBucketName(), e, null);
     }
   }
 
