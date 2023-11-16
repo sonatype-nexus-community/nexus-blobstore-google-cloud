@@ -139,7 +139,7 @@ public class MultipartUploader
   /**
    * @param storage an initialized {@link Storage} instance
    * @param bucket the name of the bucket
-   * @param destination the the destination (relative to the bucket)
+   * @param destination the destination (relative to the bucket)
    * @param contents the stream of data to store
    * @return the successfully stored {@link Blob}
    * @throws BlobStoreException if any part of the upload failed
@@ -160,7 +160,7 @@ public class MultipartUploader
   /**
    * @param storage an initialized {@link Storage} instance
    * @param bucket the name of the bucket
-   * @param destination the the destination (relative to the bucket)
+   * @param destination the destination (relative to the bucket)
    * @param contents the stream of data to store
    * @return the successfully stored {@link Blob}
    * @throws BlobStoreException if any part of the upload failed
