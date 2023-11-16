@@ -34,7 +34,7 @@ This design document will not apply to the metadata attached to the blobs themse
 Getting an accurate count of all blobs and their total size in a Blobstore in real time is computationally 
 very expensive. Querying the underlying storage for a count and full size on demand is not possible. 
 
-The BlobStore create and delete operations wrap the `Inputstream` of content with a byte counter. Adds/removes
+The BlobStore create and delete operations wrap the `InputStream` of content with a byte counter. Adds/removes
 to these counters are performed using Java concurrent counters internally, and periodically flushed to a single source.
 
 The original Filesystem implementation of Blobstore has the reference implementation. 
