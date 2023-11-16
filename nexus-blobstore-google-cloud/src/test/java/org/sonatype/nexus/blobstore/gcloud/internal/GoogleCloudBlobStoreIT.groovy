@@ -215,7 +215,7 @@ class GoogleCloudBlobStoreIT
       attributesAfter.deleted
   }
 
-  def "undelete does nothing on non-existent blob"() {
+  def "undelete does nothing on nonexistent blob"() {
     expect:
       BlobAttributes attributes = Mock()
       !blobStore.undelete(usageChecker, new BlobId("nonexistent"), attributes, false)

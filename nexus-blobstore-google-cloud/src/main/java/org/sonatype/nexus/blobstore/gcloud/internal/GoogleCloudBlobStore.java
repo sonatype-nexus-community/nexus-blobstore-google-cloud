@@ -298,7 +298,7 @@ public class GoogleCloudBlobStore
           GoogleCloudBlobAttributes blobAttributes = new GoogleCloudBlobAttributes(bucket, attributePath(blobId));
           boolean loaded = blobAttributes.load();
           if (!loaded) {
-            log.warn("Attempt to access non-existent blob {} ({})", blobId, blobAttributes);
+            log.warn("Attempt to access nonexistent blob {} ({})", blobId, blobAttributes);
             return null;
           }
 
@@ -334,7 +334,7 @@ public class GoogleCloudBlobStore
 
       boolean loaded = blobAttributes.load();
       if (!loaded) {
-        log.warn("Attempt to mark-for-delete non-existent blob {}", blobId);
+        log.warn("Attempt to mark-for-delete nonexistent blob {}", blobId);
         return false;
       }
       else if (blobAttributes.isDeleted()) {
