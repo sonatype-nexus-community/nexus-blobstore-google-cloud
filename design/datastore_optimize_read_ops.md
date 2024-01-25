@@ -52,7 +52,7 @@ queries and use Key only queries for this data.
 
 ### ShardedCounterMetricsStore
 
-The entities in the SharededCounterMetricsStore contain two numeric fields. The `BlobStoreMetrics getMetrics()` method
+The entities in the ShardedCounterMetricsStore contain two numeric fields. The `BlobStoreMetrics getMetrics()` method
 can be invoked frequently by the User Interface and healthchecks. The implementation of this method prefers executing
 Projection Queries (which are Small Operations, and free) to pull the individual fields rather than full entity reads 
 (which have financial cost).
