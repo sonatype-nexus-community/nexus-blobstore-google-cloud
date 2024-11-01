@@ -1,4 +1,4 @@
-(brief, plain english overview of your changes here)
+(brief, plain English overview of your changes here)
 
 This pull request makes the following changes:
 * (your change here)
