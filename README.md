@@ -116,7 +116,7 @@ To build the project and generate the bundle use Maven:
 
     mvn clean package
     
-Optional: review the [additional documentation to configure and run integration tests](src/test/resources/README.md).
+Optional: review the [additional documentation to configure and run integration tests](nexus-blobstore-google-cloud/src/test/resources/README.md).
 
 Running a local development instance
 ------------------------------------
