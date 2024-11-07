@@ -17,7 +17,7 @@ Nexus Repository Google Cloud Storage Blobstore
 
 > ℹ️ As of 7th November 2024, this community project has [graduated](https://contribute.sonatype.com/docs/project-classification/) and is offered as part of Sonatype's commercial offerings - see [here](https://help.sonatype.com/en/configuring-blob-stores.html#google-cloud-blob-store) for full details.
 >
-> 🚧 This community project will receive no further updates or maintenance.
+> 🚧 This community project will receive not accept further contributions nor receive maintenance.
 
 
 [![CircleCI Build Status](https://circleci.com/gh/sonatype-nexus-community/nexus-blobstore-google-cloud.svg?style=shield "CircleCI Build Status")](https://circleci.com/gh/sonatype-nexus-community/nexus-blobstore-google-cloud) [![Maven Central](https://img.shields.io/maven-central/v/org.sonatype.nexus.plugins/nexus-blobstore-google-cloud.svg?label=Maven%20Central)](https://search.maven.org/search?q=g:%22org.sonatype.nexus.plugins%22%20AND%20a:%22nexus-blobstore-google-cloud%22) [![Join the chat at https://gitter.im/sonatype/nexus-developers](https://badges.gitter.im/sonatype/nexus-developers.svg)](https://gitter.im/sonatype/nexus-developers?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
